@@ -1,0 +1,11 @@
+# Environment and secrets
+.env
+*.env
+.env.local
+
+# Node
+node_modules/
+npm-debug.log*
+
+# OS
+.DS_Store

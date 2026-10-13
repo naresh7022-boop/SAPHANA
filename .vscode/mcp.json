@@ -1,0 +1,15 @@
+{
+  "mcpServers": {
+    "sap-adt": {
+      "type": "stdio",
+      "command": "node",
+      "args": [
+        "/Users/naresh/.gemini/antigravity-ide/scratch/mcp-abap-adt/node_modules/@mcp-abap-adt/core/bin/mcp-abap-adt.js",
+        "--env-path=/Users/naresh/.gemini/antigravity-ide/scratch/mcp-abap-adt/.env"
+      ],
+      "env": {
+        "NODE_TLS_REJECT_UNAUTHORIZED": "0"
+      }
+    }
+  }
+}
