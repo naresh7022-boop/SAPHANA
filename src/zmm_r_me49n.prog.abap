@@ -6,7 +6,7 @@
 *&               interactive Purchase Order creation via BAPI_PO_CREATE1.
 *& Author      : NARESH
 *& Date        : 13.10.2026
-*& Version     : 2.7 (13.10.2026 17:45)
+*& Version     : 3.1 (13.10.2026 19:35)
 *& Change Log  :
 *&   v1.0 (12.10.2026) - Initial interactive report & BAPI PO creation
 *&   v2.0 (13.10.2026) - Modern HTML dashboard preview (ME47/ME23N links)
@@ -21,10 +21,17 @@
 *&                      User Suggested columns, HOD routing via ZMM_T_023 & ZMM_T_021
 *&   v2.8 (13.10.2026) - HOD Approved Status with Green Background (#16a34a)
 *&                      and Strict PO Creation Enforcement (Only Approved Items)
-*&   v2.9 (13.10.2026) - Fixed Net Price resolution in BAPI PO creation from ZMM_T_021:
-*&                      restores quotation price, units, currency, payment terms;
-*&                      added 4-level fallback for item net price in BAPI_PO_CREATE1;
-*&                      explicit PO currency in header & ZPO update in ZMM_T_021
+*&   v2.9 (13.10.2026) - Fixed Net Price resolution in BAPI PO creation from ZMM_T_021
+*&   v3.0 (13.10.2026) - Role-Based Workflow Security (Approver vs Creator):
+*&                      Approve/Reject buttons hidden from User, visible only to HOD;
+*&                      Continuous 'Send for Approval' availability for partial PO collectives;
+*&                      Compulsory justification remarks for non-L1 selected suppliers;
+*&                      Automated Email & SAP GUI Express Notification to HOD via
+*&                      SO_NEW_DOCUMENT_SEND_API1 & TH_POPUP
+*&   v3.1 (13.10.2026) - Full Lock Down for 'In Approval' & 'Approved' States:
+*&                      Items in approval cannot change supplier, selection, or remarks;
+*&                      Approved items can only trigger 'Create PO';
+*&                      Identical workflow, visual status, and lock enforcement applied to ALV list
 *& System      : DS4 / 220
 *&---------------------------------------------------------------------*
 REPORT zmm_r_me49n.
@@ -116,6 +123,8 @@ TYPES: BEGIN OF ty_hdr,
          sel_upr_amt TYPE decfloat34,
          appr_status TYPE c LENGTH 1,
          user_pref   TYPE c LENGTH 1,
+         user_remark TYPE zmm_de_remark,
+         appr_remark TYPE zmm_de_aremark,
          po_number   TYPE ekko-ebeln,
        END OF ty_item_ref,
 
@@ -197,6 +206,8 @@ DATA: gt_final     TYPE TABLE OF ty_final,
       lv_val      TYPE ekpo-netwr,
       gv_hod_user        TYPE zuser,
       gv_hod_name        TYPE string,
+      gv_is_approver     TYPE abap_bool VALUE abap_false,
+      gv_submi           TYPE ekko-submi,
       gv_approval_status TYPE c LENGTH 10 VALUE 'DRAFT',
       gv_appr_items_cnt  TYPE i VALUE 0,
       gv_pend_items_cnt  TYPE i VALUE 0,
@@ -215,7 +226,8 @@ SELECTION-SCREEN END OF BLOCK b1.
 
 SELECTION-SCREEN BEGIN OF BLOCK b2 WITH FRAME TITLE t_b2.
   PARAMETERS: p_bsart TYPE ekko-bsart DEFAULT 'NB',
-              p_test  AS CHECKBOX DEFAULT ' '.
+              p_test  AS CHECKBOX DEFAULT ' ',
+              p_apprv AS CHECKBOX DEFAULT ' '.
 SELECTION-SCREEN END OF BLOCK b2.
 
 SELECTION-SCREEN BEGIN OF BLOCK b3 WITH FRAME TITLE t_b3.
@@ -238,6 +250,7 @@ INITIALIZATION.
   %_s_matnr_%_app_%-text = 'Material Number'.
   %_p_bsart_%_app_%-text = 'Target PO Doc Type'.
   %_p_test_%_app_%-text  = 'Simulation / Test Run'.
+  %_p_apprv_%_app_%-text = 'Simulate Approver Role (HOD)'.
   %_p_rate_%_app_%-text  = 'Interest Rate (%)'.
   %_p_v_htm_%_app_%-text = 'Modern Dynamic HTML Dashboard'.
   %_p_v_alv_%_app_%-text = 'Classical ALV Matrix View'.
@@ -329,6 +342,8 @@ FORM get_data.
     MESSAGE 'No data found for selection criteria.' TYPE 'S' DISPLAY LIKE 'E'.
     RETURN.
   ENDIF.
+
+  gv_submi = it_data[ 1 ]-submi.
 
   " Preserve all RFQ line items globally for interactive supplier switching
   CLEAR gt_rfq_items.
@@ -1212,7 +1227,7 @@ FORM user_command USING r_ucomm LIKE sy-ucomm
     RETURN.
   ENDIF.
 
-  " Direct trigger for Create PO:
+  " Direct trigger for Actions:
   " - Toolbar button CREATE_PO or PO_CREATE
   " - Hotspot value contains 'Create PO' or 'PO ->'
   " - Column PO_ACTION clicked on any row
@@ -1222,19 +1237,65 @@ FORM user_command USING r_ucomm LIKE sy-ucomm
      OR rs_selfield-value CS 'PO ->'
      OR rs_selfield-fieldname = 'PO_ACTION'.
 
-    " If clicked on an already created PO (e.g., '@0V@ PO 0400000350') -> Open ME23N
+    " Row 1: Create PO for all approved items
+    IF rs_selfield-tabindex = 1 OR r_ucomm = 'CREATE_PO' OR r_ucomm = 'PO_CREATE'.
+      IF gv_appr_items_cnt > 0.
+        PERFORM create_po_for_selected USING rs_selfield-tabindex.
+      ELSE.
+        MESSAGE 'No approved items available to create Purchase Order.' TYPE 'W'.
+      ENDIF.
+      rs_selfield-refresh    = abap_true.
+      rs_selfield-col_stable = abap_true.
+      rs_selfield-row_stable = abap_true.
+      RETURN.
+    ENDIF.
+
+    " Row 2: Send to HOD (User) or Approve All (HOD)
+    IF rs_selfield-tabindex = 2.
+      IF gv_is_approver = abap_true.
+        IF gv_pend_items_cnt > 0.
+          PERFORM handle_html_action USING 'APPROVE' space.
+        ELSE.
+          MESSAGE 'No pending items to approve.' TYPE 'I'.
+        ENDIF.
+      ELSE.
+        DATA: lv_unsub_cnt_uc TYPE i VALUE 0.
+        LOOP AT gt_item_ref INTO DATA(ls_unsub_uc) WHERE po_number IS INITIAL.
+          IF ls_unsub_uc-sel_lifnr IS NOT INITIAL AND ls_unsub_uc-user_pref IS INITIAL.
+            lv_unsub_cnt_uc = lv_unsub_cnt_uc + 1.
+          ENDIF.
+        ENDLOOP.
+        IF lv_unsub_cnt_uc > 0.
+          PERFORM handle_html_action USING 'SUBMIT_APPROVAL' space.
+        ELSEIF gv_pend_items_cnt > 0.
+          MESSAGE 'Items are already submitted and pending HOD approval.' TYPE 'I'.
+        ELSE.
+          MESSAGE 'Please select supplier for items before sending to HOD.' TYPE 'I'.
+        ENDIF.
+      ENDIF.
+      rs_selfield-refresh    = abap_true.
+      rs_selfield-col_stable = abap_true.
+      rs_selfield-row_stable = abap_true.
+      RETURN.
+    ENDIF.
+
+    " Row 4: Reject All (Approver only)
+    IF rs_selfield-tabindex = 4 AND gv_is_approver = abap_true.
+      IF gv_pend_items_cnt > 0.
+        PERFORM handle_html_action USING 'REJECT' space.
+      ELSE.
+        MESSAGE 'No pending items to reject.' TYPE 'I'.
+      ENDIF.
+      rs_selfield-refresh    = abap_true.
+      rs_selfield-col_stable = abap_true.
+      rs_selfield-row_stable = abap_true.
+      RETURN.
+    ENDIF.
+
+    " Item Rows (tabindex > 4): Action button clicked
     IF rs_selfield-tabindex > 4 AND rs_selfield-tabindex <= lines( gt_final ).
       READ TABLE gt_final ASSIGNING FIELD-SYMBOL(<fs_act_row>) INDEX rs_selfield-tabindex.
-      IF sy-subrc = 0 AND <fs_act_row>-po_action CP '@0V@ PO *'.
-        DATA(lv_po_num) = <fs_act_row>-po_action+7(10).
-        SET PARAMETER ID 'BES' FIELD lv_po_num.
-        CALL TRANSACTION 'ME23N' AND SKIP FIRST SCREEN. "#EC CI_CALLTA
-        IF sy-subrc <> 0.
-          CALL TRANSACTION 'ME23N'.                    "#EC CI_CALLTA
-        ENDIF.
-        RETURN.
-      ENDIF.
-      IF sy-subrc = 0 AND ( <fs_act_row>-po_action CS 'Select Supplier' OR rs_selfield-value CS 'Select Supplier' ).
+      IF sy-subrc = 0.
         DATA(lv_act_ebelp) = <fs_act_row>-ebelp.
         IF lv_act_ebelp IS INITIAL AND rs_selfield-tabindex + 1 <= lines( gt_final ).
           READ TABLE gt_final INTO DATA(ls_act_next) INDEX ( rs_selfield-tabindex + 1 ).
@@ -1242,12 +1303,57 @@ FORM user_command USING r_ucomm LIKE sy-ucomm
             lv_act_ebelp = ls_act_next-ebelp.
           ENDIF.
         ENDIF.
-        IF lv_act_ebelp IS NOT INITIAL.
-          PERFORM popup_choose_supplier USING lv_act_ebelp.
+
+        IF <fs_act_row>-po_action CP '@0V@ PO *'.
+          DATA(lv_po_num) = <fs_act_row>-po_action+7(10).
+          SET PARAMETER ID 'BES' FIELD lv_po_num.
+          CALL TRANSACTION 'ME23N' AND SKIP FIRST SCREEN. "#EC CI_CALLTA
+          IF sy-subrc <> 0.
+            CALL TRANSACTION 'ME23N'.                    "#EC CI_CALLTA
+          ENDIF.
+          RETURN.
+        ELSEIF <fs_act_row>-po_action CS 'Create PO' OR <fs_act_row>-po_action CS '@15@'.
+          IF lv_act_ebelp IS NOT INITIAL.
+            PERFORM create_po_for_single_item USING lv_act_ebelp.
+          ELSE.
+            PERFORM create_po_for_selected USING rs_selfield-tabindex.
+          ENDIF.
           rs_selfield-refresh    = abap_true.
           rs_selfield-col_stable = abap_true.
           rs_selfield-row_stable = abap_true.
           RETURN.
+        ELSEIF <fs_act_row>-po_action CS 'Approve Item'
+               OR ( gv_is_approver = abap_true AND <fs_act_row>-po_action CS '@0V@' ).
+          IF lv_act_ebelp IS NOT INITIAL.
+            DATA: lv_act_param TYPE string.
+            lv_act_param = |item={ lv_act_ebelp }|.
+            PERFORM handle_html_action USING 'APPROVE_ITEM' lv_act_param.
+          ENDIF.
+          rs_selfield-refresh    = abap_true.
+          rs_selfield-col_stable = abap_true.
+          rs_selfield-row_stable = abap_true.
+          RETURN.
+        ELSEIF <fs_act_row>-po_action CS 'In Approval' OR <fs_act_row>-po_action CS '@09@'.
+          MESSAGE |Item { lv_act_ebelp } is in approval process. Details are locked.| TYPE 'I'.
+          RETURN.
+        ELSEIF <fs_act_row>-po_action CS 'Send to HOD' OR <fs_act_row>-po_action CS '@2L@'.
+          IF lv_act_ebelp IS NOT INITIAL.
+            DATA: lv_act_p2 TYPE string.
+            lv_act_p2 = |item={ lv_act_ebelp }|.
+            PERFORM handle_html_action USING 'SUBMIT_SINGLE' lv_act_p2.
+          ENDIF.
+          rs_selfield-refresh    = abap_true.
+          rs_selfield-col_stable = abap_true.
+          rs_selfield-row_stable = abap_true.
+          RETURN.
+        ELSEIF <fs_act_row>-po_action CS 'Select Supplier' OR rs_selfield-value CS 'Select Supplier'.
+          IF lv_act_ebelp IS NOT INITIAL.
+            PERFORM popup_choose_supplier USING lv_act_ebelp.
+            rs_selfield-refresh    = abap_true.
+            rs_selfield-col_stable = abap_true.
+            rs_selfield-row_stable = abap_true.
+            RETURN.
+          ENDIF.
         ENDIF.
       ENDIF.
     ENDIF.
@@ -1285,6 +1391,14 @@ FORM user_command USING r_ucomm LIKE sy-ucomm
               IF sy-subrc <> 0.
                 CALL TRANSACTION 'ME23N'.                    "#EC CI_CALLTA
               ENDIF.
+              RETURN.
+            ENDIF.
+            IF sy-subrc = 0 AND ls_ir_sel-appr_status = 'X'.
+              MESSAGE |Item { lv_target_sel_ebelp } is approved. Selection locked; only Create PO is allowed.| TYPE 'W'.
+              RETURN.
+            ENDIF.
+            IF sy-subrc = 0 AND ls_ir_sel-user_pref = 'X'.
+              MESSAGE |Item { lv_target_sel_ebelp } is in approval process. Selection locked.| TYPE 'W'.
               RETURN.
             ENDIF.
             PERFORM toggle_item_selection USING lv_target_sel_ebelp.
@@ -1335,6 +1449,19 @@ FORM user_command USING r_ucomm LIKE sy-ucomm
             ENDIF.
           ENDIF.
           IF lv_target_ebelp IS NOT INITIAL.
+            READ TABLE gt_item_ref INTO DATA(ls_ir_col) WITH KEY ebelp = lv_target_ebelp.
+            IF sy-subrc = 0 AND ls_ir_col-po_number IS NOT INITIAL.
+              MESSAGE |PO { ls_ir_col-po_number } already created for Item { lv_target_ebelp }. Supplier change disabled.| TYPE 'W'.
+              RETURN.
+            ENDIF.
+            IF sy-subrc = 0 AND ls_ir_col-appr_status = 'X'.
+              MESSAGE |Item { lv_target_ebelp } is approved. Supplier change locked; only Create PO is allowed.| TYPE 'W'.
+              RETURN.
+            ENDIF.
+            IF sy-subrc = 0 AND ls_ir_col-user_pref = 'X'.
+              MESSAGE |Item { lv_target_ebelp } is in approval process. Supplier change locked.| TYPE 'W'.
+              RETURN.
+            ENDIF.
             PERFORM select_supplier_for_item USING lv_target_ebelp rs_selfield-fieldname.
             rs_selfield-refresh    = abap_true.
             rs_selfield-col_stable = abap_true.
@@ -1401,6 +1528,16 @@ FORM popup_choose_supplier USING pv_ebelp TYPE ekpo-ebelp.
 
   IF <fs_ref>-po_number IS NOT INITIAL.
     MESSAGE |PO { <fs_ref>-po_number } already created for Item { pv_ebelp }.| TYPE 'W'.
+    RETURN.
+  ENDIF.
+
+  IF <fs_ref>-appr_status = 'X'.
+    MESSAGE |Item { pv_ebelp } is approved. Supplier change locked; only Create PO is allowed.| TYPE 'W'.
+    RETURN.
+  ENDIF.
+
+  IF <fs_ref>-user_pref = 'X'.
+    MESSAGE |Item { pv_ebelp } is in approval process. Supplier change locked.| TYPE 'W'.
     RETURN.
   ENDIF.
 
@@ -1506,6 +1643,16 @@ FORM select_supplier_for_item USING pv_ebelp     TYPE ekpo-ebelp
     RETURN.
   ENDIF.
 
+  IF <fs_ref>-appr_status = 'X'.
+    MESSAGE |Item { pv_ebelp } is approved. Supplier change locked; only Create PO is allowed.| TYPE 'W'.
+    RETURN.
+  ENDIF.
+
+  IF <fs_ref>-user_pref = 'X'.
+    MESSAGE |Item { pv_ebelp } is in approval process. Supplier change locked.| TYPE 'W'.
+    RETURN.
+  ENDIF.
+
   READ TABLE gt_final ASSIGNING FIELD-SYMBOL(<fs_val_cur>)
     WITH KEY ebelp = pv_ebelp quat = 'Val:'.
   IF sy-subrc = 0 AND <fs_ref>-sel_col = pv_fieldname
@@ -1553,6 +1700,13 @@ FORM select_supplier_for_item USING pv_ebelp     TYPE ekpo-ebelp
     <fs_ref>-sel_upr_amt = <fs_ref>-sel_upr_amt * CONV decfloat34( ls_rfq-wkurs ).
   ENDIF.
   <fs_ref>-sel_tot_amt = CONV decfloat34( lv_s_qty ) * <fs_ref>-sel_upr_amt.
+
+  IF <fs_ref>-sel_lifnr <> <fs_ref>-l1_lifnr AND <fs_ref>-user_remark IS INITIAL.
+    DATA: lv_sel_cancel TYPE abap_bool.
+    PERFORM prompt_user_remark USING pv_ebelp
+                             CHANGING <fs_ref>-user_remark
+                                      lv_sel_cancel.
+  ENDIF.
 
   IF <fs_ref>-appr_status = 'X'.
     <fs_ref>-appr_status = space.
@@ -1620,6 +1774,16 @@ FORM toggle_item_selection USING pv_ebelp TYPE ekpo-ebelp.
 
   IF <fs_ref>-po_number IS NOT INITIAL.
     MESSAGE |PO { <fs_ref>-po_number } already created for Item { pv_ebelp } / Material { <fs_ref>-matnr }. Selection disabled.| TYPE 'W'.
+    RETURN.
+  ENDIF.
+
+  IF <fs_ref>-appr_status = 'X'.
+    MESSAGE |Item { pv_ebelp } is approved. Selection locked; only Create PO is allowed.| TYPE 'W'.
+    RETURN.
+  ENDIF.
+
+  IF <fs_ref>-user_pref = 'X'.
+    MESSAGE |Item { pv_ebelp } is in approval process. Selection locked.| TYPE 'W'.
     RETURN.
   ENDIF.
 
@@ -1719,11 +1883,12 @@ FORM toggle_select_all.
   ENDIF.
 
   IF lv_check_all = abap_false.
-    " Deselect all pending items
-    LOOP AT gt_item_ref ASSIGNING FIELD-SYMBOL(<fs_it_des>) WHERE po_number IS INITIAL.
+    " Deselect only pending draft items (leave approved and in-approval items intact)
+    LOOP AT gt_item_ref ASSIGNING FIELD-SYMBOL(<fs_it_des>)
+      WHERE po_number IS INITIAL AND appr_status <> 'X' AND user_pref <> 'X'.
       PERFORM deselect_item USING <fs_it_des>-ebelp.
     ENDLOOP.
-    MESSAGE 'All quotation items deselected.' TYPE 'S'.
+    MESSAGE 'Draft quotation items deselected.' TYPE 'S'.
   ELSE.
     " Select only items where user has already chosen a supplier
     DATA: lv_count_sel TYPE i VALUE 0.
@@ -2714,79 +2879,112 @@ FORM render_html.
     '</style>'.
 
   DATA: lv_appr_badge   TYPE string,
-        lv_appr_actions TYPE string.
+        lv_appr_actions TYPE string,
+        lv_unsub_cnt    TYPE i VALUE 0,
+        lv_pend_cnt     TYPE i VALUE 0,
+        lv_appr_cnt     TYPE i VALUE 0,
+        lv_rej_cnt      TYPE i VALUE 0,
+        lv_po_done_cnt  TYPE i VALUE 0.
 
-  CASE gv_approval_status.
-    WHEN 'APPROVED'.
-      lv_appr_badge =
-        '<span class="badge-count" style="background:#16a34a;color:#ffffff;' &&
-        'border:1px solid #15803d;font-weight:700;padding:3px 10px;font-size:11px;">' &&
-        |&#10003; Approved by HOD ({ gv_hod_user })</span>|.
-      IF gv_appr_items_cnt > 0.
-        lv_appr_actions =
-          |<a href="sapevent:CREATE_PO" class="btn-po">&#128722; Create PO ({ gv_appr_items_cnt } Approved)</a>|.
+  LOOP AT gt_item_ref INTO DATA(ls_cnt_ir).
+    IF ls_cnt_ir-po_number IS NOT INITIAL.
+      lv_po_done_cnt = lv_po_done_cnt + 1.
+    ELSEIF ls_cnt_ir-sel_lifnr IS NOT INITIAL.
+      IF ls_cnt_ir-appr_status = 'X'.
+        lv_appr_cnt = lv_appr_cnt + 1.
+      ELSEIF ls_cnt_ir-appr_status = 'R'.
+        lv_rej_cnt = lv_rej_cnt + 1.
+      ELSEIF ls_cnt_ir-user_pref = 'X'.
+        lv_pend_cnt = lv_pend_cnt + 1.
       ELSE.
-        lv_appr_actions =
-          '<span class="btn-po-disabled">&#128722; Create PO</span>'.
+        lv_unsub_cnt = lv_unsub_cnt + 1.
       ENDIF.
+    ENDIF.
+  ENDLOOP.
 
-    WHEN 'PARTIAL'.
-      lv_appr_badge =
-        '<span class="badge-count" style="background:#16a34a;color:#ffffff;' &&
-        'border:1px solid #15803d;font-weight:700;padding:3px 10px;font-size:11px;">' &&
-        |&#10003; { gv_appr_items_cnt } Approved</span>| &&
-        COND string(
-          WHEN gv_pend_items_cnt > 0 THEN
-            ' <span class="badge-count" style="background:#f59e0b;color:#ffffff;' &&
-            'border:1px solid #d97706;font-weight:700;padding:3px 10px;font-size:11px;">' &&
-            |&#9203; { gv_pend_items_cnt } Pending</span>|
-          ELSE ''
-        ).
-      lv_appr_actions =
-        |<a href="sapevent:CREATE_PO" class="btn-po">&#128722; Create PO ({ gv_appr_items_cnt } Approved)</a>| &&
-        COND string(
-          WHEN gv_pend_items_cnt > 0 THEN
-            ' <a href="sapevent:APPROVE" class="btn-po" style="background:#059669;"' &&
-            ' title="Approve remaining pending items">&#10003; Approve All</a>' &&
-            ' <a href="sapevent:REJECT" class="btn-reject"' &&
-            ' title="Reject remaining pending items">&#10007; Reject All</a>'
-          ELSE ''
-        ).
-
-    WHEN 'PENDING'.
-      lv_appr_badge =
-        '<span class="badge-count" style="background:#f59e0b;color:#ffffff;' &&
+  IF gv_is_approver = abap_true.
+    " Approver View
+    lv_appr_badge =
+      '<span class="badge-count" style="background:#4f46e5;color:#ffffff;' &&
+      'border:1px solid #4338ca;font-weight:700;padding:3px 10px;font-size:11px;">' &&
+      |&#128737;&#65039; Approver Mode (HOD: { gv_hod_name })</span>|.
+    IF lv_pend_cnt > 0.
+      lv_appr_badge = lv_appr_badge &&
+        ' <span class="badge-count" style="background:#f59e0b;color:#ffffff;' &&
         'border:1px solid #d97706;font-weight:700;padding:3px 10px;font-size:11px;">' &&
-        |&#9203; Pending HOD Approval ({ gv_hod_user })</span>|.
-      lv_appr_actions =
-        |<a href="sapevent:APPROVE" class="btn-po" style="background:#059669;" title="Approve as HOD">&#10003; Approve All</a>| &&
-        '<a href="sapevent:REJECT" class="btn-reject" title="Reject comparison">&#10007; Reject All</a>' &&
-        '<a href="sapevent:RECALL_APPROVAL" class="btn-refresh" title="Recall to Draft">&#8634; Recall</a>' &&
-        '<span class="btn-po-disabled" title="Locked: Awaiting HOD Approval">&#128274; Create PO (Locked)</span>'.
+        |&#9203; { lv_pend_cnt } Awaiting Your Approval</span>|.
+    ENDIF.
+    IF lv_appr_cnt > 0.
+      lv_appr_badge = lv_appr_badge &&
+        ' <span class="badge-count" style="background:#16a34a;color:#ffffff;' &&
+        'border:1px solid #15803d;font-weight:700;padding:3px 10px;font-size:11px;">' &&
+        |&#10003; { lv_appr_cnt } Approved</span>|.
+    ENDIF.
 
-    WHEN 'REJECTED'.
-      lv_appr_badge =
-        '<span class="badge-count" style="background:#dc2626;color:#ffffff;' &&
-        'border:1px solid #b91c1c;font-weight:700;padding:3px 10px;font-size:11px;">' &&
-        '&#10007; Rejected by HOD</span>'.
+    IF lv_pend_cnt > 0.
       lv_appr_actions =
-        '<a href="sapevent:RESUBMIT" class="btn-refresh" title="Revise selection">&#8634; Revise Selection</a>' &&
-        '<span class="btn-po-disabled">&#128274; Create PO (Rejected)</span>'.
+        |<a href="sapevent:APPROVE" class="btn-po" style="background:#059669;"| &&
+        | title="Approve all pending items">&#10003; Approve All ({ lv_pend_cnt })</a>| &&
+        ' <a href="sapevent:REJECT" class="btn-reject" title="Reject all pending items">&#10007; Reject All</a>'.
+    ENDIF.
+    IF lv_appr_cnt > 0.
+      lv_appr_actions = lv_appr_actions &&
+        | <a href="sapevent:CREATE_PO" class="btn-po">&#128722; Create PO ({ lv_appr_cnt } Approved)</a>|.
+    ENDIF.
 
-    WHEN OTHERS. " 'DRAFT'
+  ELSE.
+    " User / Requester View - STRICT ROLE ISOLATION: NEVER DISPLAY APPROVE OR REJECT!
+    IF lv_unsub_cnt > 0.
       lv_appr_badge =
-        '<span class="badge-count" style="background:#f1f5f9;color:#475569;border:1px solid #94a3b8;font-weight:700;">' &&
-        'Status: Draft</span>'.
-      IF lv_sel_items_count > 0.
-        lv_appr_actions =
-          |<a href="sapevent:SUBMIT_APPROVAL" class="btn-appr-submit" title="Submit to HOD">&#128228; Send to HOD ({ gv_hod_user })</a>| &&
-          |<span class="btn-po-disabled" title="Locked: HOD approval required">&#128274; Create PO ({ lv_sel_items_count })</span>|.
-      ELSE.
-        lv_appr_actions =
-          '<span class="btn-po-disabled" title="Select suppliers first">&#128228; Send to HOD</span>' &&
-          '<span class="btn-po-disabled">&#128274; Create PO</span>'.
-      ENDIF.
-  ENDCASE.
+        '<span class="badge-count" style="background:#dbeafe;color:#1e40af;' &&
+        'border:1px solid #93c5fd;font-weight:700;padding:3px 10px;font-size:11px;">' &&
+        |{ lv_unsub_cnt } Ready to Submit</span>|.
+    ENDIF.
+    IF lv_pend_cnt > 0.
+      lv_appr_badge = lv_appr_badge &&
+        ' <span class="badge-count" style="background:#f59e0b;color:#ffffff;' &&
+        'border:1px solid #d97706;font-weight:700;padding:3px 10px;font-size:11px;">' &&
+        |&#9203; { lv_pend_cnt } Pending HOD ({ gv_hod_user })</span>|.
+    ENDIF.
+    IF lv_appr_cnt > 0.
+      lv_appr_badge = lv_appr_badge &&
+        ' <span class="badge-count" style="background:#16a34a;color:#ffffff;' &&
+        'border:1px solid #15803d;font-weight:700;padding:3px 10px;font-size:11px;">' &&
+        |&#10003; { lv_appr_cnt } Approved</span>|.
+    ENDIF.
+    IF lv_rej_cnt > 0.
+      lv_appr_badge = lv_appr_badge &&
+        ' <span class="badge-count" style="background:#fee2e2;color:#991b1b;' &&
+        'border:1px solid #f87171;font-weight:700;padding:3px 10px;font-size:11px;">' &&
+        |&#10007; { lv_rej_cnt } Rejected</span>|.
+    ENDIF.
+    IF lv_appr_badge IS INITIAL.
+      lv_appr_badge =
+        '<span class="badge-count" style="background:#f1f5f9;color:#475569;' &&
+        'border:1px solid #94a3b8;font-weight:700;padding:3px 10px;font-size:11px;">Draft</span>'.
+    ENDIF.
+
+    " Available Actions for Creator
+    IF lv_unsub_cnt > 0.
+      lv_appr_actions =
+        |<a href="sapevent:SUBMIT_APPROVAL" class="btn-appr-submit"| &&
+        | title="Submit selected items to HOD for approval">&#128228; Send for Approval ({ lv_unsub_cnt })</a>|.
+    ENDIF.
+    IF lv_appr_cnt > 0.
+      lv_appr_actions = lv_appr_actions &&
+        | <a href="sapevent:CREATE_PO" class="btn-po">&#128722; Create PO ({ lv_appr_cnt } Approved)</a>|.
+    ELSEIF lv_unsub_cnt = 0 AND lv_pend_cnt > 0.
+      lv_appr_actions = lv_appr_actions &&
+        ' <span class="btn-po-disabled" title="Locked: Awaiting HOD Approval">&#128274; Create PO (Locked)</span>'.
+    ELSEIF lv_unsub_cnt = 0 AND lv_pend_cnt = 0 AND lv_po_done_cnt < lv_total_items_cnt.
+      lv_appr_actions = lv_appr_actions &&
+        ' <span class="btn-po-disabled">&#128274; Create PO</span>'.
+    ENDIF.
+    IF lv_rej_cnt > 0.
+      lv_appr_actions = lv_appr_actions &&
+        ' <a href="sapevent:RESUBMIT" class="btn-refresh" title="Revise rejected items">&#8634; Revise Rejected</a>'.
+    ENDIF.
+  ENDIF.
 
   lv_html =
     '<!DOCTYPE html>' &&
@@ -2794,7 +2992,7 @@ FORM render_html.
     '<meta charset="utf-8">' &&
     '<meta http-equiv="X-UA-Compatible" content="IE=edge">' &&
     '<meta name="viewport" content="width=device-width, initial-scale=1.0">' &&
-    '<title>Quotation Price Comparison Dashboard (ZPQC_NEW v2.9)</title>' &&
+    '<title>Quotation Price Comparison Dashboard (ZPQC_NEW v3.1)</title>' &&
     lv_css &&
     '</head><body>' &&
     '<div class="container">' &&
@@ -2822,7 +3020,7 @@ FORM render_html.
         |    <span class="badge-count" style="background:#ecfdf5;color:#065f46;border:1px solid #a7f3d0;">{ lv_done_items_cnt } PO Done</span>|
       ELSE ''
     ) &&
-    '    <span class="badge-count" style="font-size:10px;background:#e2e8f0;color:#334155;">v2.9</span>' &&
+    '    <span class="badge-count" style="font-size:10px;background:#e2e8f0;color:#334155;">v3.1</span>' &&
     |    { lv_appr_badge }| &&
     |    <span class="badge-count" style="font-size:10px;background:#f8fafc;color:#334155;border:1px solid #cbd5e1;">HOD: { gv_hod_name }</span>| &&
     '  </div>' &&
@@ -2938,6 +3136,28 @@ FORM render_html.
         |  <td><div class="mat-code">{ ls_item-matnr }</div></td>| &&
         |  <td><div class="mat-desc">{ ls_item-txz01 }</div></td>| &&
         |  <td style="text-align: right;"><div class="mat-qty">{ lv_qty_str } { ls_item-meins }</div></td>|.
+    ELSEIF ls_item-appr_status = 'X'.
+      lv_html = lv_html &&
+        '<tr>' &&
+        '  <td style="text-align: center; vertical-align: middle;">' &&
+        '    <span class="radio-box radio-sel" style="background:#16a34a;border-color:#16a34a;cursor:not-allowed;"' &&
+        '          title="Item is Approved">&#10003;</span>' &&
+        '  </td>' &&
+        |  <td style="text-align: center; font-weight: 600; color: #64748b;">{ ls_item-ebelp }</td>| &&
+        |  <td><div class="mat-code">{ ls_item-matnr }</div></td>| &&
+        |  <td><div class="mat-desc">{ ls_item-txz01 }</div></td>| &&
+        |  <td style="text-align: right;"><div class="mat-qty">{ lv_qty_str } { ls_item-meins }</div></td>|.
+    ELSEIF ls_item-user_pref = 'X'.
+      lv_html = lv_html &&
+        '<tr>' &&
+        '  <td style="text-align: center; vertical-align: middle;">' &&
+        '    <span class="radio-box radio-sel" style="background:#f59e0b;border-color:#f59e0b;cursor:not-allowed;"' &&
+        '          title="Item is in Approval Process"><span class="radio-dot"></span></span>' &&
+        '  </td>' &&
+        |  <td style="text-align: center; font-weight: 600; color: #64748b;">{ ls_item-ebelp }</td>| &&
+        |  <td><div class="mat-code">{ ls_item-matnr }</div></td>| &&
+        |  <td><div class="mat-desc">{ ls_item-txz01 }</div></td>| &&
+        |  <td style="text-align: right;"><div class="mat-qty">{ lv_qty_str } { ls_item-meins }</div></td>|.
     ELSE.
       lv_html = lv_html &&
         '<tr>' &&
@@ -3014,6 +3234,20 @@ FORM render_html.
               |<a href="sapevent:ME23N?ebeln={ ls_item-po_number }" class="btn-po-link">&#10003; PO { ls_item-po_number }</a>|.
           ELSE.
             lv_pill_action = '<span class="quote-po-done">PO Done</span>'.
+          ENDIF.
+        ELSEIF ls_item-appr_status = 'X'.
+          IF lv_is_sel = abap_true.
+            lv_pill_action =
+              '<span class="btn-pill-sel" style="background:#16a34a;color:#ffffff;cursor:default;">&#10003; Approved</span>'.
+          ELSE.
+            lv_pill_action = '<span style="font-size:10px;color:#94a3b8;font-style:italic;">Locked</span>'.
+          ENDIF.
+        ELSEIF ls_item-user_pref = 'X'.
+          IF lv_is_sel = abap_true.
+            lv_pill_action =
+              '<span class="btn-pill-sel" style="background:#f59e0b;color:#ffffff;cursor:default;">&#9203; In Approval</span>'.
+          ELSE.
+            lv_pill_action = '<span style="font-size:10px;color:#94a3b8;font-style:italic;">Locked</span>'.
           ENDIF.
         ELSE.
           IF lv_is_sel = abap_true.
@@ -3095,7 +3329,41 @@ FORM render_html.
       ENDIF.
 
       DATA: lv_item_appr_html TYPE string,
-            lv_cell_bg        TYPE string.
+            lv_cell_bg        TYPE string,
+            lv_remark_html    TYPE string.
+
+      CLEAR lv_remark_html.
+      IF ls_item-sel_lifnr <> ls_item-l1_lifnr.
+        IF ls_item-user_remark IS NOT INITIAL.
+          lv_remark_html =
+            '<div style="margin-top:3px;padding:3px 6px;background:#fef3c7;' &&
+            'border:1px solid #f59e0b;border-radius:3px;font-size:10px;line-height:1.2;">' &&
+            '  <div style="font-weight:700;color:#92400e;">User Justification:</div>' &&
+            |  <div style="color:#78350f;word-break:break-word;">{ ls_item-user_remark }</div>| &&
+            COND string(
+              WHEN gv_is_approver = abap_false AND ls_item-po_number IS INITIAL
+                   AND ls_item-appr_status IS INITIAL AND ls_item-user_pref IS INITIAL THEN
+                |  <a href="sapevent:EDIT_REMARK?item={ ls_item-ebelp }"| &&
+                ' style="font-size:9px;color:#2563eb;text-decoration:underline;">[Edit Reason]</a>'
+              ELSE ''
+            ) &&
+            '</div>'.
+        ELSE.
+          lv_remark_html =
+            '<div style="margin-top:3px;padding:3px 6px;background:#fee2e2;' &&
+            'border:1px solid #ef4444;border-radius:3px;font-size:10px;line-height:1.2;">' &&
+            '  <span style="color:#b91c1c;font-weight:700;">&#9888; Reason Required</span>' &&
+            COND string(
+              WHEN gv_is_approver = abap_false
+                   AND ls_item-appr_status IS INITIAL AND ls_item-user_pref IS INITIAL THEN
+                |  <a href="sapevent:EDIT_REMARK?item={ ls_item-ebelp }" class="btn-refresh"| &&
+                ' style="font-size:9px;padding:1px 4px;margin-left:4px;">&#9998; Enter Reason</a>'
+              ELSE
+                '  <span style="color:#b91c1c;font-size:9px;">(No reason entered)</span>'
+            ) &&
+            '</div>'.
+        ENDIF.
+      ENDIF.
 
       IF ls_item-appr_status = 'X'.
         " Approved with Green Background!
@@ -3131,16 +3399,28 @@ FORM render_html.
 
       ELSEIF ls_item-user_pref = 'X'.
         lv_cell_bg = 'background: #fffbeb; border-left: 3px solid #f59e0b;'.
-        lv_item_appr_html =
-          '<div style="display:flex;align-items:center;gap:4px;margin-top:4px;flex-wrap:wrap;">' &&
-          '  <span style="background:#f59e0b;color:#ffffff;padding:2px 8px;border-radius:3px;font-weight:700;font-size:10px;">' &&
-          '    &#9203; Pending HOD' &&
-          '  </span>' &&
-          |  <a href="sapevent:APPROVE_ITEM?item={ ls_item-ebelp }"| &&
-          ' class="btn-pill-sel" style="font-size:10px;padding:2px 6px;" title="Approve">&#10003; Approve</a>' &&
-          |  <a href="sapevent:REJECT_ITEM?item={ ls_item-ebelp }"| &&
-          ' class="btn-reject" style="font-size:10px;padding:2px 6px;" title="Reject">&#10007; Reject</a>' &&
-          '</div>'.
+        IF gv_is_approver = abap_true.
+          lv_item_appr_html =
+            '<div style="display:flex;align-items:center;gap:4px;margin-top:4px;flex-wrap:wrap;">' &&
+            '  <span style="background:#f59e0b;color:#ffffff;padding:2px 8px;border-radius:3px;font-weight:700;font-size:10px;">' &&
+            '    &#9203; Pending Review' &&
+            '  </span>' &&
+            |  <a href="sapevent:APPROVE_ITEM?item={ ls_item-ebelp }"| &&
+            ' class="btn-pill-sel" style="font-size:10px;padding:2px 6px;background:#059669;color:#fff;"' &&
+            ' title="Approve">&#10003; Approve</a>' &&
+            |  <a href="sapevent:REJECT_ITEM?item={ ls_item-ebelp }"| &&
+            ' class="btn-reject" style="font-size:10px;padding:2px 6px;" title="Reject">&#10007; Reject</a>' &&
+            '</div>'.
+        ELSE.
+          lv_item_appr_html =
+            '<div style="display:flex;align-items:center;gap:4px;margin-top:4px;">' &&
+            '  <span style="background:#f59e0b;color:#ffffff;padding:2px 8px;border-radius:3px;font-weight:700;font-size:10px;">' &&
+            |    &#9203; Pending HOD ({ gv_hod_user })| &&
+            '  </span>' &&
+            '  <span class="btn-po-disabled" style="font-size:10px;padding:2px 6px;"' &&
+            ' title="Awaiting HOD approval">&#128274; PO Locked</span>' &&
+            '</div>'.
+        ENDIF.
 
       ELSE.
         lv_cell_bg = 'background: #eff6ff; border-left: 2px solid #3b82f6;'.
@@ -3149,7 +3429,15 @@ FORM render_html.
           '  <span style="background:#64748b;color:#ffffff;padding:2px 8px;border-radius:3px;font-weight:600;font-size:10px;">' &&
           '    Draft' &&
           '  </span>' &&
-          '  <span class="btn-po-disabled" style="font-size:10px;padding:2px 6px;" title="Send for approval first">&#128274; PO Locked</span>' &&
+          COND string(
+            WHEN gv_is_approver = abap_false THEN
+              |  <a href="sapevent:SUBMIT_SINGLE?item={ ls_item-ebelp }" class="btn-pill-sel"| &&
+              ' style="font-size:10px;padding:2px 6px;background:#f59e0b;color:#fff;"' &&
+              ' title="Send this item for approval">&#128228; Submit</a>'
+            ELSE ''
+          ) &&
+          '  <span class="btn-po-disabled" style="font-size:10px;padding:2px 6px;"' &&
+          ' title="Send for approval first">&#128274; PO Locked</span>' &&
           '</div>'.
       ENDIF.
 
@@ -3162,6 +3450,7 @@ FORM render_html.
         |    { lv_var_badge }| &&
         '  </div>' &&
         |  <div class="quote-unit">Rate: &#8377;{ lv_fmt_s_upr } / { ls_item-meins }</div>| &&
+        lv_remark_html &&
         lv_item_appr_html &&
         '</td>'.
     ELSE.
@@ -3431,8 +3720,8 @@ ENDFORM.
 *&---------------------------------------------------------------------*
 *& Form handle_html_action
 *&---------------------------------------------------------------------*
-FORM handle_html_action USING pv_action  TYPE c
-                              pv_getdata TYPE c.
+FORM handle_html_action USING pv_action  TYPE any
+                              pv_getdata TYPE any.
 
   DATA: lv_action   TYPE string,
         lv_data     TYPE string,
@@ -3469,7 +3758,8 @@ FORM handle_html_action USING pv_action  TYPE c
         ENDLOOP.
       ELSE.
         " Deselect all pending items
-        LOOP AT gt_item_ref ASSIGNING FIELD-SYMBOL(<fs_ir_off>) WHERE po_number IS INITIAL.
+        LOOP AT gt_item_ref ASSIGNING FIELD-SYMBOL(<fs_ir_off>)
+          WHERE po_number IS INITIAL AND appr_status <> 'X' AND user_pref <> 'X'.
           PERFORM deselect_item USING <fs_ir_off>-ebelp.
         ENDLOOP.
       ENDIF.
@@ -3483,6 +3773,14 @@ FORM handle_html_action USING pv_action  TYPE c
       READ TABLE gt_item_ref ASSIGNING FIELD-SYMBOL(<fs_ref_tr>) WITH KEY ebelp = lv_ebelp.
       IF sy-subrc = 0 AND <fs_ref_tr>-po_number IS NOT INITIAL.
         MESSAGE |PO { <fs_ref_tr>-po_number } is already created for Item { lv_ebelp }. Selection disabled.| TYPE 'W'.
+        RETURN.
+      ENDIF.
+      IF sy-subrc = 0 AND <fs_ref_tr>-appr_status = 'X'.
+        MESSAGE |Item { lv_ebelp } is approved. Selection locked; only Create PO is allowed.| TYPE 'W'.
+        RETURN.
+      ENDIF.
+      IF sy-subrc = 0 AND <fs_ref_tr>-user_pref = 'X'.
+        MESSAGE |Item { lv_ebelp } is in approval process. Selection locked.| TYPE 'W'.
         RETURN.
       ENDIF.
       READ TABLE gt_final ASSIGNING FIELD-SYMBOL(<fs_val>)
@@ -3513,6 +3811,14 @@ FORM handle_html_action USING pv_action  TYPE c
         MESSAGE |PO { <fs_ref_sel>-po_number } is already created for Item { lv_ebelp }. Supplier change disabled.| TYPE 'W'.
         RETURN.
       ENDIF.
+      IF sy-subrc = 0 AND <fs_ref_sel>-appr_status = 'X'.
+        MESSAGE |Item { lv_ebelp } is approved. Supplier change locked; only Create PO is allowed.| TYPE 'W'.
+        RETURN.
+      ENDIF.
+      IF sy-subrc = 0 AND <fs_ref_sel>-user_pref = 'X'.
+        MESSAGE |Item { lv_ebelp } is in approval process. Supplier change locked.| TYPE 'W'.
+        RETURN.
+      ENDIF.
       IF lv_ebelp IS NOT INITIAL AND lv_col IS NOT INITIAL.
         PERFORM select_supplier_for_item USING lv_ebelp lv_col.
         READ TABLE gt_final ASSIGNING FIELD-SYMBOL(<fs_chk>)
@@ -3533,6 +3839,14 @@ FORM handle_html_action USING pv_action  TYPE c
         MESSAGE |PO { <fs_ref_des>-po_number } is already created for Item { lv_ebelp }. Selection disabled.| TYPE 'W'.
         RETURN.
       ENDIF.
+      IF sy-subrc = 0 AND <fs_ref_des>-appr_status = 'X'.
+        MESSAGE |Item { lv_ebelp } is approved. Modifications locked; only Create PO is allowed.| TYPE 'W'.
+        RETURN.
+      ENDIF.
+      IF sy-subrc = 0 AND <fs_ref_des>-user_pref = 'X'.
+        MESSAGE |Item { lv_ebelp } is in approval process. Modifications locked.| TYPE 'W'.
+        RETURN.
+      ENDIF.
       IF lv_ebelp IS NOT INITIAL.
         PERFORM deselect_item USING lv_ebelp.
         PERFORM render_html.
@@ -3551,6 +3865,23 @@ FORM handle_html_action USING pv_action  TYPE c
         RETURN.
       ENDIF.
 
+      " Validate mandatory remarks for Non-L1 selections!
+      DATA: lv_sub_cancel TYPE abap_bool VALUE abap_false.
+      LOOP AT gt_item_ref ASSIGNING FIELD-SYMBOL(<fs_chk_ir>) WHERE po_number IS INITIAL.
+        IF <fs_chk_ir>-sel_lifnr IS NOT INITIAL AND <fs_chk_ir>-sel_lifnr <> <fs_chk_ir>-l1_lifnr.
+          IF <fs_chk_ir>-user_remark IS INITIAL.
+            PERFORM prompt_user_remark USING <fs_chk_ir>-ebelp
+                                     CHANGING <fs_chk_ir>-user_remark
+                                              lv_sub_cancel.
+            IF lv_sub_cancel = abap_true OR <fs_chk_ir>-user_remark IS INITIAL.
+              MESSAGE |Justification remark is compulsory for Non-L1 selection on Item { <fs_chk_ir>-ebelp }.| TYPE 'E'.
+              RETURN.
+            ENDIF.
+          ENDIF.
+        ENDIF.
+      ENDLOOP.
+
+      DATA: lv_submitted_cnt TYPE i VALUE 0.
       LOOP AT gt_item_ref ASSIGNING FIELD-SYMBOL(<fs_sub_ir>) WHERE po_number IS INITIAL.
         IF <fs_sub_ir>-sel_lifnr IS NOT INITIAL.
           DATA: ls_db21 TYPE zmm_t_021.
@@ -3564,6 +3895,7 @@ FORM handle_html_action USING pv_action  TYPE c
             ls_db21-zapprover1 = space.
             ls_db21-zuser      = sy-uname.
             ls_db21-znetpr     = <fs_sub_ir>-sel_netpr.
+            ls_db21-zremark    = <fs_sub_ir>-user_remark.
             MODIFY zmm_t_021 FROM ls_db21.
           ELSE.
             ls_db21-mandt      = sy-mandt.
@@ -3581,17 +3913,123 @@ FORM handle_html_action USING pv_action  TYPE c
             ls_db21-userpref   = 'X'.
             ls_db21-zapprover1 = space.
             ls_db21-zuser      = sy-uname.
+            ls_db21-zremark    = <fs_sub_ir>-user_remark.
             MODIFY zmm_t_021 FROM ls_db21.
           ENDIF.
           <fs_sub_ir>-user_pref = 'X'.
+          lv_submitted_cnt = lv_submitted_cnt + 1.
         ENDIF.
       ENDLOOP.
       COMMIT WORK.
-      gv_approval_status = 'PENDING'.
-      MESSAGE |Quotation comparison submitted to HOD ({ gv_hod_name }) for approval.| TYPE 'S'.
+
+      " Dispatch Notification and Email to Approver
+      PERFORM send_approval_notification USING gv_submi.
+
+      PERFORM init_approval_status.
+      MESSAGE |Quotation comparison ({ lv_submitted_cnt } items) submitted to HOD ({ gv_hod_name }). Notification sent.| TYPE 'S'.
       PERFORM render_html.
 
+    WHEN 'SUBMIT_SINGLE'.
+      CLEAR: lv_item_str, lv_ebelp.
+      PERFORM parse_query_param USING lv_data 'item' CHANGING lv_item_str.
+      lv_ebelp = lv_item_str.
+      READ TABLE gt_item_ref ASSIGNING FIELD-SYMBOL(<fs_sgl_ir>) WITH KEY ebelp = lv_ebelp.
+      IF sy-subrc = 0 AND <fs_sgl_ir>-sel_lifnr IS NOT INITIAL.
+        IF <fs_sgl_ir>-po_number IS NOT INITIAL.
+          MESSAGE |PO { <fs_sgl_ir>-po_number } already created for Item { lv_ebelp }.| TYPE 'W'.
+          RETURN.
+        ENDIF.
+
+        IF <fs_sgl_ir>-sel_lifnr <> <fs_sgl_ir>-l1_lifnr AND <fs_sgl_ir>-user_remark IS INITIAL.
+          DATA: lv_sgl_cancel TYPE abap_bool.
+          PERFORM prompt_user_remark USING <fs_sgl_ir>-ebelp
+                                   CHANGING <fs_sgl_ir>-user_remark
+                                            lv_sgl_cancel.
+          IF lv_sgl_cancel = abap_true OR <fs_sgl_ir>-user_remark IS INITIAL.
+            MESSAGE |Justification remark is compulsory for Non-L1 selection on Item { lv_ebelp }.| TYPE 'E'.
+            RETURN.
+          ENDIF.
+        ENDIF.
+
+        DATA: ls_db21_s TYPE zmm_t_021.
+        CLEAR ls_db21_s.
+        SELECT SINGLE * FROM zmm_t_021 INTO @ls_db21_s
+          WHERE zquotation = @<fs_sgl_ir>-sel_ebeln AND zqitem = @<fs_sgl_ir>-sel_ebelp.
+        IF sy-subrc = 0.
+          ls_db21_s-userpref   = 'X'.
+          ls_db21_s-zapprover1 = space.
+          ls_db21_s-zuser      = sy-uname.
+          ls_db21_s-znetpr     = <fs_sgl_ir>-sel_netpr.
+          ls_db21_s-zremark    = <fs_sgl_ir>-user_remark.
+          MODIFY zmm_t_021 FROM ls_db21_s.
+        ELSE.
+          ls_db21_s-mandt      = sy-mandt.
+          ls_db21_s-zquotation = <fs_sgl_ir>-sel_ebeln.
+          ls_db21_s-zqitem     = <fs_sgl_ir>-sel_ebelp.
+          ls_db21_s-zdshcount  = '0001'.
+          ls_db21_s-zcollectno = <fs_sgl_ir>-submi.
+          ls_db21_s-zsupplier  = <fs_sgl_ir>-sel_lifnr.
+          ls_db21_s-zsupname   = <fs_sgl_ir>-sel_name1.
+          ls_db21_s-zmat       = <fs_sgl_ir>-matnr.
+          ls_db21_s-zdesc      = <fs_sgl_ir>-txz01.
+          ls_db21_s-zqty       = <fs_sgl_ir>-menge.
+          ls_db21_s-zuom       = <fs_sgl_ir>-meins.
+          ls_db21_s-znetpr     = <fs_sgl_ir>-sel_netpr.
+          ls_db21_s-userpref   = 'X'.
+          ls_db21_s-zapprover1 = space.
+          ls_db21_s-zuser      = sy-uname.
+          ls_db21_s-zremark    = <fs_sgl_ir>-user_remark.
+          MODIFY zmm_t_021 FROM ls_db21_s.
+        ENDIF.
+        COMMIT WORK.
+        <fs_sgl_ir>-user_pref = 'X'.
+
+        PERFORM send_approval_notification USING gv_submi.
+        PERFORM init_approval_status.
+        MESSAGE |Item { lv_ebelp } submitted to HOD ({ gv_hod_name }) for approval. Notification sent.| TYPE 'S'.
+        PERFORM render_html.
+      ENDIF.
+
+    WHEN 'EDIT_REMARK'.
+      CLEAR: lv_item_str, lv_ebelp.
+      PERFORM parse_query_param USING lv_data 'item' CHANGING lv_item_str.
+      lv_ebelp = lv_item_str.
+      READ TABLE gt_item_ref ASSIGNING FIELD-SYMBOL(<fs_rem_ir>) WITH KEY ebelp = lv_ebelp.
+      IF sy-subrc = 0.
+        IF <fs_rem_ir>-po_number IS NOT INITIAL.
+          MESSAGE |PO { <fs_rem_ir>-po_number } is already created for Item { lv_ebelp }.| TYPE 'W'.
+          RETURN.
+        ENDIF.
+        IF <fs_rem_ir>-appr_status = 'X'.
+          MESSAGE |Item { lv_ebelp } is approved. Remark modifications locked.| TYPE 'W'.
+          RETURN.
+        ENDIF.
+        IF <fs_rem_ir>-user_pref = 'X' AND gv_is_approver = abap_false.
+          MESSAGE |Item { lv_ebelp } is in approval process. Remark modifications locked.| TYPE 'W'.
+          RETURN.
+        ENDIF.
+        DATA: lv_rem_cancel TYPE abap_bool.
+        PERFORM prompt_user_remark USING lv_ebelp
+                                 CHANGING <fs_rem_ir>-user_remark
+                                          lv_rem_cancel.
+        IF lv_rem_cancel = abap_false.
+          IF <fs_rem_ir>-sel_ebeln IS NOT INITIAL AND <fs_rem_ir>-sel_ebelp IS NOT INITIAL.
+            UPDATE zmm_t_021
+              SET zremark = @<fs_rem_ir>-user_remark
+              WHERE zquotation = @<fs_rem_ir>-sel_ebeln
+                AND zqitem     = @<fs_rem_ir>-sel_ebelp.
+            COMMIT WORK.
+          ENDIF.
+          MESSAGE |Justification remark updated for Item { lv_ebelp }.| TYPE 'S'.
+        ENDIF.
+        PERFORM render_html.
+      ENDIF.
+
     WHEN 'APPROVE'.
+      IF gv_is_approver = abap_false.
+        MESSAGE 'Authorization error: Only HOD approver can approve quotation comparison.' TYPE 'E'.
+        RETURN.
+      ENDIF.
       LOOP AT gt_item_ref ASSIGNING FIELD-SYMBOL(<fs_app_ir>) WHERE po_number IS INITIAL.
         IF <fs_app_ir>-sel_lifnr IS NOT INITIAL.
           UPDATE zmm_t_021
@@ -3608,6 +4046,10 @@ FORM handle_html_action USING pv_action  TYPE c
       PERFORM render_html.
 
     WHEN 'APPROVE_ITEM'.
+      IF gv_is_approver = abap_false.
+        MESSAGE 'Authorization error: Only HOD approver can approve items.' TYPE 'E'.
+        RETURN.
+      ENDIF.
       CLEAR: lv_item_str, lv_ebelp.
       PERFORM parse_query_param USING lv_data 'item' CHANGING lv_item_str.
       lv_ebelp = lv_item_str.
@@ -3626,6 +4068,10 @@ FORM handle_html_action USING pv_action  TYPE c
       ENDIF.
 
     WHEN 'REJECT'.
+      IF gv_is_approver = abap_false.
+        MESSAGE 'Authorization error: Only HOD approver can reject quotation comparison.' TYPE 'E'.
+        RETURN.
+      ENDIF.
       LOOP AT gt_item_ref ASSIGNING FIELD-SYMBOL(<fs_rej_ir>) WHERE po_number IS INITIAL.
         IF <fs_rej_ir>-sel_lifnr IS NOT INITIAL.
           UPDATE zmm_t_021
@@ -3642,6 +4088,10 @@ FORM handle_html_action USING pv_action  TYPE c
       PERFORM render_html.
 
     WHEN 'REJECT_ITEM'.
+      IF gv_is_approver = abap_false.
+        MESSAGE 'Authorization error: Only HOD approver can reject items.' TYPE 'E'.
+        RETURN.
+      ENDIF.
       CLEAR: lv_item_str, lv_ebelp.
       PERFORM parse_query_param USING lv_data 'item' CHANGING lv_item_str.
       lv_ebelp = lv_item_str.
@@ -3755,6 +4205,14 @@ FORM deselect_item USING pv_ebelp TYPE ekpo-ebelp.
   READ TABLE gt_item_ref ASSIGNING FIELD-SYMBOL(<fs_ref>) WITH KEY ebelp = pv_ebelp.
   IF sy-subrc = 0.
     IF <fs_ref>-po_number IS NOT INITIAL.
+      RETURN.
+    ENDIF.
+    IF <fs_ref>-appr_status = 'X'.
+      MESSAGE |Item { pv_ebelp } is approved. Modifications locked.| TYPE 'W'.
+      RETURN.
+    ENDIF.
+    IF <fs_ref>-user_pref = 'X'.
+      MESSAGE |Item { pv_ebelp } is in approval process. Modifications locked.| TYPE 'W'.
       RETURN.
     ENDIF.
     CLEAR: <fs_ref>-sel_col, <fs_ref>-sel_ebeln, <fs_ref>-sel_ebelp,
@@ -3922,6 +4380,13 @@ FORM init_approval_status.
     gv_hod_name = 'Head of Department'.
   ENDIF.
 
+  " Determine if current logged-in user is HOD Approver
+  IF sy-uname = gv_hod_user OR p_apprv = abap_true.
+    gv_is_approver = abap_true.
+  ELSE.
+    gv_is_approver = abap_false.
+  ENDIF.
+
   " 2. Read existing approval entries from ZMM_T_021
   DATA: lt_t021 TYPE STANDARD TABLE OF zmm_t_021 WITH DEFAULT KEY.
   CLEAR lt_t021.
@@ -3943,6 +4408,8 @@ FORM init_approval_status.
       lv_any_pref           = abap_true.
       <fs_iref>-user_pref   = 'X'.
       <fs_iref>-appr_status = ls_p21-zapprover1.
+      <fs_iref>-user_remark = ls_p21-zremark.
+      <fs_iref>-appr_remark = ls_p21-zaremark.
       IF <fs_iref>-po_number IS INITIAL.
         IF <fs_iref>-sel_lifnr IS INITIAL.
           <fs_iref>-sel_lifnr = ls_p21-zsupplier.
@@ -3996,24 +4463,90 @@ FORM init_approval_status.
           <fs_iref>-sel_upr_amt = CONV decfloat34( <fs_iref>-sel_netpr ) / CONV decfloat34( lv_rst_p ).
           <fs_iref>-sel_tot_amt = CONV decfloat34( lv_rst_q ) * <fs_iref>-sel_upr_amt.
         ENDIF.
+      ENDIF.
+    ENDIF.
 
-        " Determine column name QUAT1..QUAT7 for visual highlight in ALV
-        DATA: lv_h_idx TYPE i VALUE 0.
-        LOOP AT gt_hdr INTO DATA(ls_h_c).
-          lv_h_idx = lv_h_idx + 1.
-          IF ls_h_c-lifnr = <fs_iref>-sel_lifnr.
-            <fs_iref>-sel_col = |QUAT{ lv_h_idx }|.
-            EXIT.
-          ENDIF.
-        ENDLOOP.
+    " Determine column name QUAT1..QUAT7 for visual highlight in ALV
+    IF <fs_iref>-sel_lifnr IS NOT INITIAL AND <fs_iref>-sel_col IS INITIAL.
+      DATA: lv_h_idx TYPE i VALUE 0.
+      LOOP AT gt_hdr INTO DATA(ls_h_c).
+        lv_h_idx = lv_h_idx + 1.
+        IF ls_h_c-lifnr = <fs_iref>-sel_lifnr.
+          <fs_iref>-sel_col = |QUAT{ lv_h_idx }|.
+          EXIT.
+        ENDIF.
+      ENDLOOP.
+    ENDIF.
 
-        " Mark selection in gt_final table
-        READ TABLE gt_final ASSIGNING FIELD-SYMBOL(<fs_val_sync>)
-          WITH KEY ebelp = <fs_iref>-ebelp quat = 'Val:'.
+    " Sync gt_final row: quat = 'Val:'
+    READ TABLE gt_final ASSIGNING FIELD-SYMBOL(<fs_val_sync>)
+      WITH KEY ebelp = <fs_iref>-ebelp quat = 'Val:'.
+    IF sy-subrc = 0.
+      IF <fs_iref>-po_number IS NOT INITIAL.
+        <fs_val_sync>-sel       = '@02@ Created'.
+        <fs_val_sync>-po_action = |@0V@ PO { <fs_iref>-po_number }|.
+      ELSEIF <fs_iref>-appr_status = 'X'.
+        <fs_val_sync>-sel       = '@01@ [X]'.
+        <fs_val_sync>-po_action = '@15@ Create PO'.
+      ELSEIF <fs_iref>-user_pref = 'X'.
+        <fs_val_sync>-sel       = '@09@ [X]'.
+        IF gv_is_approver = abap_true.
+          <fs_val_sync>-po_action = '@0V@ Approve Item'.
+        ELSE.
+          <fs_val_sync>-po_action = '@09@ In Approval'.
+        ENDIF.
+      ELSEIF <fs_iref>-appr_status = 'R'.
+        <fs_val_sync>-sel       = '@02@ [R]'.
+        <fs_val_sync>-po_action = '@02@ Rejected'.
+      ELSEIF <fs_iref>-sel_lifnr IS NOT INITIAL.
+        <fs_val_sync>-sel       = '@01@ [X]'.
+        IF gv_is_approver = abap_false.
+          <fs_val_sync>-po_action = '@2L@ Send to HOD'.
+        ELSE.
+          <fs_val_sync>-po_action = '@0Y@ Draft'.
+        ENDIF.
+      ELSE.
+        <fs_val_sync>-sel       = '@R7@ [ ]'.
+        <fs_val_sync>-po_action = '@0Y@ Select Supplier'.
+      ENDIF.
+    ENDIF.
+
+    " Sync gt_final row: quat = 'Approved'
+    READ TABLE gt_final ASSIGNING FIELD-SYMBOL(<fs_app_sync>)
+      WITH KEY ebelp = <fs_iref>-ebelp quat = 'Approved'.
+    IF sy-subrc = 0.
+      IF lines( gt_hdr ) >= 1. <fs_app_sync>-quat1 = '[ ]'. ENDIF.
+      IF lines( gt_hdr ) >= 2. <fs_app_sync>-quat2 = '[ ]'. ENDIF.
+      IF lines( gt_hdr ) >= 3. <fs_app_sync>-quat3 = '[ ]'. ENDIF.
+      IF lines( gt_hdr ) >= 4. <fs_app_sync>-quat4 = '[ ]'. ENDIF.
+      IF lines( gt_hdr ) >= 5. <fs_app_sync>-quat5 = '[ ]'. ENDIF.
+      IF lines( gt_hdr ) >= 6. <fs_app_sync>-quat6 = '[ ]'. ENDIF.
+      IF lines( gt_hdr ) >= 7. <fs_app_sync>-quat7 = '[ ]'. ENDIF.
+      CLEAR <fs_app_sync>-cell_colors.
+
+      IF <fs_iref>-sel_col IS NOT INITIAL.
+        ASSIGN COMPONENT <fs_iref>-sel_col OF STRUCTURE <fs_app_sync> TO FIELD-SYMBOL(<fs_app_c>).
         IF sy-subrc = 0.
-          <fs_val_sync>-sel = '@01@ [X]'.
-          IF <fs_iref>-sel_name1 IS NOT INITIAL.
-            <fs_val_sync>-po_action = |PO -> { <fs_iref>-sel_name1(12) }|.
+          IF <fs_iref>-po_number IS NOT INITIAL.
+            <fs_app_c> = '[PO Done]'.
+            APPEND VALUE #( fieldname = <fs_iref>-sel_col color = VALUE #( col = 5 int = 0 ) )
+              TO <fs_app_sync>-cell_colors.
+          ELSEIF <fs_iref>-appr_status = 'X'.
+            <fs_app_c> = '[Approved]'.
+            APPEND VALUE #( fieldname = <fs_iref>-sel_col color = VALUE #( col = 5 int = 1 ) )
+              TO <fs_app_sync>-cell_colors.
+          ELSEIF <fs_iref>-user_pref = 'X'.
+            <fs_app_c> = '[In Appr]'.
+            APPEND VALUE #( fieldname = <fs_iref>-sel_col color = VALUE #( col = 3 int = 1 ) )
+              TO <fs_app_sync>-cell_colors.
+          ELSEIF <fs_iref>-appr_status = 'R'.
+            <fs_app_c> = '[Rejected]'.
+            APPEND VALUE #( fieldname = <fs_iref>-sel_col color = VALUE #( col = 6 int = 1 ) )
+              TO <fs_app_sync>-cell_colors.
+          ELSE.
+            <fs_app_c> = '[Selected]'.
+            APPEND VALUE #( fieldname = <fs_iref>-sel_col color = VALUE #( col = 1 int = 1 ) )
+              TO <fs_app_sync>-cell_colors.
           ENDIF.
         ENDIF.
       ENDIF.
@@ -4031,6 +4564,51 @@ FORM init_approval_status.
     ENDIF.
   ENDLOOP.
 
+  " Sync Top Header Action Buttons in ALV (Rows 1, 2, 4)
+  DATA: lv_unsub_top TYPE i VALUE 0.
+  LOOP AT gt_item_ref INTO DATA(ls_unsub_top) WHERE po_number IS INITIAL.
+    IF ls_unsub_top-sel_lifnr IS NOT INITIAL AND ls_unsub_top-user_pref IS INITIAL.
+      lv_unsub_top = lv_unsub_top + 1.
+    ENDIF.
+  ENDLOOP.
+
+  READ TABLE gt_final ASSIGNING FIELD-SYMBOL(<fs_top1>) INDEX 1.
+  IF sy-subrc = 0.
+    IF gv_appr_items_cnt > 0.
+      <fs_top1>-po_action = |@15@ Create PO ({ gv_appr_items_cnt })|.
+    ELSE.
+      <fs_top1>-po_action = '@0Y@ Create PO'.
+    ENDIF.
+  ENDIF.
+
+  READ TABLE gt_final ASSIGNING FIELD-SYMBOL(<fs_top2>) INDEX 2.
+  IF sy-subrc = 0.
+    IF gv_is_approver = abap_true.
+      IF gv_pend_items_cnt > 0.
+        <fs_top2>-po_action = |@0V@ Approve All ({ gv_pend_items_cnt })|.
+      ELSE.
+        <fs_top2>-po_action = '@0V@ Approved'.
+      ENDIF.
+    ELSE.
+      IF lv_unsub_top > 0.
+        <fs_top2>-po_action = |@2L@ Send to HOD ({ lv_unsub_top })|.
+      ELSEIF gv_pend_items_cnt > 0.
+        <fs_top2>-po_action = |@09@ In Appr ({ gv_pend_items_cnt })|.
+      ELSE.
+        <fs_top2>-po_action = '@09@ In Approval'.
+      ENDIF.
+    ENDIF.
+  ENDIF.
+
+  READ TABLE gt_final ASSIGNING FIELD-SYMBOL(<fs_top4>) INDEX 4.
+  IF sy-subrc = 0.
+    IF gv_is_approver = abap_true AND gv_pend_items_cnt > 0.
+      <fs_top4>-po_action = '@0W@ Reject All'.
+    ELSE.
+      <fs_top4>-po_action = space.
+    ENDIF.
+  ENDIF.
+
   IF lv_sel_cnt > 0 AND gv_appr_items_cnt = lv_sel_cnt.
     gv_approval_status = 'APPROVED'.
   ELSEIF gv_appr_items_cnt > 0.
@@ -4042,5 +4620,183 @@ FORM init_approval_status.
   ELSE.
     gv_approval_status = 'DRAFT'.
   ENDIF.
+
+ENDFORM.
+
+*&---------------------------------------------------------------------*
+*& Form prompt_user_remark
+*&---------------------------------------------------------------------*
+FORM prompt_user_remark USING    pv_ebelp     TYPE ekpo-ebelp
+                        CHANGING cv_remark    TYPE zmm_de_remark
+                                 cv_cancelled TYPE abap_bool.
+
+  DATA: lt_fields TYPE STANDARD TABLE OF sval,
+        ls_field  TYPE sval,
+        lv_return TYPE c.
+
+  cv_cancelled = abap_false.
+  CLEAR: lt_fields, ls_field.
+
+  ls_field-tabname   = 'ZMM_T_021'.
+  ls_field-fieldname = 'ZREMARK'.
+  ls_field-fieldtext = |Reason for Item { pv_ebelp }|.
+  ls_field-value     = cv_remark.
+  ls_field-field_obl = 'X'.
+  APPEND ls_field TO lt_fields.
+
+  CALL FUNCTION 'POPUP_GET_VALUES'
+    EXPORTING
+      popup_title     = |Mandatory Non-L1 Reason (Item { pv_ebelp })|
+    IMPORTING
+      returncode      = lv_return
+    TABLES
+      fields          = lt_fields
+    EXCEPTIONS
+      error_in_fields = 1
+      OTHERS          = 2.
+
+  IF sy-subrc <> 0 OR lv_return = 'A'.
+    cv_cancelled = abap_true.
+    RETURN.
+  ENDIF.
+
+  READ TABLE lt_fields INTO ls_field INDEX 1.
+  IF sy-subrc = 0.
+    cv_remark = ls_field-value.
+    CONDENSE cv_remark.
+    IF cv_remark IS INITIAL.
+      cv_cancelled = abap_true.
+    ENDIF.
+  ELSE.
+    cv_cancelled = abap_true.
+  ENDIF.
+
+ENDFORM.
+
+*&---------------------------------------------------------------------*
+*& Form send_approval_notification
+*&---------------------------------------------------------------------*
+FORM send_approval_notification USING pv_submi TYPE any.
+
+  DATA: lv_msg       TYPE char128,
+        lv_hod_user  TYPE sy-uname,
+        lv_hod_email TYPE adr6-smtp_addr.
+
+  lv_hod_user = gv_hod_user.
+  IF lv_hod_user IS INITIAL OR lv_hod_user = 'HOD'.
+    RETURN.
+  ENDIF.
+
+  " 1. Send screen popup to HOD if logged in
+  lv_msg = |Price comparison for Collective RFQ { pv_submi } submitted by { sy-uname } for approval.|.
+  CALL FUNCTION 'TH_POPUP'
+    EXPORTING
+      client  = sy-mandt
+      user    = lv_hod_user
+      message = lv_msg
+    EXCEPTIONS
+      OTHERS  = 1.
+
+  " 2. Get Approver Email from ADR6 / USR21
+  DATA: lv_persno TYPE usr21-persnumber,
+        lv_addrno TYPE usr21-addrnumber.
+  SELECT SINGLE persnumber, addrnumber FROM usr21
+    INTO ( @lv_persno, @lv_addrno )
+    WHERE bname = @lv_hod_user.
+  IF sy-subrc = 0.
+    SELECT SINGLE smtp_addr FROM adr6
+      INTO @lv_hod_email
+      WHERE persnumber = @lv_persno
+        AND addrnumber = @lv_addrno.
+    IF sy-subrc <> 0 OR lv_hod_email IS INITIAL.
+      SELECT SINGLE smtp_addr FROM adr6
+        INTO @lv_hod_email
+        WHERE persnumber = @lv_persno.
+    ENDIF.
+  ENDIF.
+
+  " 3. Prepare Notification Document
+  DATA: ls_doc_data  TYPE sodocchgi1,
+        lt_objtxt    TYPE STANDARD TABLE OF solisti1,
+        ls_objtxt    TYPE solisti1,
+        lt_receivers TYPE STANDARD TABLE OF somlreci1,
+        ls_receiver  TYPE somlreci1.
+
+  ls_doc_data-obj_name  = 'PRICE_COMP'.
+  ls_doc_data-obj_descr = |Quotation Approval Request: Collective RFQ { pv_submi }|.
+  ls_doc_data-obj_langu = sy-langu.
+
+  " Header body lines
+  ls_objtxt-line = |Dear { gv_hod_name },|.
+  APPEND ls_objtxt TO lt_objtxt.
+  ls_objtxt-line = space.
+  APPEND ls_objtxt TO lt_objtxt.
+  ls_objtxt-line = |A quotation price comparison has been submitted for your approval.|.
+  APPEND ls_objtxt TO lt_objtxt.
+  ls_objtxt-line = |Submitted By : { sy-uname }|.
+  APPEND ls_objtxt TO lt_objtxt.
+  ls_objtxt-line = |Collective RFQ: { pv_submi }|.
+  APPEND ls_objtxt TO lt_objtxt.
+  ls_objtxt-line = |Transaction Code: ZPQC_NEW|.
+  APPEND ls_objtxt TO lt_objtxt.
+  ls_objtxt-line = space.
+  APPEND ls_objtxt TO lt_objtxt.
+  ls_objtxt-line = 'SUBMITTED ITEMS BREAKDOWN:'.
+  APPEND ls_objtxt TO lt_objtxt.
+  ls_objtxt-line = '--------------------------------------------------------------------------------'.
+  APPEND ls_objtxt TO lt_objtxt.
+
+  LOOP AT gt_item_ref INTO DATA(ls_ir) WHERE po_number IS INITIAL AND sel_lifnr IS NOT INITIAL.
+    DATA: lv_amt_str TYPE string.
+    PERFORM format_inr USING ls_ir-sel_tot_amt CHANGING lv_amt_str.
+    ls_objtxt-line = |Item { ls_ir-ebelp }: { ls_ir-txz01(20) } | &&
+                     |Qty: { ls_ir-menge } { ls_ir-meins } | &&
+                     |Supplier: { ls_ir-sel_name1(16) } | &&
+                     |Total: INR { lv_amt_str }|.
+    APPEND ls_objtxt TO lt_objtxt.
+    IF ls_ir-sel_lifnr <> ls_ir-l1_lifnr.
+      ls_objtxt-line = |  * NON-L1 SELECTION (System L1: { ls_ir-l1_name1(16) })|.
+      APPEND ls_objtxt TO lt_objtxt.
+      IF ls_ir-user_remark IS NOT INITIAL.
+        ls_objtxt-line = |  * JUSTIFICATION REASON: { ls_ir-user_remark }|.
+        APPEND ls_objtxt TO lt_objtxt.
+      ENDIF.
+    ENDIF.
+  ENDLOOP.
+
+  ls_objtxt-line = '--------------------------------------------------------------------------------'.
+  APPEND ls_objtxt TO lt_objtxt.
+  ls_objtxt-line = space.
+  APPEND ls_objtxt TO lt_objtxt.
+  ls_objtxt-line = 'Please log in to SAP and execute transaction ZPQC_NEW to review and approve/reject.'.
+  APPEND ls_objtxt TO lt_objtxt.
+
+  " Receivers
+  " 1. SAP Business Workplace Inbox
+  CLEAR ls_receiver.
+  ls_receiver-receiver = lv_hod_user.
+  ls_receiver-rec_type = 'B'.  " SAP user inbox
+  ls_receiver-express  = 'X'.
+  APPEND ls_receiver TO lt_receivers.
+
+  " 2. External Email (if maintained)
+  IF lv_hod_email IS NOT INITIAL.
+    CLEAR ls_receiver.
+    ls_receiver-receiver = lv_hod_email.
+    ls_receiver-rec_type = 'U'.  " Internet email
+    APPEND ls_receiver TO lt_receivers.
+  ENDIF.
+
+  CALL FUNCTION 'SO_NEW_DOCUMENT_SEND_API1'
+    EXPORTING
+      document_data              = ls_doc_data
+      document_type              = 'RAW'
+      put_in_outbox              = 'X'
+      commit_work                = 'X'
+    TABLES
+      object_content             = lt_objtxt
+      receivers                  = lt_receivers
+    EXCEPTIONS
+      OTHERS                     = 1.
 
 ENDFORM.

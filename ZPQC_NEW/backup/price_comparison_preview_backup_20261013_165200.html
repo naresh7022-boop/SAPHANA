@@ -1,0 +1,605 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Quotation Price Comparison Dashboard (ZPQC_NEW v2.3)</title>
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+    html, body {
+      margin: 0;
+      padding: 4px;
+      background: #f1f5f9;
+      width: 100%;
+      box-sizing: border-box;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      color: #0f172a;
+      font-size: 12px;
+    }
+
+    .container {
+      width: 100%;
+      max-width: 100%;
+      margin: 0;
+      padding: 0;
+    }
+
+    /* Top Controls Header */
+    .top-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 5px 10px;
+      background: #ffffff;
+      border: 1px solid #94a3b8;
+      border-radius: 4px;
+      margin-bottom: 5px;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+    .top-left {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+    .top-right {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+    .select-all-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 12px;
+      font-weight: 600;
+      color: #1e293b;
+      text-decoration: none;
+      cursor: pointer;
+    }
+    .badge-count {
+      background: #f1f5f9;
+      color: #334155;
+      font-size: 11px;
+      font-weight: 600;
+      padding: 2px 8px;
+      border-radius: 12px;
+      display: inline-block;
+      border: 1px solid #cbd5e1;
+    }
+    .val-summary {
+      font-size: 13px;
+      font-weight: 700;
+      color: #0f172a;
+    }
+    .rate-box {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      background: #ffffff;
+      padding: 2px 6px;
+      border-radius: 4px;
+      border: 1px solid #cbd5e1;
+      font-size: 11px;
+      font-weight: 600;
+      color: #334155;
+    }
+    .rate-input {
+      width: 48px;
+      padding: 1px 3px;
+      border: 1px solid #cbd5e1;
+      border-radius: 3px;
+      font-weight: 700;
+      text-align: center;
+      background: #ffffff;
+      outline: none;
+      font-size: 11px;
+    }
+    .btn-apply {
+      background: #334155;
+      color: #ffffff;
+      border: none;
+      border-radius: 3px;
+      padding: 2px 6px;
+      font-size: 10px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    .btn-apply:hover { background: #1e293b; }
+
+    .btn-refresh {
+      background: #ffffff;
+      color: #374151;
+      border: 1px solid #cbd5e1;
+      border-radius: 4px;
+      padding: 3px 8px;
+      font-size: 11px;
+      font-weight: 600;
+      text-decoration: none;
+      display: inline-flex;
+      align-items: center;
+      gap: 3px;
+      cursor: pointer;
+    }
+    .btn-refresh:hover { background: #f1f5f9; border-color: #94a3b8; }
+
+    .btn-po {
+      background: #059669;
+      color: #ffffff;
+      border-radius: 4px;
+      padding: 3px 12px;
+      font-size: 11px;
+      font-weight: 700;
+      text-decoration: none;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      border: none;
+      cursor: pointer;
+    }
+    .btn-po:hover { background: #047857; }
+
+    .btn-po-disabled {
+      background: #e2e8f0;
+      color: #94a3b8;
+      border-radius: 4px;
+      padding: 3px 12px;
+      font-size: 11px;
+      font-weight: 700;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      pointer-events: none;
+    }
+
+    /* Radio / Selection Indicators */
+    .radio-box {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 18px;
+      height: 18px;
+      border-radius: 50%;
+      box-sizing: border-box;
+      cursor: pointer;
+      text-decoration: none;
+      vertical-align: middle;
+      background: #ffffff;
+    }
+    .radio-unsel { border: 2px solid #94a3b8; }
+    .radio-sel { border: 2px solid #2563eb; }
+    .radio-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: #2563eb;
+      display: block;
+    }
+
+    /* Comparison Table */
+    .cmp-table {
+      width: 100%;
+      border-collapse: collapse;
+      border: 1px solid #64748b;
+      background: #ffffff;
+    }
+    .cmp-table th {
+      padding: 5px 6px;
+      font-size: 11px;
+      font-weight: 700;
+      color: #0f172a;
+      text-align: left;
+      vertical-align: middle;
+      border: 1px solid #94a3b8;
+      background: #e2e8f0;
+    }
+    .cmp-table td {
+      padding: 5px 6px;
+      font-size: 12px;
+      color: #0f172a;
+      vertical-align: middle;
+      border: 1px solid #cbd5e1;
+    }
+    .cmp-table tbody tr:hover { background: #f8fafc; }
+    .cmp-table tbody tr:nth-child(even) { background: #fafbfc; }
+
+    .v-hdr-title { font-size: 12px; font-weight: 700; color: #0f172a; line-height: 1.25; }
+    .v-hdr-sub { font-size: 10px; font-weight: 500; color: #64748b; margin-top: 1px; }
+
+    .mat-code { font-size: 12px; font-weight: 700; color: #0f172a; }
+    .mat-desc { font-size: 12px; font-weight: 400; color: #334155; line-height: 1.3; }
+    .mat-qty { font-size: 12px; font-weight: 700; color: #0f172a; }
+
+    .quote-amt { font-size: 13px; font-weight: 700; color: #0f172a; }
+    .quote-unit { font-size: 10px; color: #64748b; }
+
+    .rank-lowest {
+      display: inline-block;
+      background: #dcfce7;
+      color: #15803d;
+      font-size: 10px;
+      font-weight: 700;
+      padding: 1px 5px;
+      border-radius: 8px;
+      border: 1px solid #86efac;
+    }
+    .rank-other {
+      display: inline-block;
+      background: #f1f5f9;
+      color: #64748b;
+      font-size: 10px;
+      font-weight: 600;
+      padding: 1px 5px;
+      border-radius: 8px;
+      border: 1px solid #cbd5e1;
+    }
+
+    /* Action Buttons inside columns */
+    .btn-pill-sel {
+      background: #2563eb;
+      color: #ffffff;
+      font-size: 10px;
+      font-weight: 700;
+      padding: 2px 8px;
+      border-radius: 4px;
+      border: 1px solid #1d4ed8;
+      text-decoration: none;
+      display: inline-block;
+    }
+    .btn-pill-unsel {
+      background: #ffffff;
+      color: #334155;
+      font-size: 10px;
+      font-weight: 600;
+      padding: 2px 8px;
+      border-radius: 4px;
+      border: 1px solid #cbd5e1;
+      text-decoration: none;
+      display: inline-block;
+    }
+    .btn-pill-unsel:hover { background: #f8fafc; border-color: #94a3b8; }
+
+    .btn-po-link {
+      background: #059669;
+      color: #ffffff;
+      font-size: 10px;
+      font-weight: 700;
+      padding: 2px 8px;
+      border-radius: 4px;
+      text-decoration: none;
+      display: inline-block;
+    }
+    .quote-po-done {
+      background: #f1f5f9;
+      color: #94a3b8;
+      font-size: 10px;
+      font-weight: 600;
+      padding: 2px 6px;
+      border-radius: 4px;
+      border: 1px solid #e2e8f0;
+      display: inline-block;
+    }
+
+    /* Unpriced Quote Styling */
+    .no-price-badge {
+      color: #dc2626;
+      font-size: 12px;
+      font-weight: 700;
+    }
+    .no-price-sub {
+      color: #64748b;
+      font-size: 10px;
+      font-weight: 500;
+    }
+    .no-price-link {
+      color: #2563eb;
+      font-size: 10px;
+      text-decoration: underline;
+      display: inline-block;
+      margin-top: 2px;
+      font-weight: 600;
+    }
+
+    /* Table Footer */
+    .tot-label {
+      font-size: 11px;
+      font-weight: 800;
+      color: #0f172a;
+      padding: 6px 8px;
+      border: 1px solid #64748b;
+      background: #e2e8f0;
+      text-transform: uppercase;
+    }
+    .tot-amt {
+      font-size: 12px;
+      font-weight: 800;
+      color: #0f172a;
+      padding: 6px 8px;
+      border: 1px solid #64748b;
+      background: #f8fafc;
+      text-align: right;
+    }
+    .tot-min {
+      font-size: 12px;
+      font-weight: 700;
+      color: #059669;
+      padding: 6px 8px;
+      border: 1px solid #64748b;
+      background: #ecfdf5;
+      text-align: right;
+    }
+
+    /* Commercial Evaluation */
+    .comm-section {
+      margin-top: 8px;
+      padding: 6px;
+      background: #ffffff;
+      border: 1px solid #94a3b8;
+      border-radius: 4px;
+    }
+    .comm-title {
+      font-size: 12px;
+      font-weight: 700;
+      color: #0f172a;
+      margin-bottom: 5px;
+    }
+    .comm-tbl { width: 100%; border-collapse: collapse; border: 1px solid #64748b; }
+    .comm-tbl th {
+      background: #e2e8f0;
+      color: #0f172a;
+      font-size: 11px;
+      font-weight: 700;
+      text-align: left;
+      padding: 5px 8px;
+      border: 1px solid #94a3b8;
+    }
+    .comm-tbl td {
+      padding: 5px 8px;
+      font-size: 11px;
+      border: 1px solid #cbd5e1;
+      color: #0f172a;
+    }
+    .comm-tbl tr.highlight { background: #fefce8; font-weight: 600; }
+    .comm-tbl tr.total-eval {
+      background: #dcfce7;
+      font-weight: 800;
+      font-size: 12px;
+      color: #166534;
+      border-top: 2px solid #15803d;
+      border-bottom: 2px solid #15803d;
+    }
+  </style>
+</head>
+<body>
+
+<div class="container">
+
+  <!-- Top Header Controls -->
+  <div class="top-header">
+    <div class="top-left">
+      <a href="sapevent:TOGGLE_ALL" class="select-all-btn">
+        <span class="radio-box radio-sel"><span class="radio-dot"></span></span>
+        <span>Select All</span>
+      </a>
+      <span class="badge-count">2 selected</span>
+      <span class="badge-count" style="font-size:10px;background:#e2e8f0;color:#334155;">v2.3</span>
+    </div>
+    <div class="top-right">
+      <span class="val-summary">Selected: ₹16,40,000.00</span>
+      <div class="rate-box">
+        <span>Rate:</span>
+        <input type="number" id="inpRate" value="12.00" step="0.25" class="rate-input" />
+        <span>%</span>
+        <button onclick="applyRate()" class="btn-apply">Apply</button>
+      </div>
+      <a href="sapevent:REFRESH" class="btn-refresh">&#128260; Refresh</a>
+      <a href="sapevent:CREATE_PO" class="btn-po">&#128722; Create PO (2)</a>
+    </div>
+  </div>
+
+  <!-- Comparison Grid -->
+  <table class="cmp-table">
+    <thead>
+      <tr>
+        <th style="width: 36px; text-align: center;">Sel</th>
+        <th style="width: 110px;">Material</th>
+        <th style="min-width: 160px;">Material Description</th>
+        <th style="width: 65px; text-align: right;">Qty</th>
+        <th style="min-width: 135px;">
+          <div class="v-hdr-title">Graphite India Ltd</div>
+          <div class="v-hdr-sub">Vendor 0200001249 · RFQ #6000000120</div>
+        </th>
+        <th style="min-width: 135px;">
+          <div class="v-hdr-title">Ceracoats Pvt Ltd</div>
+          <div class="v-hdr-sub">Vendor 0200001250 · RFQ #6000000121</div>
+        </th>
+        <th style="width: 105px; text-align: right; background: #ecfdf5; color: #065f46;">Minimum</th>
+        <th style="width: 135px; background: #eff6ff; color: #1e40af;">Selected Supplier</th>
+      </tr>
+    </thead>
+    <tbody>
+
+      <!-- Line Item 1: Priced on both (Graphite Lowest) -->
+      <tr>
+        <td style="text-align: center; vertical-align: middle;">
+          <a href="sapevent:TOGGLE_ROW?item=00010">
+            <span class="radio-box radio-sel"><span class="radio-dot"></span></span>
+          </a>
+        </td>
+        <td><div class="mat-code">8000006475</div></td>
+        <td><div class="mat-desc">Graphite Condenser, 12m² High Efficiency</div></td>
+        <td style="text-align: right;"><div class="mat-qty">3</div></td>
+        <td style="background: #f0fdf4; border-left: 2px solid #16a34a; border-right: 2px solid #16a34a;">
+          <div style="display: flex; justify-content: space-between; align-items: baseline; gap: 4px;">
+            <span class="quote-amt">&#8377;6,90,000.00</span>
+            <span class="rank-lowest">L1 · Lowest</span>
+          </div>
+          <div class="quote-unit">Per unit: ₹2,30,000.00</div>
+          <div style="margin-top: 3px;">
+            <a href="sapevent:DESELECT?item=00010" class="btn-pill-sel">&#10003; Selected</a>
+          </div>
+        </td>
+        <td>
+          <div style="display: flex; justify-content: space-between; align-items: baseline; gap: 4px;">
+            <span class="quote-amt">&#8377;7,50,000.00</span>
+            <span class="rank-other">L2</span>
+          </div>
+          <div class="quote-unit">Per unit: ₹2,50,000.00</div>
+          <div style="margin-top: 3px;">
+            <a href="sapevent:SELECT?item=00010&col=QUAT2" class="btn-pill-unsel">Select</a>
+          </div>
+        </td>
+        <td style="background: #f0fdf4; text-align: right;">
+          <div style="font-weight: 700; font-size: 13px; color: #15803d;">&#8377;6,90,000.00</div>
+        </td>
+        <td style="background: #f8fafc;">
+          <div style="font-weight: 700; font-size: 12px; color: #0f172a;">Graphite India Ltd</div>
+          <div style="margin-top: 2px;"><span style="font-size: 11px; color: #2563eb; font-weight: 700;">Selected</span></div>
+        </td>
+      </tr>
+
+      <!-- Line Item 2: Priced on both (Ceracoats Lowest) -->
+      <tr>
+        <td style="text-align: center; vertical-align: middle;">
+          <a href="sapevent:TOGGLE_ROW?item=00020">
+            <span class="radio-box radio-sel"><span class="radio-dot"></span></span>
+          </a>
+        </td>
+        <td><div class="mat-code">8000006476</div></td>
+        <td><div class="mat-desc">Graphite Condenser, 15m²</div></td>
+        <td style="text-align: right;"><div class="mat-qty">2</div></td>
+        <td>
+          <div style="display: flex; justify-content: space-between; align-items: baseline; gap: 4px;">
+            <span class="quote-amt">&#8377;10,30,000.00</span>
+            <span class="rank-other">L2</span>
+          </div>
+          <div class="quote-unit">Per unit: ₹5,15,000.00</div>
+          <div style="margin-top: 3px;">
+            <a href="sapevent:SELECT?item=00020&col=QUAT1" class="btn-pill-unsel">Select</a>
+          </div>
+        </td>
+        <td style="background: #f0fdf4; border-left: 2px solid #16a34a; border-right: 2px solid #16a34a;">
+          <div style="display: flex; justify-content: space-between; align-items: baseline; gap: 4px;">
+            <span class="quote-amt">&#8377;9,50,000.00</span>
+            <span class="rank-lowest">L1 · Lowest</span>
+          </div>
+          <div class="quote-unit">Per unit: ₹4,75,000.00</div>
+          <div style="margin-top: 3px;">
+            <a href="sapevent:DESELECT?item=00020" class="btn-pill-sel">&#10003; Selected</a>
+          </div>
+        </td>
+        <td style="background: #f0fdf4; text-align: right;">
+          <div style="font-weight: 700; font-size: 13px; color: #15803d;">&#8377;9,50,000.00</div>
+        </td>
+        <td style="background: #f8fafc;">
+          <div style="font-weight: 700; font-size: 12px; color: #0f172a;">Ceracoats Pvt Ltd</div>
+          <div style="margin-top: 2px;"><span style="font-size: 11px; color: #2563eb; font-weight: 700;">Selected</span></div>
+        </td>
+      </tr>
+
+      <!-- Line Item 3: Price NOT maintained in Quotation for Graphite India (Shows 'No Price') -->
+      <tr>
+        <td style="text-align: center; vertical-align: middle;">
+          <a href="sapevent:TOGGLE_ROW?item=00030">
+            <span class="radio-box radio-unsel"></span>
+          </a>
+        </td>
+        <td><div class="mat-code">8000006478</div></td>
+        <td><div class="mat-desc">Graphite Condenser, 22m² Custom Alloy</div></td>
+        <td style="text-align: right;"><div class="mat-qty">2</div></td>
+        <td style="background: #fff1f2; text-align: center;">
+          <div class="no-price-badge">No Price</div>
+          <div class="no-price-sub">Price not maintained</div>
+          <a href="sapevent:ME47?ebeln=6000000120" class="no-price-link">&#9998; Maintain ME47</a>
+        </td>
+        <td style="background: #f0fdf4; border-left: 2px solid #16a34a; border-right: 2px solid #16a34a;">
+          <div style="display: flex; justify-content: space-between; align-items: baseline; gap: 4px;">
+            <span class="quote-amt">&#8377;12,00,000.00</span>
+            <span class="rank-lowest">L1 · Lowest</span>
+          </div>
+          <div class="quote-unit">Per unit: ₹6,00,000.00</div>
+          <div style="margin-top: 3px;">
+            <a href="sapevent:SELECT?item=00030&col=QUAT2" class="btn-pill-unsel">Select</a>
+          </div>
+        </td>
+        <td style="background: #f0fdf4; text-align: right;">
+          <div style="font-weight: 700; font-size: 13px; color: #15803d;">&#8377;12,00,000.00</div>
+        </td>
+        <td style="background: #f8fafc; text-align: center;">
+          <span style="color: #94a3b8;">—</span>
+        </td>
+      </tr>
+
+    </tbody>
+    <tfoot>
+      <tr>
+        <td colspan="4" class="tot-label">Total quotation amount</td>
+        <td class="tot-amt">&#8377;17,20,000.00</td>
+        <td class="tot-amt">&#8377;29,00,000.00</td>
+        <td class="tot-min">—</td>
+        <td class="tot-amt" style="color: #2563eb;">&#8377;16,40,000.00</td>
+      </tr>
+    </tfoot>
+  </table>
+
+  <!-- Commercial Evaluation & Financing Analysis -->
+  <div class="comm-section">
+    <div class="comm-title">Commercial Evaluation & Financing Analysis (12.00% Interest Rate)</div>
+    <table class="comm-tbl">
+      <thead>
+        <tr>
+          <th>Commercial Parameter</th>
+          <th>Graphite India Ltd<br><small style="font-weight: 500; color: #64748b;">RFQ #6000000120</small></th>
+          <th>Ceracoats Pvt Ltd<br><small style="font-weight: 500; color: #64748b;">RFQ #6000000121</small></th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>Incoterms</td>
+          <td>FOR Site</td>
+          <td>Ex Works</td>
+        </tr>
+        <tr>
+          <td>Payment Terms</td>
+          <td>Within 30 days due net</td>
+          <td>Within 60 days due net</td>
+        </tr>
+        <tr>
+          <td>Credit Days</td>
+          <td>30 Days</td>
+          <td>60 Days</td>
+        </tr>
+        <tr class="highlight">
+          <td><strong>Financing / Interest Cost (12.00%)</strong></td>
+          <td style="text-align: right;">&#8377;16,964.38</td>
+          <td style="text-align: right;">&#8377;0.00</td>
+        </tr>
+        <tr class="total-eval">
+          <td><strong>Net Commercial Landed Evaluation</strong></td>
+          <td style="text-align: right;"><strong>&#8377;17,36,964.38</strong></td>
+          <td style="text-align: right;"><strong>&#8377;29,00,000.00</strong></td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+</div>
+
+<script>
+  function applyRate() {
+    var val = document.getElementById("inpRate").value;
+    if (val && !isNaN(val)) {
+      window.location.href = "sapevent:SET_RATE?rate=" + encodeURIComponent(val);
+    }
+  }
+</script>
+
+</body>
+</html>

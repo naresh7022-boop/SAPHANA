@@ -1,0 +1,1307 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Quotation Price Comparison Dashboard & ALV Simulation (ZPQC_NEW v3.1)</title>
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+    html, body {
+      margin: 0;
+      padding: 6px;
+      background: #f1f5f9;
+      width: 100%;
+      box-sizing: border-box;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      color: #0f172a;
+      font-size: 12px;
+    }
+
+    .container {
+      width: 100%;
+      max-width: 100%;
+      margin: 0;
+      padding: 0;
+    }
+
+    /* Simulation Control Banner */
+    .sim-bar {
+      background: #0f172a;
+      color: #ffffff;
+      padding: 8px 14px;
+      border-radius: 6px;
+      margin-bottom: 8px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 10px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.15);
+    }
+    .sim-title {
+      font-weight: 700;
+      font-size: 13px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .sim-controls {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+    .sim-group {
+      display: inline-flex;
+      background: #1e293b;
+      padding: 2px;
+      border-radius: 6px;
+      gap: 2px;
+      border: 1px solid #334155;
+    }
+    .sim-btn {
+      border: none;
+      padding: 4px 10px;
+      border-radius: 4px;
+      font-size: 11px;
+      font-weight: 600;
+      cursor: pointer;
+      color: #94a3b8;
+      background: transparent;
+      transition: all 0.15s;
+    }
+    .sim-btn.active {
+      background: #2563eb;
+      color: #ffffff;
+      font-weight: 700;
+      box-shadow: 0 1px 2px rgba(0,0,0,0.25);
+    }
+    .sim-btn.active.green {
+      background: #059669;
+    }
+    .sim-btn.active.amber {
+      background: #d97706;
+    }
+
+    /* Top Controls Header */
+    .top-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 6px 12px;
+      background: #ffffff;
+      border: 1px solid #94a3b8;
+      border-radius: 4px;
+      margin-bottom: 6px;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+    .top-left {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+    .top-right {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .select-all-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 12px;
+      font-weight: 600;
+      color: #1e293b;
+      text-decoration: none;
+      cursor: pointer;
+    }
+    .radio-box {
+      width: 14px;
+      height: 14px;
+      border-radius: 50%;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      box-sizing: border-box;
+      flex-shrink: 0;
+    }
+    .radio-sel {
+      border: 2px solid #2563eb;
+      background: #ffffff;
+    }
+    .radio-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: #2563eb;
+    }
+    .radio-unsel {
+      border: 2px solid #94a3b8;
+      background: #ffffff;
+    }
+
+    .badge-count {
+      background: #f1f5f9;
+      color: #334155;
+      font-size: 11px;
+      font-weight: 600;
+      padding: 2px 8px;
+      border-radius: 12px;
+      display: inline-block;
+      border: 1px solid #cbd5e1;
+    }
+    .val-summary {
+      font-size: 13px;
+      font-weight: 700;
+      color: #0f172a;
+    }
+    .rate-box {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      font-size: 11px;
+      font-weight: 600;
+      color: #334155;
+      background: #f8fafc;
+      padding: 2px 6px;
+      border-radius: 4px;
+      border: 1px solid #cbd5e1;
+    }
+    .rate-input {
+      width: 48px;
+      font-size: 11px;
+      font-weight: 600;
+      padding: 1px 3px;
+      border: 1px solid #94a3b8;
+      border-radius: 3px;
+      text-align: right;
+    }
+    .btn-apply {
+      background: #0284c7;
+      color: #ffffff;
+      border: none;
+      border-radius: 3px;
+      padding: 2px 6px;
+      font-size: 10px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    .btn-refresh {
+      background: #475569;
+      color: #ffffff;
+      font-size: 11px;
+      font-weight: 600;
+      padding: 3px 8px;
+      border-radius: 4px;
+      text-decoration: none;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      border: 1px solid #334155;
+      cursor: pointer;
+    }
+    .btn-po {
+      background: #16a34a;
+      color: #ffffff;
+      font-size: 11px;
+      font-weight: 700;
+      padding: 3px 10px;
+      border-radius: 4px;
+      text-decoration: none;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      border: 1px solid #15803d;
+      cursor: pointer;
+    }
+    .btn-po-disabled {
+      background: #cbd5e1;
+      color: #64748b;
+      font-size: 11px;
+      font-weight: 700;
+      padding: 3px 10px;
+      border-radius: 4px;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      border: 1px solid #94a3b8;
+      cursor: not-allowed;
+    }
+    .btn-appr-submit {
+      background: #f59e0b;
+      color: #ffffff;
+      font-size: 11px;
+      font-weight: 700;
+      padding: 3px 10px;
+      border-radius: 4px;
+      text-decoration: none;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      border: 1px solid #d97706;
+      cursor: pointer;
+    }
+    .btn-reject {
+      background: #dc2626;
+      color: #ffffff;
+      font-size: 11px;
+      font-weight: 700;
+      padding: 3px 10px;
+      border-radius: 4px;
+      text-decoration: none;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      border: 1px solid #b91c1c;
+      cursor: pointer;
+    }
+
+    /* Comparison Table Styling */
+    .table-wrapper {
+      width: 100%;
+      overflow-x: auto;
+      background: #ffffff;
+      border: 1px solid #64748b;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+    }
+    table.cmp-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 11px;
+      background: #ffffff;
+    }
+    table.cmp-table th {
+      background: #1e293b;
+      color: #ffffff;
+      font-weight: 700;
+      font-size: 11px;
+      padding: 5px 8px;
+      border: 1px solid #475569;
+      text-align: left;
+      vertical-align: middle;
+    }
+    table.cmp-table td {
+      padding: 4px 6px;
+      border: 1px solid #cbd5e1;
+      vertical-align: top;
+      color: #0f172a;
+    }
+    table.cmp-table tbody tr:hover {
+      background-color: #f8fafc;
+    }
+    .v-hdr-title {
+      font-weight: 700;
+      font-size: 12px;
+      color: #ffffff;
+    }
+    .v-hdr-sub {
+      font-weight: 400;
+      font-size: 10px;
+      color: #94a3b8;
+    }
+    .mat-code {
+      font-family: monospace;
+      font-weight: 700;
+      color: #0f172a;
+      font-size: 11px;
+    }
+    .mat-desc {
+      font-weight: 600;
+      color: #334155;
+      line-height: 1.25;
+    }
+    .mat-qty {
+      font-weight: 700;
+      color: #0f172a;
+      white-space: nowrap;
+    }
+    .quote-amt {
+      font-weight: 700;
+      font-size: 12px;
+      color: #0f172a;
+    }
+    .quote-unit {
+      font-size: 10px;
+      color: #64748b;
+      margin-top: 1px;
+    }
+    .rank-lowest {
+      background: #dcfce7;
+      color: #166534;
+      font-size: 9px;
+      font-weight: 800;
+      padding: 1px 5px;
+      border-radius: 8px;
+      display: inline-block;
+      text-transform: uppercase;
+      letter-spacing: 0.3px;
+      border: 1px solid #86efac;
+    }
+    .rank-other {
+      background: #f1f5f9;
+      color: #475569;
+      font-size: 9px;
+      font-weight: 700;
+      padding: 1px 5px;
+      border-radius: 8px;
+      display: inline-block;
+      border: 1px solid #cbd5e1;
+    }
+    .btn-pill-sel {
+      background: #2563eb;
+      color: #ffffff;
+      font-size: 10px;
+      font-weight: 700;
+      padding: 2px 8px;
+      border-radius: 4px;
+      border: 1px solid #1d4ed8;
+      text-decoration: none;
+      display: inline-block;
+    }
+    .btn-pill-unsel {
+      background: #ffffff;
+      color: #334155;
+      font-size: 10px;
+      font-weight: 600;
+      padding: 2px 8px;
+      border-radius: 4px;
+      border: 1px solid #cbd5e1;
+      text-decoration: none;
+      display: inline-block;
+      cursor: pointer;
+    }
+    .btn-pill-unsel:hover {
+      background: #f8fafc;
+      border-color: #94a3b8;
+    }
+    .btn-po-link {
+      background: #059669;
+      color: #ffffff;
+      font-size: 10px;
+      font-weight: 700;
+      padding: 2px 8px;
+      border-radius: 4px;
+      text-decoration: none;
+      display: inline-block;
+    }
+
+    .tot-label {
+      font-size: 11px;
+      font-weight: 800;
+      color: #0f172a;
+      padding: 6px 8px;
+      border: 1px solid #64748b;
+      background: #e2e8f0;
+      text-transform: uppercase;
+    }
+    .tot-amt {
+      font-size: 12px;
+      font-weight: 800;
+      color: #0f172a;
+      padding: 6px 8px;
+      border: 1px solid #64748b;
+      background: #f8fafc;
+      text-align: right;
+    }
+    .tot-min {
+      font-size: 12px;
+      font-weight: 700;
+      color: #059669;
+      padding: 6px 8px;
+      border: 1px solid #64748b;
+      background: #ecfdf5;
+      text-align: right;
+    }
+
+    /* Classical ALV Matrix View Styling */
+    .alv-matrix-box {
+      display: none;
+      background: #f8fafc;
+      border: 1px solid #64748b;
+      padding: 8px;
+      border-radius: 4px;
+      margin-top: 6px;
+    }
+    .alv-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-family: 'Consolas', 'Courier New', monospace;
+      font-size: 11px;
+      background: #ffffff;
+      border: 1px solid #94a3b8;
+    }
+    .alv-table th {
+      background: #e2e8f0;
+      color: #1e293b;
+      padding: 4px 6px;
+      border: 1px solid #94a3b8;
+      font-weight: 700;
+      text-align: left;
+    }
+    .alv-table td {
+      padding: 3px 6px;
+      border: 1px solid #cbd5e1;
+      white-space: nowrap;
+    }
+    .alv-hdr-row {
+      background: #e0f2fe;
+      font-weight: 700;
+    }
+    .alv-sep-row {
+      background: #fef08a;
+      height: 4px;
+    }
+    .alv-val-row {
+      background: #ffffff;
+    }
+    .alv-rank-row {
+      background: #f8fafc;
+      color: #475569;
+    }
+    .alv-appr-row {
+      background: #f1f5f9;
+      font-weight: 700;
+    }
+    .alv-hotspot {
+      color: #1d4ed8;
+      text-decoration: underline;
+      cursor: pointer;
+    }
+    .alv-hotspot:hover {
+      color: #0369a1;
+      background: #e0f2fe;
+    }
+    .alv-green-cell {
+      background: #86efac !important;
+      color: #14532d !important;
+      font-weight: 800;
+      text-align: center;
+    }
+    .alv-yellow-cell {
+      background: #fde047 !important;
+      color: #713f12 !important;
+      font-weight: 800;
+      text-align: center;
+    }
+    .alv-blue-cell {
+      background: #bae6fd !important;
+      color: #0369a1 !important;
+      font-weight: 700;
+      text-align: center;
+    }
+
+    /* Explanation Notice */
+    .workflow-rule-card {
+      background: #f8fafc;
+      border: 1px solid #94a3b8;
+      border-radius: 4px;
+      padding: 10px 14px;
+      margin-top: 10px;
+      font-size: 11.5px;
+      color: #1e293b;
+      line-height: 1.5;
+    }
+    .rule-badge {
+      display: inline-block;
+      padding: 2px 6px;
+      border-radius: 3px;
+      font-size: 10px;
+      font-weight: 700;
+      margin-right: 4px;
+    }
+  </style>
+</head>
+<body>
+
+<div class="container">
+
+  <!-- Interactive Controls Bar -->
+  <div class="sim-bar">
+    <div class="sim-title">
+      <span>🛡️ ZPQC_NEW v3.1 Comparison & Approval Process Simulation</span>
+      <span style="font-size:11px;font-weight:400;color:#94a3b8;">Collective RFQ: #4000000000 · 3 PO Created</span>
+    </div>
+    <div class="sim-controls">
+      <!-- View Switcher -->
+      <div class="sim-group">
+        <button class="sim-btn active" id="btnViewHtml" onclick="switchView('HTML')">🖥️ Modern HTML View</button>
+        <button class="sim-btn" id="btnViewAlv" onclick="switchView('ALV')">📊 ALV Matrix List (AVL)</button>
+      </div>
+
+      <!-- Item 4 Approval State Simulator -->
+      <div class="sim-group">
+        <button class="sim-btn active amber" id="btnStatePending" onclick="setItemState('PENDING')">⏳ Item In Approval (Locked)</button>
+        <button class="sim-btn" id="btnStateApproved" onclick="setItemState('APPROVED')">✓ Item Approved (Create PO Only)</button>
+      </div>
+
+      <!-- User Role Switcher -->
+      <div class="sim-group">
+        <button class="sim-btn active" id="btnRoleUser" onclick="setRole('USER')">👤 Requester (NARESH)</button>
+        <button class="sim-btn" id="btnRoleApprover" onclick="setRole('APPROVER')">🛡️ HOD Approver (DIPAK)</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== VIEW 1: MODERN HTML VIEW ==================== -->
+  <div id="htmlViewContainer">
+    <!-- Top Header Controls -->
+    <div class="top-header">
+      <div class="top-left">
+        <a href="javascript:void(0)" class="select-all-btn">
+          <span class="radio-box radio-sel"><span class="radio-dot"></span></span>
+          <span>Select All</span>
+        </a>
+        <span class="badge-count">4 selected</span>
+        <span class="badge-count" style="font-size:10px;background:#e2e8f0;color:#334155;">v3.1</span>
+        <span class="badge-count" style="background:#ecfdf5;color:#065f46;border:1px solid #a7f3d0;">✓ 3 PO Done</span>
+        
+        <!-- Dynamic Role Badge -->
+        <span id="roleBadgeContainer"></span>
+        
+        <span class="badge-count" style="font-size:10px;background:#f8fafc;color:#334155;border:1px solid #cbd5e1;">HOD: Dipak Patel (DIPAK)</span>
+      </div>
+
+      <div class="top-right">
+        <span class="val-summary">Selected: &#8377;33,60,000.00</span>
+        <div class="rate-box">
+          <span>Rate:</span>
+          <input type="number" id="inpRate" value="12.00" step="0.25" class="rate-input" />
+          <span>%</span>
+          <button onclick="alert('Rate applied: 12.00%')" class="btn-apply">Apply</button>
+        </div>
+        <a href="javascript:void(0)" onclick="location.reload()" class="btn-refresh">&#128260; Refresh</a>
+
+        <!-- Dynamic Header Actions based on Role and Status -->
+        <span id="roleActionsContainer"></span>
+      </div>
+    </div>
+
+    <!-- Comparison Grid Table -->
+    <div class="table-wrapper">
+    <table class="cmp-table">
+      <thead>
+        <tr>
+          <th style="width: 38px; text-align: center; vertical-align: middle;">Sel</th>
+          <th style="width: 48px; text-align: center;">Item</th>
+          <th style="width: 110px; white-space: nowrap;">Material</th>
+          <th style="min-width: 160px;">Material Description</th>
+          <th style="width: 75px; text-align: right; white-space: nowrap;">Qty</th>
+          <th style="min-width: 155px;">
+            <div class="v-hdr-title">Graphite India Ltd</div>
+            <div class="v-hdr-sub">Vendor 0200001249 · RFQ #6000000120</div>
+          </th>
+          <th style="min-width: 155px;">
+            <div class="v-hdr-title">Ceracoats Pvt Ltd</div>
+            <div class="v-hdr-sub">Vendor 0200001250 · RFQ #6000000121</div>
+          </th>
+          <th style="min-width: 165px; background: #064e3b; color: #ecfdf5; border-left: 2px solid #10b981;">
+            <div class="v-hdr-title" style="color: #a7f3d0;">System Suggested (L1)</div>
+            <div class="v-hdr-sub" style="color: #6ee7b7;">Lowest Evaluated Quote</div>
+          </th>
+          <th style="min-width: 185px; background: #1e3a8a; color: #dbeafe; border-left: 2px solid #3b82f6;">
+            <div class="v-hdr-title" style="color: #bfdbfe;">User Suggested</div>
+            <div class="v-hdr-sub" style="color: #93c5fd;">Selected Supplier & Reason</div>
+          </th>
+        </tr>
+      </thead>
+      <tbody>
+
+        <!-- Line Item 1: PO CREATED -->
+        <tr>
+          <td style="text-align: center; vertical-align: middle;">
+            <span style="display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;border-radius:50%;background:#dcfce7;color:#166534;font-size:11px;font-weight:800;">✓</span>
+          </td>
+          <td style="text-align: center; font-weight: 600; color: #64748b;">00010</td>
+          <td><div class="mat-code">8000006475</div></td>
+          <td><div class="mat-desc">Graphite Condenser, 12m² High Efficiency</div></td>
+          <td style="text-align: right;"><div class="mat-qty">3 EA</div></td>
+          <td style="background: #f0fdf4; border-left: 2px solid #16a34a; border-right: 2px solid #16a34a;">
+            <div style="display: flex; justify-content: space-between; align-items: baseline; gap: 4px;">
+              <span class="quote-amt">&#8377;6,90,000.00</span>
+              <span class="rank-lowest">L1 · Lowest</span>
+            </div>
+            <div class="quote-unit">Rate: &#8377;2,30,000.00 / EA</div>
+            <div style="margin-top: 3px;">
+              <span class="btn-po-link">✓ PO 4500021310</span>
+            </div>
+          </td>
+          <td>
+            <div style="display: flex; justify-content: space-between; align-items: baseline; gap: 4px;">
+              <span class="quote-amt">&#8377;7,50,000.00</span>
+              <span class="rank-other">L2</span>
+            </div>
+            <div class="quote-unit">Rate: &#8377;2,50,000.00 / EA</div>
+          </td>
+          <td style="background: #f0fdf4; border-left: 2px solid #10b981;">
+            <div style="font-weight: 700; font-size: 12px; color: #065f46;">Graphite India Ltd</div>
+            <div style="font-size: 10px; color: #047857;">RFQ #6000000120</div>
+            <div style="display: flex; justify-content: space-between; align-items: baseline; margin-top: 2px;">
+              <span style="font-weight: 700; font-size: 12px; color: #15803d;">&#8377;6,90,000.00</span>
+              <span class="rank-lowest">L1 · Lowest</span>
+            </div>
+            <div class="quote-unit">Rate: &#8377;2,30,000.00 / EA</div>
+          </td>
+          <td style="background: #f0fdf4; border-left: 3px solid #16a34a;">
+            <div style="font-weight: 700; font-size: 12px; color: #1e40af;">Graphite India Ltd</div>
+            <div style="font-size: 10px; color: #2563eb;">RFQ #6000000120</div>
+            <div style="display: flex; justify-content: space-between; align-items: baseline; margin-top: 2px;">
+              <span style="font-weight: 700; font-size: 12px; color: #0f172a;">&#8377;6,90,000.00</span>
+              <span class="rank-lowest" style="background:#dcfce7;color:#15803d;border:1px solid #86efac;">✓ Matches L1</span>
+            </div>
+            <div class="quote-unit">Rate: &#8377;2,30,000.00 / EA</div>
+            <div style="display: flex; align-items: center; gap: 6px; margin-top: 4px;">
+              <span style="background:#16a34a;color:#ffffff;padding:2px 8px;border-radius:3px;font-weight:700;font-size:10px;">✓ PO Created</span>
+              <span class="btn-po-link">✓ PO 4500021310</span>
+            </div>
+          </td>
+        </tr>
+
+        <!-- Line Item 2: PO CREATED -->
+        <tr>
+          <td style="text-align: center; vertical-align: middle;">
+            <span style="display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;border-radius:50%;background:#dcfce7;color:#166534;font-size:11px;font-weight:800;">✓</span>
+          </td>
+          <td style="text-align: center; font-weight: 600; color: #64748b;">00020</td>
+          <td><div class="mat-code">8000006476</div></td>
+          <td><div class="mat-desc">Graphite Condenser, 15m² Special Duty</div></td>
+          <td style="text-align: right;"><div class="mat-qty">2 EA</div></td>
+          <td>
+            <div style="display: flex; justify-content: space-between; align-items: baseline; gap: 4px;">
+              <span class="quote-amt">&#8377;10,30,000.00</span>
+              <span class="rank-other">L2</span>
+            </div>
+            <div class="quote-unit">Rate: &#8377;5,15,000.00 / EA</div>
+          </td>
+          <td style="background: #f0fdf4; border-left: 2px solid #16a34a; border-right: 2px solid #16a34a;">
+            <div style="display: flex; justify-content: space-between; align-items: baseline; gap: 4px;">
+              <span class="quote-amt">&#8377;9,50,000.00</span>
+              <span class="rank-lowest">L1 · Lowest</span>
+            </div>
+            <div class="quote-unit">Rate: &#8377;4,75,000.00 / EA</div>
+            <div style="margin-top: 3px;">
+              <span class="btn-po-link">✓ PO 4500021311</span>
+            </div>
+          </td>
+          <td style="background: #f0fdf4; border-left: 2px solid #10b981;">
+            <div style="font-weight: 700; font-size: 12px; color: #065f46;">Ceracoats Pvt Ltd</div>
+            <div style="font-size: 10px; color: #047857;">RFQ #6000000121</div>
+            <div style="display: flex; justify-content: space-between; align-items: baseline; margin-top: 2px;">
+              <span style="font-weight: 700; font-size: 12px; color: #15803d;">&#8377;9,50,000.00</span>
+              <span class="rank-lowest">L1 · Lowest</span>
+            </div>
+            <div class="quote-unit">Rate: &#8377;4,75,000.00 / EA</div>
+          </td>
+          <td style="background: #f0fdf4; border-left: 3px solid #16a34a;">
+            <div style="font-weight: 700; font-size: 12px; color: #1e40af;">Ceracoats Pvt Ltd</div>
+            <div style="font-size: 10px; color: #2563eb;">RFQ #6000000121</div>
+            <div style="display: flex; justify-content: space-between; align-items: baseline; margin-top: 2px;">
+              <span style="font-weight: 700; font-size: 12px; color: #0f172a;">&#8377;9,50,000.00</span>
+              <span class="rank-lowest" style="background:#dcfce7;color:#15803d;border:1px solid #86efac;">✓ Matches L1</span>
+            </div>
+            <div class="quote-unit">Rate: &#8377;4,75,000.00 / EA</div>
+            <div style="display: flex; align-items: center; gap: 6px; margin-top: 4px;">
+              <span style="background:#16a34a;color:#ffffff;padding:2px 8px;border-radius:3px;font-weight:700;font-size:10px;">✓ PO Created</span>
+              <span class="btn-po-link">✓ PO 4500021311</span>
+            </div>
+          </td>
+        </tr>
+
+        <!-- Line Item 3: PO CREATED -->
+        <tr>
+          <td style="text-align: center; vertical-align: middle;">
+            <span style="display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;border-radius:50%;background:#dcfce7;color:#166534;font-size:11px;font-weight:800;">✓</span>
+          </td>
+          <td style="text-align: center; font-weight: 600; color: #64748b;">00030</td>
+          <td><div class="mat-code">8000006478</div></td>
+          <td><div class="mat-desc">Graphite Condenser, 22m² Custom Alloy</div></td>
+          <td style="text-align: right;"><div class="mat-qty">2 EA</div></td>
+          <td style="background: #fff1f2; text-align: center;">
+            <div style="color: #dc2626; font-weight: 700;">No Price</div>
+            <div style="color: #64748b; font-size: 10px;">Price not quoted</div>
+          </td>
+          <td style="background: #f0fdf4; border-left: 2px solid #16a34a; border-right: 2px solid #16a34a;">
+            <div style="display: flex; justify-content: space-between; align-items: baseline; gap: 4px;">
+              <span class="quote-amt">&#8377;12,60,000.00</span>
+              <span class="rank-lowest">L1 · Lowest</span>
+            </div>
+            <div class="quote-unit">Rate: &#8377;6,30,000.00 / EA</div>
+            <div style="margin-top: 3px;">
+              <span class="btn-po-link">✓ PO 4500021312</span>
+            </div>
+          </td>
+          <td style="background: #f0fdf4; border-left: 2px solid #10b981;">
+            <div style="font-weight: 700; font-size: 12px; color: #065f46;">Ceracoats Pvt Ltd</div>
+            <div style="font-size: 10px; color: #047857;">RFQ #6000000121</div>
+            <div style="display: flex; justify-content: space-between; align-items: baseline; margin-top: 2px;">
+              <span style="font-weight: 700; font-size: 12px; color: #15803d;">&#8377;12,60,000.00</span>
+              <span class="rank-lowest">L1 · Lowest</span>
+            </div>
+            <div class="quote-unit">Rate: &#8377;6,30,000.00 / EA</div>
+          </td>
+          <td style="background: #f0fdf4; border-left: 3px solid #16a34a;">
+            <div style="font-weight: 700; font-size: 12px; color: #1e40af;">Ceracoats Pvt Ltd</div>
+            <div style="font-size: 10px; color: #2563eb;">RFQ #6000000121</div>
+            <div style="display: flex; justify-content: space-between; align-items: baseline; margin-top: 2px;">
+              <span style="font-weight: 700; font-size: 12px; color: #0f172a;">&#8377;12,60,000.00</span>
+              <span class="rank-lowest" style="background:#dcfce7;color:#15803d;border:1px solid #86efac;">✓ Matches L1</span>
+            </div>
+            <div class="quote-unit">Rate: &#8377;6,30,000.00 / EA</div>
+            <div style="display: flex; align-items: center; gap: 6px; margin-top: 4px;">
+              <span style="background:#16a34a;color:#ffffff;padding:2px 8px;border-radius:3px;font-weight:700;font-size:10px;">✓ PO Created</span>
+              <span class="btn-po-link">✓ PO 4500021312</span>
+            </div>
+          </td>
+        </tr>
+
+        <!-- Line Item 4: DYNAMIC SIMULATION OF ITEM 4 (PENDING vs APPROVED) -->
+        <tr id="htmlItem4Row">
+          <!-- Populated by setItemState() -->
+        </tr>
+
+      </tbody>
+      <tfoot>
+        <tr>
+          <td colspan="5" class="tot-label">Total quotation amount</td>
+          <td class="tot-amt">&#8377;21,30,000.00</td>
+          <td class="tot-amt">&#8377;34,20,000.00</td>
+          <td class="tot-min" style="border-left: 2px solid #10b981;">&#8377;33,10,000.00</td>
+          <td class="tot-amt" style="border-left: 2px solid #3b82f6; color: #2563eb;">&#8377;33,60,000.00</td>
+        </tr>
+      </tfoot>
+    </table>
+    </div>
+  </div>
+
+  <!-- ==================== VIEW 2: CLASSICAL ALV GRID (AVL LIST) VIEW ==================== -->
+  <div id="alvViewContainer" class="alv-matrix-box">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;padding:4px 8px;background:#e2e8f0;border:1px solid #94a3b8;border-radius:3px;">
+      <span style="font-weight:700;color:#1e293b;">📋 Classical SAP ALV List Display (REUSE_ALV_LIST_DISPLAY) · Full Approval Workflow Active</span>
+      <span style="font-size:11px;color:#475569;">Program: ZMM_R_ME49N · T-Code: ZPQC_NEW</span>
+    </div>
+
+    <table class="alv-table">
+      <thead>
+        <tr>
+          <th style="width:110px;">Select (SEL)</th>
+          <th style="width:110px;">Material</th>
+          <th style="width:220px;">Short Text (MAKTX)</th>
+          <th style="width:70px;">Quot</th>
+          <th style="width:160px;">0200001249 (QUAT1)</th>
+          <th style="width:160px;">0200001250 (QUAT2)</th>
+          <th style="width:110px;">Mean</th>
+          <th style="width:110px;">Minimum</th>
+          <th style="width:180px;">Action (PO_ACTION)</th>
+        </tr>
+      </thead>
+      <tbody>
+        <!-- Row 1: Quotation Numbers & Create PO -->
+        <tr class="alv-hdr-row">
+          <td>@01@ [X]All</td>
+          <td>Material</td>
+          <td>Short Text</td>
+          <td>Quot</td>
+          <td class="alv-hotspot" onclick="alert('ME47 opened for RFQ 6000000120')">6000000120</td>
+          <td class="alv-hotspot" onclick="alert('ME47 opened for RFQ 6000000121')">6000000121</td>
+          <td>Mean</td>
+          <td>Minimum</td>
+          <td id="alvRow1Action" class="alv-hotspot" style="font-weight:800;">@15@ Create PO (1)</td>
+        </tr>
+
+        <!-- Row 2: Supplier Names & Send to HOD / Approve All -->
+        <tr class="alv-hdr-row">
+          <td></td>
+          <td></td>
+          <td>Supplier Name</td>
+          <td></td>
+          <td>Graphite India Ltd</td>
+          <td>Ceracoats Pvt Ltd</td>
+          <td></td>
+          <td></td>
+          <td id="alvRow2Action" class="alv-hotspot" style="font-weight:800;">@2L@ Send to HOD</td>
+        </tr>
+
+        <!-- Row 3: Collective No & Refresh -->
+        <tr class="alv-hdr-row">
+          <td></td>
+          <td></td>
+          <td>Coll. No.</td>
+          <td></td>
+          <td>4000000000</td>
+          <td>4000000000</td>
+          <td></td>
+          <td></td>
+          <td class="alv-hotspot" onclick="alert('Quotation comparison data refreshed.')">@42@ Refresh Data</td>
+        </tr>
+
+        <!-- Row 4: Quotation Ref No & Reject All -->
+        <tr class="alv-hdr-row">
+          <td></td>
+          <td></td>
+          <td>Quotation Ref. No.</td>
+          <td></td>
+          <td>GIL-2026-99</td>
+          <td>CERA-882</td>
+          <td></td>
+          <td></td>
+          <td id="alvRow4Action" class="alv-hotspot" style="color:#b91c1c;font-weight:800;"></td>
+        </tr>
+
+        <!-- Item 00010 (PO 4500021310 Created) -->
+        <tr class="alv-sep-row"><td colspan="9"></td></tr>
+        <tr class="alv-val-row">
+          <td>@02@ Created</td>
+          <td>8000006475</td>
+          <td>Graphite Condenser, 12m²</td>
+          <td>Val:</td>
+          <td>690000.00</td>
+          <td>750000.00</td>
+          <td>720000.00</td>
+          <td>690000.00</td>
+          <td class="alv-hotspot" onclick="alert('Opening ME23N for PO 4500021310')">@0V@ PO 4500021310</td>
+        </tr>
+        <tr class="alv-rank-row">
+          <td></td>
+          <td></td>
+          <td></td>
+          <td>Rank:</td>
+          <td class="alv-green-cell">1 (L1)</td>
+          <td>2</td>
+          <td></td>
+          <td></td>
+          <td></td>
+        </tr>
+        <tr class="alv-appr-row">
+          <td></td>
+          <td></td>
+          <td></td>
+          <td>Approved</td>
+          <td class="alv-green-cell">[PO Done]</td>
+          <td>[ ]</td>
+          <td></td>
+          <td></td>
+          <td></td>
+        </tr>
+
+        <!-- Item 00020 (PO 4500021311 Created) -->
+        <tr class="alv-sep-row"><td colspan="9"></td></tr>
+        <tr class="alv-val-row">
+          <td>@02@ Created</td>
+          <td>8000006476</td>
+          <td>Graphite Condenser, 15m²</td>
+          <td>Val:</td>
+          <td>1030000.00</td>
+          <td>950000.00</td>
+          <td>990000.00</td>
+          <td>950000.00</td>
+          <td class="alv-hotspot" onclick="alert('Opening ME23N for PO 4500021311')">@0V@ PO 4500021311</td>
+        </tr>
+        <tr class="alv-rank-row">
+          <td></td>
+          <td></td>
+          <td></td>
+          <td>Rank:</td>
+          <td>2</td>
+          <td class="alv-green-cell">1 (L1)</td>
+          <td></td>
+          <td></td>
+          <td></td>
+        </tr>
+        <tr class="alv-appr-row">
+          <td></td>
+          <td></td>
+          <td></td>
+          <td>Approved</td>
+          <td>[ ]</td>
+          <td class="alv-green-cell">[PO Done]</td>
+          <td></td>
+          <td></td>
+          <td></td>
+        </tr>
+
+        <!-- Item 00030 (PO 4500021312 Created) -->
+        <tr class="alv-sep-row"><td colspan="9"></td></tr>
+        <tr class="alv-val-row">
+          <td>@02@ Created</td>
+          <td>8000006478</td>
+          <td>Graphite Condenser, 22m²</td>
+          <td>Val:</td>
+          <td style="color:#dc2626;">No Price</td>
+          <td>1260000.00</td>
+          <td>1260000.00</td>
+          <td>1260000.00</td>
+          <td class="alv-hotspot" onclick="alert('Opening ME23N for PO 4500021312')">@0V@ PO 4500021312</td>
+        </tr>
+        <tr class="alv-rank-row">
+          <td></td>
+          <td></td>
+          <td></td>
+          <td>Rank:</td>
+          <td>No Price</td>
+          <td class="alv-green-cell">1 (L1)</td>
+          <td></td>
+          <td></td>
+          <td></td>
+        </tr>
+        <tr class="alv-appr-row">
+          <td></td>
+          <td></td>
+          <td></td>
+          <td>Approved</td>
+          <td>[ ]</td>
+          <td class="alv-green-cell">[PO Done]</td>
+          <td></td>
+          <td></td>
+          <td></td>
+        </tr>
+
+        <!-- Item 00040 (Dynamic ALV Row: In Approval vs Approved) -->
+        <tr class="alv-sep-row"><td colspan="9"></td></tr>
+        <tr id="alvItem4ValRow" class="alv-val-row">
+          <!-- Populated by updateAlvDisplay() -->
+        </tr>
+        <tr class="alv-rank-row">
+          <td></td>
+          <td></td>
+          <td></td>
+          <td>Rank:</td>
+          <td class="alv-green-cell">1 (L1)</td>
+          <td>2</td>
+          <td></td>
+          <td></td>
+          <td></td>
+        </tr>
+        <tr id="alvItem4ApprRow" class="alv-appr-row">
+          <!-- Populated by updateAlvDisplay() -->
+        </tr>
+
+      </tbody>
+    </table>
+  </div>
+
+  <!-- Real-time Workflow Explanation Card -->
+  <div class="workflow-rule-card">
+    <div style="font-weight:700;font-size:12px;color:#0f172a;margin-bottom:6px;">
+      🔒 Complete Lock Down & ALV Parity Enforcement Rules (v3.1 Verified):
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(310px, 1fr));gap:8px;">
+      <div style="background:#ffffff;padding:6px 10px;border-radius:4px;border:1px solid #cbd5e1;">
+        <span class="rule-badge" style="background:#fef3c7;color:#92400e;">1. In Approval State</span>
+        <div style="margin-top:3px;font-size:11px;color:#475569;">
+          • <strong>Supplier Locked:</strong> Selection radio and supplier buttons are disabled.<br>
+          • <strong>Remarks Locked:</strong> User justification cannot be edited while awaiting HOD review.<br>
+          • <strong>Backend Guard:</strong> ABAP checks block changes with warning popup.
+        </div>
+      </div>
+      <div style="background:#ffffff;padding:6px 10px;border-radius:4px;border:1px solid #cbd5e1;">
+        <span class="rule-badge" style="background:#dcfce7;color:#166534;">2. Approved State</span>
+        <div style="margin-top:3px;font-size:11px;color:#475569;">
+          • <strong>Green Background:</strong> Clearly marked as approved by HOD (#16a34a).<br>
+          • <strong>Create PO Only:</strong> Deselect, Select, and Edit buttons are removed.<br>
+          • <strong>Single Action:</strong> ONLY Create PO button remains active.
+        </div>
+      </div>
+      <div style="background:#ffffff;padding:6px 10px;border-radius:4px;border:1px solid #cbd5e1;">
+        <span class="rule-badge" style="background:#e0e7ff;color:#3730a3;">3. ALV (AVL List) Parity</span>
+        <div style="margin-top:3px;font-size:11px;color:#475569;">
+          • <strong>Visual Status:</strong> <code>Approved</code> row colors cell Green <code>[Approved]</code> or Yellow <code>[In Appr]</code>.<br>
+          • <strong>Action Icons:</strong> Shows <code>@15@ Create PO</code>, <code>@2L@ Send to HOD</code>, <code>@0V@ Approve All</code>.<br>
+          • <strong>Hotspot Guard:</strong> Clicking quotes or checkboxes for locked items warns user.
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+  let currentRole = 'USER';
+  let currentItemState = 'PENDING'; // 'PENDING' or 'APPROVED'
+  let currentView = 'HTML'; // 'HTML' or 'ALV'
+
+  function switchView(view) {
+    currentView = view;
+    document.getElementById('btnViewHtml').className = (view === 'HTML') ? 'sim-btn active' : 'sim-btn';
+    document.getElementById('btnViewAlv').className = (view === 'ALV') ? 'sim-btn active' : 'sim-btn';
+
+    if (view === 'HTML') {
+      document.getElementById('htmlViewContainer').style.display = 'block';
+      document.getElementById('alvViewContainer').style.display = 'none';
+    } else {
+      document.getElementById('htmlViewContainer').style.display = 'none';
+      document.getElementById('alvViewContainer').style.display = 'block';
+    }
+  }
+
+  function setRole(role) {
+    currentRole = role;
+    document.getElementById('btnRoleUser').className = (role === 'USER') ? 'sim-btn active' : 'sim-btn';
+    document.getElementById('btnRoleApprover').className = (role === 'APPROVER') ? 'sim-btn active' : 'sim-btn';
+    renderAll();
+  }
+
+  function setItemState(state) {
+    currentItemState = state;
+    document.getElementById('btnStatePending').className = (state === 'PENDING') ? 'sim-btn active amber' : 'sim-btn';
+    document.getElementById('btnStateApproved').className = (state === 'APPROVED') ? 'sim-btn active green' : 'sim-btn';
+    renderAll();
+  }
+
+  function renderAll() {
+    renderHtmlView();
+    renderAlvView();
+  }
+
+  function renderHtmlView() {
+    const roleBadgeContainer = document.getElementById('roleBadgeContainer');
+    const roleActionsContainer = document.getElementById('roleActionsContainer');
+    const htmlItem4Row = document.getElementById('htmlItem4Row');
+
+    if (currentItemState === 'PENDING') {
+      // STATE: IN APPROVAL
+      if (currentRole === 'USER') {
+        roleBadgeContainer.innerHTML =
+          '<span class="badge-count" style="background:#f59e0b;color:#ffffff;border:1px solid #d97706;font-weight:700;padding:3px 10px;font-size:11px;">⏳ 1 Pending HOD (DIPAK)</span>';
+
+        roleActionsContainer.innerHTML =
+          '<a href="javascript:void(0)" onclick="alert(\'Item is currently awaiting HOD approval. Details and PO creation are locked.\')" class="btn-po-disabled" title="Locked: Awaiting HOD Approval">🔒 Create PO (Locked)</a>';
+      } else {
+        roleBadgeContainer.innerHTML =
+          '<span class="badge-count" style="background:#4f46e5;color:#ffffff;border:1px solid #4338ca;font-weight:700;padding:3px 10px;font-size:11px;">🛡️ Approver Mode (HOD: Dipak Patel)</span>' +
+          ' <span class="badge-count" style="background:#f59e0b;color:#ffffff;border:1px solid #d97706;font-weight:700;padding:3px 10px;font-size:11px;">⏳ 1 Awaiting Approval</span>';
+
+        roleActionsContainer.innerHTML =
+          '<a href="javascript:void(0)" onclick="setItemState(\'APPROVED\'); alert(\'Quotation comparison approved by HOD!\')" class="btn-po" style="background:#059669;" title="Approve pending items">✓ Approve All (1)</a>' +
+          ' <a href="javascript:void(0)" onclick="alert(\'Quotation comparison rejected by HOD.\')" class="btn-reject" title="Reject pending items">✗ Reject All</a>';
+      }
+
+      // ITEM 4 ROW - IN APPROVAL (LOCKED)
+      htmlItem4Row.innerHTML =
+        '<td style="text-align: center; vertical-align: middle;">' +
+        '  <span class="radio-box radio-sel" style="background:#f59e0b;border-color:#f59e0b;cursor:not-allowed;" title="Item is in Approval Process: Locked"><span class="radio-dot"></span></span>' +
+        '</td>' +
+        '<td style="text-align: center; font-weight: 600; color: #64748b;">00040</td>' +
+        '<td><div class="mat-code">8000006490</div></td>' +
+        '<td><div class="mat-desc">Shell & Tube Exchanger Header Assembly</div></td>' +
+        '<td style="text-align: right;"><div class="mat-qty">1 EA</div></td>' +
+        '<td>' +
+        '  <div style="display: flex; justify-content: space-between; align-items: baseline; gap: 4px;">' +
+        '    <span class="quote-amt">&#8377;4,10,000.00</span>' +
+        '    <span class="rank-lowest">L1 · Lowest</span>' +
+        '  </div>' +
+        '  <div class="quote-unit">Rate: &#8377;4,10,000.00 / EA</div>' +
+        '  <div style="margin-top: 3px;"><span style="font-size:10px;color:#94a3b8;font-style:italic;">🔒 Locked</span></div>' +
+        '</td>' +
+        '<td style="background: #fffbeb; border-left: 2px solid #f59e0b; border-right: 2px solid #f59e0b;">' +
+        '  <div style="display: flex; justify-content: space-between; align-items: baseline; gap: 4px;">' +
+        '    <span class="quote-amt">&#8377;4,60,000.00</span>' +
+        '    <span class="rank-other">L2</span>' +
+        '  </div>' +
+        '  <div class="quote-unit">Rate: &#8377;4,60,000.00 / EA</div>' +
+        '  <div style="margin-top: 3px;"><span class="btn-pill-sel" style="background:#f59e0b;color:#ffffff;cursor:default;">⏳ In Approval</span></div>' +
+        '</td>' +
+        '<td style="background: #f0fdf4; border-left: 2px solid #10b981;">' +
+        '  <div style="font-weight: 700; font-size: 12px; color: #065f46;">Graphite India Ltd</div>' +
+        '  <div style="font-size: 10px; color: #047857;">RFQ #6000000120</div>' +
+        '  <div style="display: flex; justify-content: space-between; align-items: baseline; margin-top: 2px;">' +
+        '    <span style="font-weight: 700; font-size: 12px; color: #15803d;">&#8377;4,10,000.00</span>' +
+        '    <span class="rank-lowest">L1 · Lowest</span>' +
+        '  </div>' +
+        '  <div class="quote-unit">Rate: &#8377;4,10,000.00 / EA</div>' +
+        '</td>' +
+        '<td style="background: #fffbeb; border-left: 3px solid #f59e0b;">' +
+        '  <div style="font-weight: 700; font-size: 12px; color: #1e40af;">Ceracoats Pvt Ltd</div>' +
+        '  <div style="font-size: 10px; color: #2563eb;">RFQ #6000000121</div>' +
+        '  <div style="display: flex; justify-content: space-between; align-items: baseline; margin-top: 2px;">' +
+        '    <span style="font-weight: 700; font-size: 12px; color: #0f172a;">&#8377;4,60,000.00</span>' +
+        '    <span class="rank-other" style="background:#fef3c7;color:#92400e;border:1px solid #fcd34d;">▲ Higher +&#8377;50,000.00</span>' +
+        '  </div>' +
+        '  <div class="quote-unit">Rate: &#8377;4,60,000.00 / EA</div>' +
+        '  <div style="margin-top:3px;padding:3px 6px;background:#fef3c7;border:1px solid #f59e0b;border-radius:3px;font-size:10px;line-height:1.2;">' +
+        '    <div style="font-weight:700;color:#92400e;">User Justification (Locked):</div>' +
+        '    <div style="color:#78350f;word-break:break-word;">"Urgent 2-day delivery required for breakdown schedule."</div>' +
+        '  </div>' +
+        (currentRole === 'USER' ?
+          '<div style="display:flex;align-items:center;gap:4px;margin-top:4px;">' +
+          '  <span style="background:#f59e0b;color:#ffffff;padding:2px 8px;border-radius:3px;font-weight:700;font-size:10px;">⏳ Pending HOD (DIPAK)</span>' +
+          '  <span class="btn-po-disabled" style="font-size:10px;padding:2px 6px;">🔒 PO Locked</span>' +
+          '</div>' :
+          '<div style="display:flex;align-items:center;gap:4px;margin-top:4px;flex-wrap:wrap;">' +
+          '  <span style="background:#f59e0b;color:#ffffff;padding:2px 8px;border-radius:3px;font-weight:700;font-size:10px;">⏳ Pending Review</span>' +
+          '  <a href="javascript:void(0)" onclick="setItemState(\'APPROVED\'); alert(\'Item 00040 approved by HOD!\')" class="btn-pill-sel" style="font-size:10px;padding:2px 6px;background:#059669;color:#fff;" title="Approve">✓ Approve</a>' +
+          '  <a href="javascript:void(0)" onclick="alert(\'Item 00040 rejected by HOD!\')" class="btn-reject" style="font-size:10px;padding:2px 6px;" title="Reject">✗ Reject</a>' +
+          '</div>') +
+        '</td>';
+
+    } else {
+      // STATE: APPROVED - ONLY CREATE PO OPTION ALLOWED
+      roleBadgeContainer.innerHTML =
+        '<span class="badge-count" style="background:#16a34a;color:#ffffff;border:1px solid #15803d;font-weight:700;padding:3px 10px;font-size:11px;">✓ 1 Approved by HOD</span>';
+
+      roleActionsContainer.innerHTML =
+        '<a href="javascript:void(0)" onclick="alert(\'PO created successfully for approved Item 00040!\')" class="btn-po" title="Create Purchase Order">🛒 Create PO (1 Approved)</a>';
+
+      // ITEM 4 ROW - APPROVED (GREEN BACKGROUND, ONLY CREATE PO ACTIVE)
+      htmlItem4Row.innerHTML =
+        '<td style="text-align: center; vertical-align: middle;">' +
+        '  <span class="radio-box radio-sel" style="background:#16a34a;border-color:#16a34a;cursor:not-allowed;" title="Item is Approved">✓</span>' +
+        '</td>' +
+        '<td style="text-align: center; font-weight: 600; color: #64748b;">00040</td>' +
+        '<td><div class="mat-code">8000006490</div></td>' +
+        '<td><div class="mat-desc">Shell & Tube Exchanger Header Assembly</div></td>' +
+        '<td style="text-align: right;"><div class="mat-qty">1 EA</div></td>' +
+        '<td>' +
+        '  <div style="display: flex; justify-content: space-between; align-items: baseline; gap: 4px;">' +
+        '    <span class="quote-amt">&#8377;4,10,000.00</span>' +
+        '    <span class="rank-lowest">L1 · Lowest</span>' +
+        '  </div>' +
+        '  <div class="quote-unit">Rate: &#8377;4,10,000.00 / EA</div>' +
+        '  <div style="margin-top: 3px;"><span style="font-size:10px;color:#94a3b8;font-style:italic;">🔒 Locked</span></div>' +
+        '</td>' +
+        '<td style="background: #f0fdf4; border-left: 2px solid #16a34a; border-right: 2px solid #16a34a;">' +
+        '  <div style="display: flex; justify-content: space-between; align-items: baseline; gap: 4px;">' +
+        '    <span class="quote-amt">&#8377;4,60,000.00</span>' +
+        '    <span class="rank-other">L2</span>' +
+        '  </div>' +
+        '  <div class="quote-unit">Rate: &#8377;4,60,000.00 / EA</div>' +
+        '  <div style="margin-top: 3px;"><span class="btn-pill-sel" style="background:#16a34a;color:#ffffff;cursor:default;">✓ Approved</span></div>' +
+        '</td>' +
+        '<td style="background: #f0fdf4; border-left: 2px solid #10b981;">' +
+        '  <div style="font-weight: 700; font-size: 12px; color: #065f46;">Graphite India Ltd</div>' +
+        '  <div style="font-size: 10px; color: #047857;">RFQ #6000000120</div>' +
+        '  <div style="display: flex; justify-content: space-between; align-items: baseline; margin-top: 2px;">' +
+        '    <span style="font-weight: 700; font-size: 12px; color: #15803d;">&#8377;4,10,000.00</span>' +
+        '    <span class="rank-lowest">L1 · Lowest</span>' +
+        '  </div>' +
+        '  <div class="quote-unit">Rate: &#8377;4,10,000.00 / EA</div>' +
+        '</td>' +
+        '<td style="background: #f0fdf4; border-left: 3px solid #16a34a;">' +
+        '  <div style="font-weight: 700; font-size: 12px; color: #1e40af;">Ceracoats Pvt Ltd</div>' +
+        '  <div style="font-size: 10px; color: #2563eb;">RFQ #6000000121</div>' +
+        '  <div style="display: flex; justify-content: space-between; align-items: baseline; margin-top: 2px;">' +
+        '    <span style="font-weight: 700; font-size: 12px; color: #0f172a;">&#8377;4,60,000.00</span>' +
+        '    <span class="rank-other" style="background:#fef3c7;color:#92400e;border:1px solid #fcd34d;">▲ Higher +&#8377;50,000.00</span>' +
+        '  </div>' +
+        '  <div class="quote-unit">Rate: &#8377;4,60,000.00 / EA</div>' +
+        '  <div style="margin-top:3px;padding:3px 6px;background:#fef3c7;border:1px solid #f59e0b;border-radius:3px;font-size:10px;line-height:1.2;">' +
+        '    <div style="font-weight:700;color:#92400e;">User Justification:</div>' +
+        '    <div style="color:#78350f;word-break:break-word;">"Urgent 2-day delivery required for breakdown schedule."</div>' +
+        '  </div>' +
+        '  <div style="display:flex;align-items:center;gap:6px;margin-top:4px;">' +
+        '    <span style="background:#16a34a;color:#ffffff;padding:2px 8px;border-radius:3px;font-weight:700;font-size:10px;">✓ Approved</span>' +
+        '    <a href="javascript:void(0)" onclick="alert(\'PO created successfully for Item 00040!\')" class="btn-po" style="font-size:10px;padding:2px 8px;" title="Create PO">🛒 Create PO</a>' +
+        '  </div>' +
+        '</td>';
+    }
+  }
+
+  function renderAlvView() {
+    const alvRow1Action = document.getElementById('alvRow1Action');
+    const alvRow2Action = document.getElementById('alvRow2Action');
+    const alvRow4Action = document.getElementById('alvRow4Action');
+    const alvItem4ValRow = document.getElementById('alvItem4ValRow');
+    const alvItem4ApprRow = document.getElementById('alvItem4ApprRow');
+
+    if (currentItemState === 'PENDING') {
+      // ALV Header Actions for Pending
+      alvRow1Action.innerHTML = '@0Y@ Create PO';
+      alvRow1Action.onclick = function() {
+        alert('No approved items available to create Purchase Order.');
+      };
+
+      if (currentRole === 'USER') {
+        alvRow2Action.innerHTML = '@09@ In Appr (1)';
+        alvRow2Action.onclick = function() {
+          alert('Item is already submitted to HOD and pending approval.');
+        };
+        alvRow4Action.innerHTML = '';
+        alvRow4Action.onclick = null;
+      } else {
+        alvRow2Action.innerHTML = '@0V@ Approve All (1)';
+        alvRow2Action.onclick = function() {
+          setItemState('APPROVED');
+          alert('HOD Approved quotation comparison for Item 00040!');
+        };
+        alvRow4Action.innerHTML = '@0W@ Reject All';
+        alvRow4Action.onclick = function() {
+          alert('HOD Rejected quotation comparison.');
+        };
+      }
+
+      // ALV Item 4 Rows for Pending
+      alvItem4ValRow.innerHTML =
+        '<td>@09@ [X]</td>' +
+        '<td>8000006490</td>' +
+        '<td>Shell & Tube Exchanger Header</td>' +
+        '<td>Val:</td>' +
+        '<td class="alv-hotspot" onclick="alert(\'Item is in approval process. Supplier change locked.\')">410000.00</td>' +
+        '<td class="alv-hotspot" onclick="alert(\'Item is in approval process. Supplier change locked.\')">460000.00</td>' +
+        '<td>435000.00</td>' +
+        '<td>410000.00</td>' +
+        (currentRole === 'USER' ?
+          '<td class="alv-hotspot" onclick="alert(\'Item 00040 is in approval process. Details are locked.\')">@09@ In Approval</td>' :
+          '<td class="alv-hotspot" onclick="setItemState(\'APPROVED\'); alert(\'Item 00040 Approved by HOD!\')">@0V@ Approve Item</td>');
+
+      alvItem4ApprRow.innerHTML =
+        '<td></td><td></td><td></td>' +
+        '<td>Approved</td>' +
+        '<td>[ ]</td>' +
+        '<td class="alv-yellow-cell">[In Appr]</td>' +
+        '<td></td><td></td><td></td>';
+
+    } else {
+      // ALV Header Actions for Approved
+      alvRow1Action.innerHTML = '@15@ Create PO (1)';
+      alvRow1Action.onclick = function() {
+        alert('Purchase Order created successfully for approved Item 00040!');
+      };
+
+      if (currentRole === 'USER') {
+        alvRow2Action.innerHTML = '@0V@ Approved';
+        alvRow2Action.onclick = function() {
+          alert('Item is already approved. Click Create PO.');
+        };
+        alvRow4Action.innerHTML = '';
+        alvRow4Action.onclick = null;
+      } else {
+        alvRow2Action.innerHTML = '@0V@ Approved';
+        alvRow2Action.onclick = null;
+        alvRow4Action.innerHTML = '';
+        alvRow4Action.onclick = null;
+      }
+
+      // ALV Item 4 Rows for Approved
+      alvItem4ValRow.innerHTML =
+        '<td>@01@ [X]</td>' +
+        '<td>8000006490</td>' +
+        '<td>Shell & Tube Exchanger Header</td>' +
+        '<td>Val:</td>' +
+        '<td class="alv-hotspot" onclick="alert(\'Item is approved. Supplier change locked; only Create PO is allowed.\')">410000.00</td>' +
+        '<td class="alv-hotspot" onclick="alert(\'Item is approved. Supplier change locked; only Create PO is allowed.\')">460000.00</td>' +
+        '<td>435000.00</td>' +
+        '<td>410000.00</td>' +
+        '<td class="alv-hotspot" onclick="alert(\'PO created for approved Item 00040!\')" style="font-weight:800;color:#16a34a;">@15@ Create PO</td>';
+
+      alvItem4ApprRow.innerHTML =
+        '<td></td><td></td><td></td>' +
+        '<td>Approved</td>' +
+        '<td>[ ]</td>' +
+        '<td class="alv-green-cell">[Approved]</td>' +
+        '<td></td><td></td><td></td>';
+    }
+  }
+
+  // Initialize
+  renderAll();
+</script>
+
+</body>
+</html>

@@ -1,0 +1,851 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Quotation Price Comparison Dashboard (ZPQC_NEW v3.0)</title>
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+    html, body {
+      margin: 0;
+      padding: 6px;
+      background: #f1f5f9;
+      width: 100%;
+      box-sizing: border-box;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      color: #0f172a;
+      font-size: 12px;
+    }
+
+    .container {
+      width: 100%;
+      max-width: 100%;
+      margin: 0;
+      padding: 0;
+    }
+
+    /* Role Simulation Switcher */
+    .role-switcher-banner {
+      background: #1e293b;
+      color: #ffffff;
+      padding: 8px 14px;
+      border-radius: 6px;
+      margin-bottom: 8px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 10px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    .role-switcher-title {
+      font-weight: 700;
+      font-size: 13px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .role-btn-group {
+      display: inline-flex;
+      background: #0f172a;
+      padding: 3px;
+      border-radius: 6px;
+      gap: 4px;
+    }
+    .role-btn {
+      border: none;
+      padding: 4px 12px;
+      border-radius: 4px;
+      font-size: 11px;
+      font-weight: 600;
+      cursor: pointer;
+      color: #94a3b8;
+      background: transparent;
+      transition: all 0.2s;
+    }
+    .role-btn.active {
+      background: #2563eb;
+      color: #ffffff;
+      font-weight: 700;
+      box-shadow: 0 1px 2px rgba(0,0,0,0.2);
+    }
+
+    /* Top Controls Header */
+    .top-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 6px 12px;
+      background: #ffffff;
+      border: 1px solid #94a3b8;
+      border-radius: 4px;
+      margin-bottom: 6px;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+    .top-left {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+    .top-right {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+    .select-all-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 12px;
+      font-weight: 600;
+      color: #1e293b;
+      text-decoration: none;
+      cursor: pointer;
+    }
+    .badge-count {
+      background: #f1f5f9;
+      color: #334155;
+      font-size: 11px;
+      font-weight: 600;
+      padding: 2px 8px;
+      border-radius: 12px;
+      display: inline-block;
+      border: 1px solid #cbd5e1;
+    }
+    .val-summary {
+      font-size: 13px;
+      font-weight: 700;
+      color: #0f172a;
+    }
+    .rate-box {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      background: #ffffff;
+      padding: 2px 6px;
+      border-radius: 4px;
+      border: 1px solid #cbd5e1;
+      font-size: 11px;
+      font-weight: 600;
+      color: #334155;
+    }
+    .rate-input {
+      width: 48px;
+      padding: 1px 3px;
+      border: 1px solid #cbd5e1;
+      border-radius: 3px;
+      font-weight: 700;
+      text-align: center;
+      background: #ffffff;
+      outline: none;
+      font-size: 11px;
+    }
+    .btn-apply {
+      background: #334155;
+      color: #ffffff;
+      border: none;
+      border-radius: 3px;
+      padding: 2px 6px;
+      font-size: 10px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    .btn-apply:hover { background: #1e293b; }
+
+    .btn-refresh {
+      background: #ffffff;
+      color: #374151;
+      border: 1px solid #cbd5e1;
+      border-radius: 4px;
+      padding: 3px 8px;
+      font-size: 11px;
+      font-weight: 600;
+      text-decoration: none;
+      display: inline-flex;
+      align-items: center;
+      gap: 3px;
+      cursor: pointer;
+    }
+    .btn-refresh:hover { background: #f1f5f9; border-color: #94a3b8; }
+
+    .btn-appr-submit {
+      background: #2563eb;
+      color: #ffffff;
+      border-radius: 4px;
+      padding: 4px 12px;
+      font-size: 11px;
+      font-weight: 700;
+      text-decoration: none;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      border: 1px solid #1d4ed8;
+      cursor: pointer;
+    }
+    .btn-appr-submit:hover { background: #1d4ed8; }
+
+    .btn-po {
+      background: #059669;
+      color: #ffffff;
+      border-radius: 4px;
+      padding: 4px 12px;
+      font-size: 11px;
+      font-weight: 700;
+      text-decoration: none;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      border: none;
+      cursor: pointer;
+    }
+    .btn-po:hover { background: #047857; }
+
+    .btn-reject {
+      background: #dc2626;
+      color: #ffffff;
+      border-radius: 4px;
+      padding: 4px 10px;
+      font-size: 11px;
+      font-weight: 700;
+      text-decoration: none;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      border: none;
+      cursor: pointer;
+    }
+    .btn-reject:hover { background: #b91c1c; }
+
+    .btn-po-disabled {
+      background: #e2e8f0;
+      color: #94a3b8;
+      border-radius: 4px;
+      padding: 4px 10px;
+      font-size: 11px;
+      font-weight: 600;
+      border: 1px solid #cbd5e1;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      cursor: not-allowed;
+    }
+
+    /* Radio Box */
+    .radio-box {
+      width: 14px;
+      height: 14px;
+      border-radius: 50%;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      vertical-align: middle;
+      border: 2px solid #94a3b8;
+      background: #ffffff;
+    }
+    .radio-sel { border-color: #2563eb; }
+    .radio-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: #2563eb;
+    }
+    .radio-unsel { border-color: #94a3b8; }
+
+    /* Comparison Table */
+    .table-wrapper {
+      width: 100%;
+      overflow-x: auto;
+      border: 1px solid #64748b;
+      border-radius: 4px;
+      background: #ffffff;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+    }
+    .cmp-table {
+      width: 100%;
+      border-collapse: collapse;
+      table-layout: auto;
+      background: #ffffff;
+      font-size: 12px;
+    }
+    .cmp-table thead tr th {
+      background: #0f172a;
+      color: #ffffff;
+      padding: 6px 8px;
+      font-weight: 700;
+      font-size: 11px;
+      text-align: left;
+      vertical-align: bottom;
+      border: 1px solid #334155;
+    }
+    .cmp-table tbody tr td {
+      padding: 6px 8px;
+      font-size: 12px;
+      color: #0f172a;
+      vertical-align: middle;
+      border: 1px solid #cbd5e1;
+    }
+    .cmp-table tbody tr:hover { background: #f8fafc; }
+    .cmp-table tbody tr:nth-child(even) { background: #fafbfc; }
+
+    .v-hdr-title { font-size: 12px; font-weight: 700; color: #ffffff; line-height: 1.25; }
+    .v-hdr-sub { font-size: 10px; font-weight: 500; color: #94a3b8; margin-top: 1px; }
+
+    .mat-code { font-size: 12px; font-weight: 700; color: #0f172a; }
+    .mat-desc { font-size: 12px; font-weight: 400; color: #334155; line-height: 1.3; }
+    .mat-qty { font-size: 12px; font-weight: 700; color: #0f172a; }
+    .quote-amt { font-size: 13px; font-weight: 700; color: #0f172a; }
+    .quote-unit { font-size: 10px; color: #64748b; }
+
+    .rank-lowest {
+      display: inline-block;
+      background: #dcfce7;
+      color: #15803d;
+      font-size: 10px;
+      font-weight: 700;
+      padding: 1px 5px;
+      border-radius: 8px;
+      border: 1px solid #86efac;
+    }
+    .rank-other {
+      display: inline-block;
+      background: #f1f5f9;
+      color: #64748b;
+      font-size: 10px;
+      font-weight: 600;
+      padding: 1px 5px;
+      border-radius: 8px;
+      border: 1px solid #cbd5e1;
+    }
+
+    .btn-pill-sel {
+      background: #2563eb;
+      color: #ffffff;
+      font-size: 10px;
+      font-weight: 700;
+      padding: 2px 8px;
+      border-radius: 4px;
+      border: 1px solid #1d4ed8;
+      text-decoration: none;
+      display: inline-block;
+    }
+    .btn-pill-unsel {
+      background: #ffffff;
+      color: #334155;
+      font-size: 10px;
+      font-weight: 600;
+      padding: 2px 8px;
+      border-radius: 4px;
+      border: 1px solid #cbd5e1;
+      text-decoration: none;
+      display: inline-block;
+    }
+    .btn-pill-unsel:hover { background: #f8fafc; border-color: #94a3b8; }
+
+    .btn-po-link {
+      background: #059669;
+      color: #ffffff;
+      font-size: 10px;
+      font-weight: 700;
+      padding: 2px 8px;
+      border-radius: 4px;
+      text-decoration: none;
+      display: inline-block;
+    }
+
+    /* Table Footer */
+    .tot-label {
+      font-size: 11px;
+      font-weight: 800;
+      color: #0f172a;
+      padding: 6px 8px;
+      border: 1px solid #64748b;
+      background: #e2e8f0;
+      text-transform: uppercase;
+    }
+    .tot-amt {
+      font-size: 12px;
+      font-weight: 800;
+      color: #0f172a;
+      padding: 6px 8px;
+      border: 1px solid #64748b;
+      background: #f8fafc;
+      text-align: right;
+    }
+    .tot-min {
+      font-size: 12px;
+      font-weight: 700;
+      color: #059669;
+      padding: 6px 8px;
+      border: 1px solid #64748b;
+      background: #ecfdf5;
+      text-align: right;
+    }
+
+    /* Commercial Evaluation */
+    .comm-sec-hdr td {
+      background: #cbd5e1;
+      font-size: 11px;
+      font-weight: 800;
+      color: #0f172a;
+      padding: 6px 8px;
+      text-transform: uppercase;
+      letter-spacing: 0.3px;
+      border: 1px solid #94a3b8;
+    }
+    .comm-param-label {
+      font-size: 11px;
+      font-weight: 600;
+      color: #1e293b;
+      padding: 5px 8px;
+      background: #f8fafc;
+      border: 1px solid #cbd5e1;
+    }
+    .comm-param-val {
+      font-size: 11px;
+      color: #0f172a;
+      padding: 5px 8px;
+      border: 1px solid #cbd5e1;
+    }
+    .comm-row-hl td {
+      background: #fefce8;
+      font-weight: 600;
+      border: 1px solid #cbd5e1;
+    }
+    .comm-row-eval td {
+      background: #dcfce7;
+      font-weight: 800;
+      font-size: 12px;
+      color: #166534;
+      border-top: 2px solid #16a34a;
+      border-bottom: 2px solid #16a34a;
+      border-left: 1px solid #86efac;
+      border-right: 1px solid #86efac;
+    }
+
+    /* Notification Simulation Box */
+    .notif-box {
+      margin-top: 10px;
+      padding: 10px 14px;
+      background: #ffffff;
+      border: 1px solid #94a3b8;
+      border-radius: 6px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+    }
+    .notif-hdr {
+      font-weight: 700;
+      font-size: 12px;
+      color: #1e293b;
+      margin-bottom: 6px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+  </style>
+</head>
+<body>
+
+<div class="container">
+
+  <!-- Interactive Role Simulation Switcher -->
+  <div class="role-switcher-banner">
+    <div class="role-switcher-title">
+      <span>🛡️ ZPQC_NEW v3.0 Interactive Simulation</span>
+      <span style="font-size:11px;font-weight:400;color:#cbd5e1;">Collective RFQ: #4000000000 · 3 PO Created, 1 Pending/Draft</span>
+    </div>
+    <div class="role-btn-group">
+      <button class="role-btn active" id="btnRoleUser" onclick="setRole('USER')">👤 Requester Screen (NARESH)</button>
+      <button class="role-btn" id="btnRoleApprover" onclick="setRole('APPROVER')">🛡️ Approver Screen (HOD: DIPAK)</button>
+    </div>
+  </div>
+
+  <!-- Top Header Controls -->
+  <div class="top-header">
+    <div class="top-left">
+      <a href="javascript:void(0)" class="select-all-btn">
+        <span class="radio-box radio-sel"><span class="radio-dot"></span></span>
+        <span>Select All</span>
+      </a>
+      <span class="badge-count">4 selected</span>
+      <span class="badge-count" style="font-size:10px;background:#e2e8f0;color:#334155;">v3.0</span>
+      <span class="badge-count" style="background:#ecfdf5;color:#065f46;border:1px solid #a7f3d0;">✓ 3 PO Done</span>
+      
+      <!-- Dynamic Role Badge -->
+      <span id="roleBadgeContainer"></span>
+      
+      <span class="badge-count" style="font-size:10px;background:#f8fafc;color:#334155;border:1px solid #cbd5e1;">HOD: Dipak Patel (DIPAK)</span>
+    </div>
+
+    <div class="top-right">
+      <span class="val-summary">Selected: &#8377;33,60,000.00</span>
+      <div class="rate-box">
+        <span>Rate:</span>
+        <input type="number" id="inpRate" value="12.00" step="0.25" class="rate-input" />
+        <span>%</span>
+        <button onclick="alert('Rate updated in preview')" class="btn-apply">Apply</button>
+      </div>
+      <a href="javascript:void(0)" class="btn-refresh">&#128260; Refresh</a>
+
+      <!-- Dynamic Header Actions based on Role -->
+      <span id="roleActionsContainer"></span>
+    </div>
+  </div>
+
+  <!-- Comparison Grid Table -->
+  <div class="table-wrapper">
+  <table class="cmp-table">
+    <thead>
+      <tr>
+        <th style="width: 38px; text-align: center; vertical-align: middle;">Sel</th>
+        <th style="width: 48px; text-align: center;">Item</th>
+        <th style="width: 110px; white-space: nowrap;">Material</th>
+        <th style="min-width: 160px;">Material Description</th>
+        <th style="width: 75px; text-align: right; white-space: nowrap;">Qty</th>
+        <th style="min-width: 155px;">
+          <div class="v-hdr-title">Graphite India Ltd</div>
+          <div class="v-hdr-sub">Vendor 0200001249 · RFQ #6000000120</div>
+        </th>
+        <th style="min-width: 155px;">
+          <div class="v-hdr-title">Ceracoats Pvt Ltd</div>
+          <div class="v-hdr-sub">Vendor 0200001250 · RFQ #6000000121</div>
+        </th>
+        <th style="min-width: 165px; background: #064e3b; color: #ecfdf5; border-left: 2px solid #10b981;">
+          <div class="v-hdr-title" style="color: #a7f3d0;">System Suggested (L1)</div>
+          <div class="v-hdr-sub" style="color: #6ee7b7;">Lowest Evaluated Quote</div>
+        </th>
+        <th style="min-width: 185px; background: #1e3a8a; color: #dbeafe; border-left: 2px solid #3b82f6;">
+          <div class="v-hdr-title" style="color: #bfdbfe;">User Suggested</div>
+          <div class="v-hdr-sub" style="color: #93c5fd;">Selected Supplier & Reason</div>
+        </th>
+      </tr>
+    </thead>
+    <tbody>
+
+      <!-- Line Item 1: PO ALREADY CREATED (PO 4500021310) -->
+      <tr>
+        <td style="text-align: center; vertical-align: middle;">
+          <span class="radio-box radio-sel"><span class="radio-dot"></span></span>
+        </td>
+        <td style="text-align: center; font-weight: 600; color: #64748b;">00010</td>
+        <td><div class="mat-code">8000006475</div></td>
+        <td><div class="mat-desc">Graphite Condenser, 12m² High Efficiency</div></td>
+        <td style="text-align: right;"><div class="mat-qty">3 EA</div></td>
+        <td style="background: #f0fdf4; border-left: 2px solid #16a34a; border-right: 2px solid #16a34a;">
+          <div style="display: flex; justify-content: space-between; align-items: baseline; gap: 4px;">
+            <span class="quote-amt">&#8377;6,90,000.00</span>
+            <span class="rank-lowest">L1 · Lowest</span>
+          </div>
+          <div class="quote-unit">Rate: &#8377;2,30,000.00 / EA</div>
+          <div style="margin-top: 3px;">
+            <span class="btn-po-link">&#10003; PO 4500021310</span>
+          </div>
+        </td>
+        <td>
+          <div style="display: flex; justify-content: space-between; align-items: baseline; gap: 4px;">
+            <span class="quote-amt">&#8377;7,50,000.00</span>
+            <span class="rank-other">L2</span>
+          </div>
+          <div class="quote-unit">Rate: &#8377;2,50,000.00 / EA</div>
+        </td>
+        <td style="background: #f0fdf4; border-left: 2px solid #10b981;">
+          <div style="font-weight: 700; font-size: 12px; color: #065f46;">Graphite India Ltd</div>
+          <div style="font-size: 10px; color: #047857;">RFQ #6000000120</div>
+          <div style="display: flex; justify-content: space-between; align-items: baseline; margin-top: 2px;">
+            <span style="font-weight: 700; font-size: 12px; color: #15803d;">&#8377;6,90,000.00</span>
+            <span class="rank-lowest">L1 · Lowest</span>
+          </div>
+          <div class="quote-unit">Rate: &#8377;2,30,000.00 / EA</div>
+        </td>
+        <td style="background: #f0fdf4; border-left: 3px solid #16a34a;">
+          <div style="font-weight: 700; font-size: 12px; color: #1e40af;">Graphite India Ltd</div>
+          <div style="font-size: 10px; color: #2563eb;">RFQ #6000000120</div>
+          <div style="display: flex; justify-content: space-between; align-items: baseline; margin-top: 2px;">
+            <span style="font-weight: 700; font-size: 12px; color: #0f172a;">&#8377;6,90,000.00</span>
+            <span class="rank-lowest" style="background:#dcfce7;color:#15803d;border:1px solid #86efac;">&#10003; Matches L1</span>
+          </div>
+          <div class="quote-unit">Rate: &#8377;2,30,000.00 / EA</div>
+          <div style="display: flex; align-items: center; gap: 6px; margin-top: 4px;">
+            <span style="background:#16a34a;color:#ffffff;padding:2px 8px;border-radius:3px;font-weight:700;font-size:10px;">&#10003; PO Created</span>
+            <span class="btn-po-link">&#10003; PO 4500021310</span>
+          </div>
+        </td>
+      </tr>
+
+      <!-- Line Item 2: PO ALREADY CREATED (PO 4500021311) -->
+      <tr>
+        <td style="text-align: center; vertical-align: middle;">
+          <span class="radio-box radio-sel"><span class="radio-dot"></span></span>
+        </td>
+        <td style="text-align: center; font-weight: 600; color: #64748b;">00020</td>
+        <td><div class="mat-code">8000006476</div></td>
+        <td><div class="mat-desc">Graphite Condenser, 15m² Special Duty</div></td>
+        <td style="text-align: right;"><div class="mat-qty">2 EA</div></td>
+        <td>
+          <div style="display: flex; justify-content: space-between; align-items: baseline; gap: 4px;">
+            <span class="quote-amt">&#8377;10,30,000.00</span>
+            <span class="rank-other">L2</span>
+          </div>
+          <div class="quote-unit">Rate: &#8377;5,15,000.00 / EA</div>
+        </td>
+        <td style="background: #f0fdf4; border-left: 2px solid #16a34a; border-right: 2px solid #16a34a;">
+          <div style="display: flex; justify-content: space-between; align-items: baseline; gap: 4px;">
+            <span class="quote-amt">&#8377;9,50,000.00</span>
+            <span class="rank-lowest">L1 · Lowest</span>
+          </div>
+          <div class="quote-unit">Rate: &#8377;4,75,000.00 / EA</div>
+          <div style="margin-top: 3px;">
+            <span class="btn-po-link">&#10003; PO 4500021311</span>
+          </div>
+        </td>
+        <td style="background: #f0fdf4; border-left: 2px solid #10b981;">
+          <div style="font-weight: 700; font-size: 12px; color: #065f46;">Ceracoats Pvt Ltd</div>
+          <div style="font-size: 10px; color: #047857;">RFQ #6000000121</div>
+          <div style="display: flex; justify-content: space-between; align-items: baseline; margin-top: 2px;">
+            <span style="font-weight: 700; font-size: 12px; color: #15803d;">&#8377;9,50,000.00</span>
+            <span class="rank-lowest">L1 · Lowest</span>
+          </div>
+          <div class="quote-unit">Rate: &#8377;4,75,000.00 / EA</div>
+        </td>
+        <td style="background: #f0fdf4; border-left: 3px solid #16a34a;">
+          <div style="font-weight: 700; font-size: 12px; color: #1e40af;">Ceracoats Pvt Ltd</div>
+          <div style="font-size: 10px; color: #2563eb;">RFQ #6000000121</div>
+          <div style="display: flex; justify-content: space-between; align-items: baseline; margin-top: 2px;">
+            <span style="font-weight: 700; font-size: 12px; color: #0f172a;">&#8377;9,50,000.00</span>
+            <span class="rank-lowest" style="background:#dcfce7;color:#15803d;border:1px solid #86efac;">&#10003; Matches L1</span>
+          </div>
+          <div class="quote-unit">Rate: &#8377;4,75,000.00 / EA</div>
+          <div style="display: flex; align-items: center; gap: 6px; margin-top: 4px;">
+            <span style="background:#16a34a;color:#ffffff;padding:2px 8px;border-radius:3px;font-weight:700;font-size:10px;">&#10003; PO Created</span>
+            <span class="btn-po-link">&#10003; PO 4500021311</span>
+          </div>
+        </td>
+      </tr>
+
+      <!-- Line Item 3: PO ALREADY CREATED (PO 4500021312) -->
+      <tr>
+        <td style="text-align: center; vertical-align: middle;">
+          <span class="radio-box radio-sel"><span class="radio-dot"></span></span>
+        </td>
+        <td style="text-align: center; font-weight: 600; color: #64748b;">00030</td>
+        <td><div class="mat-code">8000006478</div></td>
+        <td><div class="mat-desc">Graphite Condenser, 22m² Custom Alloy</div></td>
+        <td style="text-align: right;"><div class="mat-qty">2 EA</div></td>
+        <td style="background: #fff1f2; text-align: center;">
+          <div style="color: #dc2626; font-weight: 700;">No Price</div>
+          <div style="color: #64748b; font-size: 10px;">Price not quoted</div>
+        </td>
+        <td style="background: #f0fdf4; border-left: 2px solid #16a34a; border-right: 2px solid #16a34a;">
+          <div style="display: flex; justify-content: space-between; align-items: baseline; gap: 4px;">
+            <span class="quote-amt">&#8377;12,60,000.00</span>
+            <span class="rank-lowest">L1 · Lowest</span>
+          </div>
+          <div class="quote-unit">Rate: &#8377;6,30,000.00 / EA</div>
+          <div style="margin-top: 3px;">
+            <span class="btn-po-link">&#10003; PO 4500021312</span>
+          </div>
+        </td>
+        <td style="background: #f0fdf4; border-left: 2px solid #10b981;">
+          <div style="font-weight: 700; font-size: 12px; color: #065f46;">Ceracoats Pvt Ltd</div>
+          <div style="font-size: 10px; color: #047857;">RFQ #6000000121</div>
+          <div style="display: flex; justify-content: space-between; align-items: baseline; margin-top: 2px;">
+            <span style="font-weight: 700; font-size: 12px; color: #15803d;">&#8377;12,60,000.00</span>
+            <span class="rank-lowest">L1 · Lowest</span>
+          </div>
+          <div class="quote-unit">Rate: &#8377;6,30,000.00 / EA</div>
+        </td>
+        <td style="background: #f0fdf4; border-left: 3px solid #16a34a;">
+          <div style="font-weight: 700; font-size: 12px; color: #1e40af;">Ceracoats Pvt Ltd</div>
+          <div style="font-size: 10px; color: #2563eb;">RFQ #6000000121</div>
+          <div style="display: flex; justify-content: space-between; align-items: baseline; margin-top: 2px;">
+            <span style="font-weight: 700; font-size: 12px; color: #0f172a;">&#8377;12,60,000.00</span>
+            <span class="rank-lowest" style="background:#dcfce7;color:#15803d;border:1px solid #86efac;">&#10003; Matches L1</span>
+          </div>
+          <div class="quote-unit">Rate: &#8377;6,30,000.00 / EA</div>
+          <div style="display: flex; align-items: center; gap: 6px; margin-top: 4px;">
+            <span style="background:#16a34a;color:#ffffff;padding:2px 8px;border-radius:3px;font-weight:700;font-size:10px;">&#10003; PO Created</span>
+            <span class="btn-po-link">&#10003; PO 4500021312</span>
+          </div>
+        </td>
+      </tr>
+
+      <!-- Line Item 4: 1 ITEM PENDING APPROVAL - NON-L1 SELECTION WITH MANDATORY USER JUSTIFICATION -->
+      <tr>
+        <td style="text-align: center; vertical-align: middle;">
+          <span class="radio-box radio-sel"><span class="radio-dot"></span></span>
+        </td>
+        <td style="text-align: center; font-weight: 600; color: #64748b;">00040</td>
+        <td><div class="mat-code">8000006490</div></td>
+        <td><div class="mat-desc">Shell & Tube Exchanger Header Assembly</div></td>
+        <td style="text-align: right;"><div class="mat-qty">1 EA</div></td>
+        <td style="background: #f0fdf4;">
+          <div style="display: flex; justify-content: space-between; align-items: baseline; gap: 4px;">
+            <span class="quote-amt">&#8377;4,10,000.00</span>
+            <span class="rank-lowest">L1 · Lowest</span>
+          </div>
+          <div class="quote-unit">Rate: &#8377;4,10,000.00 / EA</div>
+          <div style="margin-top: 3px;">
+            <a href="javascript:void(0)" class="btn-pill-unsel">Select</a>
+          </div>
+        </td>
+        <td style="background: #eff6ff; border-left: 2px solid #3b82f6; border-right: 2px solid #3b82f6;">
+          <div style="display: flex; justify-content: space-between; align-items: baseline; gap: 4px;">
+            <span class="quote-amt">&#8377;4,60,000.00</span>
+            <span class="rank-other">L2</span>
+          </div>
+          <div class="quote-unit">Rate: &#8377;4,60,000.00 / EA</div>
+          <div style="margin-top: 3px;">
+            <span class="btn-pill-sel">&#10003; Selected</span>
+          </div>
+        </td>
+        <td style="background: #f0fdf4; border-left: 2px solid #10b981;">
+          <div style="font-weight: 700; font-size: 12px; color: #065f46;">Graphite India Ltd</div>
+          <div style="font-size: 10px; color: #047857;">RFQ #6000000120</div>
+          <div style="display: flex; justify-content: space-between; align-items: baseline; margin-top: 2px;">
+            <span style="font-weight: 700; font-size: 12px; color: #15803d;">&#8377;4,10,000.00</span>
+            <span class="rank-lowest">L1 · Lowest</span>
+          </div>
+          <div class="quote-unit">Rate: &#8377;4,10,000.00 / EA</div>
+        </td>
+        <!-- User Suggested Cell for Item 4 -->
+        <td style="background: #fffbeb; border-left: 3px solid #f59e0b;">
+          <div style="font-weight: 700; font-size: 12px; color: #1e40af;">Ceracoats Pvt Ltd</div>
+          <div style="font-size: 10px; color: #2563eb;">RFQ #6000000121</div>
+          <div style="display: flex; justify-content: space-between; align-items: baseline; margin-top: 2px;">
+            <span style="font-weight: 700; font-size: 12px; color: #0f172a;">&#8377;4,60,000.00</span>
+            <span class="rank-other" style="background:#fef3c7;color:#92400e;border:1px solid #fcd34d;">&#9650; Higher +&#8377;50,000.00</span>
+          </div>
+          <div class="quote-unit">Rate: &#8377;4,60,000.00 / EA</div>
+
+          <!-- Non-L1 Mandatory User Justification Box -->
+          <div style="margin-top:3px;padding:4px 6px;background:#fef3c7;border:1px solid #f59e0b;border-radius:3px;font-size:10px;line-height:1.25;">
+            <div style="font-weight:700;color:#92400e;display:flex;justify-content:space-between;align-items:center;">
+              <span>User Justification (Mandatory):</span>
+              <span id="userEditReasonLink" style="font-size:9px;color:#2563eb;text-decoration:underline;cursor:pointer;">[Edit Reason]</span>
+            </div>
+            <div style="color:#78350f;word-break:break-word;margin-top:2px;">
+              "Supplier confirmed urgent 2-day breakdown dispatch with certified pressure test report vs 15-day standard delivery for L1."
+            </div>
+          </div>
+
+          <!-- Dynamic Item 4 Actions based on Role -->
+          <div id="item4ActionsContainer" style="margin-top: 4px;"></div>
+        </td>
+      </tr>
+
+    </tbody>
+    <tfoot>
+      <tr>
+        <td colspan="5" class="tot-label">Total quotation amount</td>
+        <td class="tot-amt">&#8377;21,30,000.00</td>
+        <td class="tot-amt">&#8377;34,20,000.00</td>
+        <td class="tot-min" style="border-left: 2px solid #10b981;">&#8377;33,10,000.00</td>
+        <td class="tot-amt" style="border-left: 2px solid #3b82f6; color: #2563eb;">&#8377;33,60,000.00</td>
+      </tr>
+      <tr class="comm-sec-hdr">
+        <td colspan="5">Commercial Evaluation & Financing Analysis (12.00% Interest Rate)</td>
+        <td><strong>Graphite India Ltd</strong><br><small style="font-weight: 500; color: #475569;">RFQ #6000000120</small></td>
+        <td><strong>Ceracoats Pvt Ltd</strong><br><small style="font-weight: 500; color: #475569;">RFQ #6000000121</small></td>
+        <td style="text-align: right; background: #ecfdf5; color: #065f46;">Lowest Landed</td>
+        <td style="text-align: center; color: #94a3b8;">—</td>
+      </tr>
+      <tr>
+        <td colspan="5" class="comm-param-label">Incoterms</td>
+        <td class="comm-param-val">FOR Site</td>
+        <td class="comm-param-val">Ex Works</td>
+        <td class="comm-param-val" style="text-align: center; color: #94a3b8;">—</td>
+        <td class="comm-param-val" style="text-align: center; color: #94a3b8;">—</td>
+      </tr>
+      <tr>
+        <td colspan="5" class="comm-param-label">Payment Terms</td>
+        <td class="comm-param-val">Within 30 days due net</td>
+        <td class="comm-param-val">Within 60 days due net</td>
+        <td class="comm-param-val" style="text-align: center; color: #94a3b8;">—</td>
+        <td class="comm-param-val" style="text-align: center; color: #94a3b8;">—</td>
+      </tr>
+    </tfoot>
+  </table>
+  </div>
+
+  <!-- Simulated Approver Notification Details Card -->
+  <div class="notif-box">
+    <div class="notif-hdr">
+      <span>✉️ Automated HOD Notification Dispatched via SAP System</span>
+      <span class="badge-count" style="background:#e0e7ff;color:#3730a3;border:1px solid #c7d2fe;">SO_NEW_DOCUMENT_SEND_API1 & TH_POPUP</span>
+    </div>
+    <div style="font-size:11px;color:#334155;line-height:1.45;background:#f8fafc;padding:8px 10px;border-radius:4px;border:1px solid #e2e8f0;font-family:monospace;">
+      <div><strong>To (SAP Workplace & Internet Email):</strong> dipak@aether.co.in (User: DIPAK, HOD Approver)</div>
+      <div><strong>Subject:</strong> Quotation Approval Request: Collective RFQ 4000000000 (T-Code: ZPQC_NEW)</div>
+      <div><strong>Submitted By:</strong> NARESH (13.10.2026)</div>
+      <div style="margin-top:4px;color:#1e293b;">
+        • Item 00040: Ceracoats Pvt Ltd (INR 4,60,000.00)<br>
+        &nbsp;&nbsp;* NON-L1 SELECTION (System L1: Graphite India Ltd, INR 4,10,000.00)<br>
+        &nbsp;&nbsp;* JUSTIFICATION REASON: "Supplier confirmed urgent 2-day breakdown dispatch with certified pressure test report vs 15-day standard delivery for L1."
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+  let currentRole = 'USER';
+
+  function setRole(role) {
+    currentRole = role;
+    document.getElementById('btnRoleUser').className = (role === 'USER') ? 'role-btn active' : 'role-btn';
+    document.getElementById('btnRoleApprover').className = (role === 'APPROVER') ? 'role-btn active' : 'role-btn';
+
+    const roleBadgeContainer = document.getElementById('roleBadgeContainer');
+    const roleActionsContainer = document.getElementById('roleActionsContainer');
+    const item4ActionsContainer = document.getElementById('item4ActionsContainer');
+    const userEditReasonLink = document.getElementById('userEditReasonLink');
+
+    if (role === 'USER') {
+      // USER SCREEN
+      roleBadgeContainer.innerHTML =
+        '<span class="badge-count" style="background:#f59e0b;color:#ffffff;border:1px solid #d97706;font-weight:700;padding:3px 10px;font-size:11px;">⏳ 1 Pending HOD (DIPAK)</span>';
+
+      roleActionsContainer.innerHTML =
+        '<a href="javascript:void(0)" onclick="alert(\'All items submitted and awaiting HOD approval.\')" class="btn-po-disabled" title="Locked: Awaiting HOD Approval">🔒 Create PO (Locked)</a>';
+
+      item4ActionsContainer.innerHTML =
+        '<div style="display:flex;align-items:center;gap:4px;margin-top:4px;">' +
+        '  <span style="background:#f59e0b;color:#ffffff;padding:2px 8px;border-radius:3px;font-weight:700;font-size:10px;">⏳ Pending HOD (DIPAK)</span>' +
+        '  <span class="btn-po-disabled" style="font-size:10px;padding:2px 6px;">🔒 PO Locked</span>' +
+        '</div>';
+
+      userEditReasonLink.style.display = 'inline';
+
+    } else {
+      // APPROVER SCREEN (HOD)
+      roleBadgeContainer.innerHTML =
+        '<span class="badge-count" style="background:#4f46e5;color:#ffffff;border:1px solid #4338ca;font-weight:700;padding:3px 10px;font-size:11px;">🛡️ Approver Mode (HOD: Dipak Patel)</span>' +
+        ' <span class="badge-count" style="background:#f59e0b;color:#ffffff;border:1px solid #d97706;font-weight:700;padding:3px 10px;font-size:11px;">⏳ 1 Awaiting Approval</span>';
+
+      roleActionsContainer.innerHTML =
+        '<a href="javascript:void(0)" onclick="alert(\'Item 00040 approved! Unlocked for PO creation.\')" class="btn-po" style="background:#059669;" title="Approve all pending items">&#10003; Approve All (1)</a>' +
+        ' <a href="javascript:void(0)" onclick="alert(\'Item 00040 rejected by HOD.\')" class="btn-reject" title="Reject pending items">&#10007; Reject All</a>';
+
+      item4ActionsContainer.innerHTML =
+        '<div style="display:flex;align-items:center;gap:4px;margin-top:4px;flex-wrap:wrap;">' +
+        '  <span style="background:#f59e0b;color:#ffffff;padding:2px 8px;border-radius:3px;font-weight:700;font-size:10px;">⏳ Pending Review</span>' +
+        '  <a href="javascript:void(0)" onclick="alert(\'Approved Item 00040!\')" class="btn-pill-sel" style="font-size:10px;padding:2px 6px;background:#059669;color:#fff;" title="Approve">&#10003; Approve</a>' +
+        '  <a href="javascript:void(0)" onclick="alert(\'Rejected Item 00040!\')" class="btn-reject" style="font-size:10px;padding:2px 6px;" title="Reject">&#10007; Reject</a>' +
+        '</div>';
+
+      userEditReasonLink.style.display = 'none';
+    }
+  }
+
+  // Initialize in User mode
+  setRole('USER');
+</script>
+
+</body>
+</html>
