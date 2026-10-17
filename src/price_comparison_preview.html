@@ -87,6 +87,9 @@
     .sim-btn.active.amber {
       background: #d97706;
     }
+    .sim-btn.active.red {
+      background: #dc2626;
+    }
 
     /* Top Controls Header */
     .top-header {
@@ -119,34 +122,54 @@
       align-items: center;
       gap: 6px;
       font-size: 12px;
-      font-weight: 600;
+      font-weight: 700;
       color: #1e293b;
       text-decoration: none;
       cursor: pointer;
+      padding: 3px 6px;
+      border-radius: 4px;
+      transition: background 0.15s;
+    }
+    .select-all-btn:hover {
+      background: #f1f5f9;
     }
     .radio-box {
-      width: 14px;
-      height: 14px;
-      border-radius: 50%;
+      width: 17px;
+      height: 17px;
+      border-radius: 4px;
       display: inline-flex;
       align-items: center;
       justify-content: center;
       box-sizing: border-box;
       flex-shrink: 0;
+      cursor: pointer;
+      transition: all 0.15s ease;
+      font-size: 11px;
+      font-weight: 800;
+      line-height: 1;
+      vertical-align: middle;
+      background: #ffffff;
     }
     .radio-sel {
-      border: 2px solid #2563eb;
-      background: #ffffff;
+      border: 1.5px solid #2563eb;
+      background: #2563eb;
+      color: #ffffff;
+      box-shadow: 0 1px 3px rgba(37,99,235,0.3);
+    }
+    .radio-sel:hover {
+      background: #1d4ed8;
+      border-color: #1d4ed8;
     }
     .radio-dot {
-      width: 6px;
-      height: 6px;
-      border-radius: 50%;
-      background: #2563eb;
+      display: none;
     }
     .radio-unsel {
-      border: 2px solid #94a3b8;
+      border: 1.5px solid #94a3b8;
       background: #ffffff;
+    }
+    .radio-unsel:hover {
+      border-color: #2563eb;
+      background: #eff6ff;
     }
 
     .badge-count {
@@ -356,6 +379,154 @@
       display: inline-block;
       border: 1px solid #cbd5e1;
     }
+    .quote-chk-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      padding: 2.5px 8px;
+      border-radius: 5px;
+      font-size: 10.5px;
+      font-weight: 600;
+      text-decoration: none;
+      cursor: pointer;
+      transition: all 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+      box-sizing: border-box;
+      vertical-align: middle;
+      user-select: none;
+    }
+    .quote-chk-btn .chk-sq {
+      width: 13px;
+      height: 13px;
+      border-radius: 3px;
+      border: 1.5px solid #94a3b8;
+      background: #ffffff;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 10px;
+      font-weight: 800;
+      line-height: 1;
+      transition: all 0.15s ease;
+      flex-shrink: 0;
+    }
+    .quote-chk-btn.is-unsel {
+      background: #ffffff;
+      color: #334155;
+      border: 1px solid #cbd5e1;
+      box-shadow: 0 1px 2px rgba(0,0,0,0.03);
+    }
+    .quote-chk-btn.is-unsel:hover {
+      border-color: #2563eb;
+      background: #eff6ff;
+      color: #1d4ed8;
+      box-shadow: 0 2px 6px rgba(37,99,235,0.15);
+      transform: translateY(-1px);
+    }
+    .quote-chk-btn.is-unsel:hover .chk-sq {
+      border-color: #2563eb;
+    }
+    .quote-chk-btn.is-sel {
+      background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
+      color: #ffffff;
+      border: 1px solid #1d4ed8;
+      font-weight: 700;
+      box-shadow: 0 2px 6px rgba(37,99,235,0.3);
+    }
+    .quote-chk-btn.is-sel:hover {
+      background: linear-gradient(135deg, #1d4ed8 0%, #1e40af 100%);
+      box-shadow: 0 3px 8px rgba(37,99,235,0.4);
+      transform: translateY(-1px);
+    }
+    .quote-chk-btn.is-sel .chk-sq {
+      background: #ffffff;
+      border-color: #ffffff;
+      color: #1d4ed8;
+    }
+    .quote-chk-btn.is-appr {
+      background: linear-gradient(135deg, #16a34a 0%, #15803d 100%);
+      color: #ffffff;
+      border: 1px solid #15803d;
+      font-weight: 700;
+      cursor: default;
+    }
+    .quote-chk-btn.is-appr .chk-sq {
+      background: #ffffff;
+      border-color: #ffffff;
+      color: #16a34a;
+    }
+    .quote-chk-btn.is-rej {
+      background: linear-gradient(135deg, #dc2626 0%, #b91c1c 100%);
+      color: #ffffff;
+      border: 1px solid #b91c1c;
+      font-weight: 700;
+      cursor: default;
+    }
+    .quote-chk-btn.is-rej .chk-sq {
+      background: #ffffff;
+      border-color: #ffffff;
+      color: #dc2626;
+    }
+    .quote-chk-btn.is-pend {
+      background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+      color: #ffffff;
+      border: 1px solid #d97706;
+      font-weight: 700;
+      cursor: default;
+    }
+    .quote-chk-btn.is-pend .chk-sq {
+      background: #ffffff;
+      border-color: #ffffff;
+      color: #d97706;
+    }
+
+    .quote-cell {
+      transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+      position: relative;
+      vertical-align: top;
+    }
+    .quote-cell:hover {
+      background: #f8fafc;
+      box-shadow: inset 0 0 0 1px #94a3b8;
+    }
+    .quote-cell-sel {
+      background: #eff6ff !important;
+      border-left: 2px solid #2563eb !important;
+      border-right: 2px solid #2563eb !important;
+      box-shadow: inset 0 0 0 1px #93c5fd;
+    }
+    .quote-cell-l1 {
+      background: #f0fdf4 !important;
+      border-left: 2px solid #16a34a !important;
+      border-right: 2px solid #16a34a !important;
+    }
+    .quote-cell-sel.quote-cell-l1 {
+      background: #f0fdf4 !important;
+      border-left: 2px solid #16a34a !important;
+      border-right: 2px solid #16a34a !important;
+      box-shadow: inset 0 0 0 1px #86efac;
+    }
+
+    .frt-link-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 3px;
+      background: #fffbeb;
+      color: #b45309;
+      padding: 1.5px 5px;
+      border-radius: 4px;
+      border: 1px solid #fde68a;
+      font-size: 10px;
+      font-weight: 600;
+      text-decoration: none;
+      transition: all 0.15s ease;
+    }
+    .frt-link-pill:hover {
+      background: #fef3c7;
+      color: #78350f;
+      border-color: #f59e0b;
+      transform: translateY(-0.5px);
+    }
+
     .btn-pill-sel {
       background: #2563eb;
       color: #ffffff;
@@ -785,6 +956,7 @@
       <div class="sim-group">
         <button class="sim-btn active amber" id="btnStatePending" onclick="setItemState('PENDING')">⏳ Item In Approval (Locked)</button>
         <button class="sim-btn" id="btnStateApproved" onclick="setItemState('APPROVED')">✓ Item Approved (Create PO Only)</button>
+        <button class="sim-btn" id="btnStateRejected" onclick="setItemState('REJECTED')">✗ Item Rejected (Show Rejection Reason)</button>
       </div>
 
       <!-- User Role Switcher -->
@@ -815,21 +987,21 @@
     <div class="top-header">
       <div class="top-left">
         <a href="javascript:void(0)" class="select-all-btn">
-          <span class="radio-box radio-sel"><span class="radio-dot"></span></span>
+          <span class="radio-box radio-sel">&#10003;</span>
           <span>Select All</span>
         </a>
         <span class="badge-count">4 selected</span>
-        <span class="badge-count" style="font-size:10px;background:#e2e8f0;color:#334155;">v3.1</span>
+        <span class="badge-count" style="font-size:10px;background:#e2e8f0;color:#334155;">v3.2</span>
         <span class="badge-count" style="background:#ecfdf5;color:#065f46;border:1px solid #a7f3d0;">✓ 3 PO Done</span>
         
         <!-- Dynamic Role Badge -->
         <span id="roleBadgeContainer"></span>
         
-        <span class="badge-count" style="font-size:10px;background:#f8fafc;color:#334155;border:1px solid #cbd5e1;">HOD: Dipak Patel (DIPAK)</span>
+        <span id="hodHeaderBadge" class="badge-count" style="font-size:10px;background:#f8fafc;color:#334155;border:1px solid #cbd5e1;">HOD Approver: Dipak Rathod (DIPAK)</span>
       </div>
 
       <div class="top-right">
-        <span class="val-summary">Selected: &#8377;33,60,000.00</span>
+        <span class="val-summary">Selected: &#8377;33,10,000.00 <span style="font-size:11px;font-weight:600;color:#b45309;">(+&#8377;50,000.00 Delivery = &#8377;33,60,000.00)</span></span>
         <div class="rate-box">
           <span>Rate:</span>
           <input type="number" id="inpRate" value="12.00" step="0.25" class="rate-input" />
@@ -853,6 +1025,10 @@
           <th style="width: 110px; white-space: nowrap;">Material</th>
           <th style="min-width: 160px;">Material Description</th>
           <th style="width: 75px; text-align: right; white-space: nowrap;">Qty</th>
+          <th style="min-width: 140px; background: #f8fafc; color: #334155; border-left: 1px solid #cbd5e1;">
+            <div class="v-hdr-title" style="color: #334155;">Last Purchase Price</div>
+            <div class="v-hdr-sub" style="color: #64748b;">Previous PO Benchmark</div>
+          </th>
           <th style="min-width: 155px;">
             <div class="v-hdr-title">Graphite India Ltd</div>
             <div class="v-hdr-sub">Vendor 0200001249 · RFQ #6000000120</div>
@@ -876,46 +1052,64 @@
         <!-- Line Item 1: PO CREATED -->
         <tr>
           <td style="text-align: center; vertical-align: middle;">
-            <span style="display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;border-radius:50%;background:#dcfce7;color:#166534;font-size:11px;font-weight:800;">✓</span>
+            <span class="radio-box radio-sel" style="background:#16a34a;border-color:#16a34a;cursor:not-allowed;" title="Item is Approved">&#10003;</span>
           </td>
           <td style="text-align: center; font-weight: 600; color: #64748b;">00010</td>
           <td><div class="mat-code">8000006475</div></td>
           <td><div class="mat-desc">Graphite Condenser, 12m² High Efficiency</div></td>
           <td style="text-align: right;"><div class="mat-qty">3 EA</div></td>
-          <td style="background: #f0fdf4; border-left: 2px solid #16a34a; border-right: 2px solid #16a34a;">
+          <td style="background: #f8fafc; border-left: 1px solid #cbd5e1; border-right: 1px solid #cbd5e1; font-size: 11px;">
+            <div style="font-weight: 700; color: #1e293b; font-size: 12px;">₹2,45,000.00 <span style="font-weight: 400; font-size: 10px; color: #64748b;">/ EA</span></div>
+            <div style="margin-top: 1px;"><a href="javascript:void(0)" onclick="alert('Viewing historical PO 4500019800 in ME23N')" style="color: #2563eb; text-decoration: underline; font-size: 10px; font-weight: 600;" title="View Last PO 4500019800 in ME23N">PO #4500019800 ↗</a></div>
+            <div style="font-size: 10px; color: #64748b; line-height: 1.2;">18.11.2024 · Graphite India</div>
+            <span style="display:inline-block;background:#dcfce7;color:#15803d;font-size:9px;font-weight:700;padding:1px 5px;border-radius:4px;border:1px solid #86efac;margin-top:2px;" title="L1 rate is lower by 6.1% vs last PO (Cost Savings)">▼ -6.1% Savings</span>
+          </td>
+          <td class="quote-cell quote-cell-sel quote-cell-l1">
             <div style="display: flex; justify-content: space-between; align-items: baseline; gap: 4px;">
-              <span class="quote-amt">&#8377;6,90,000.00</span>
+              <span class="quote-amt">&#8377;6,75,000.00</span>
               <span class="rank-lowest">L1 · Lowest</span>
             </div>
-            <div class="quote-unit">Rate: &#8377;2,30,000.00 / EA</div>
-            <div style="margin-top: 3px;">
+            <div class="quote-unit">Rate: &#8377;2,25,000.00 / EA</div>
+            <div style="margin-top: 2px;">
+              <a href="javascript:void(0)" onclick="openFreightModal('00010')" class="frt-link-pill" title="Click to view freight conditions breakdown">+&#8377;15,000.00 Delivery (ZI01: &#8377;15,000.00) &#128269;</a>
+            </div>
+            <div style="margin-top: 4px;">
               <span class="btn-po-link">✓ PO 4500021310</span>
             </div>
           </td>
-          <td>
+          <td class="quote-cell">
             <div style="display: flex; justify-content: space-between; align-items: baseline; gap: 4px;">
               <span class="quote-amt">&#8377;7,50,000.00</span>
               <span class="rank-other">L2</span>
             </div>
             <div class="quote-unit">Rate: &#8377;2,50,000.00 / EA</div>
+            <div style="margin-top: 4px;">
+              <span style="font-size:10px;color:#94a3b8;font-weight:600;">PO Done</span>
+            </div>
           </td>
           <td style="background: #f0fdf4; border-left: 2px solid #10b981;">
             <div style="font-weight: 700; font-size: 12px; color: #065f46;">Graphite India Ltd</div>
             <div style="font-size: 10px; color: #047857;">RFQ #6000000120</div>
             <div style="display: flex; justify-content: space-between; align-items: baseline; margin-top: 2px;">
-              <span style="font-weight: 700; font-size: 12px; color: #15803d;">&#8377;6,90,000.00</span>
+              <span style="font-weight: 700; font-size: 12px; color: #15803d;">&#8377;6,75,000.00</span>
               <span class="rank-lowest">L1 · Lowest</span>
             </div>
-            <div class="quote-unit">Rate: &#8377;2,30,000.00 / EA</div>
+            <div class="quote-unit">Rate: &#8377;2,25,000.00 / EA</div>
+            <div style="margin-top: 2px;">
+              <a href="javascript:void(0)" onclick="openFreightModal('00010')" class="frt-link-pill" title="Click to view freight conditions breakdown">+&#8377;15,000.00 Delivery (ZI01: &#8377;15,000.00) &#128269;</a>
+            </div>
           </td>
           <td style="background: #f0fdf4; border-left: 3px solid #16a34a;">
             <div style="font-weight: 700; font-size: 12px; color: #1e40af;">Graphite India Ltd</div>
             <div style="font-size: 10px; color: #2563eb;">RFQ #6000000120</div>
             <div style="display: flex; justify-content: space-between; align-items: baseline; margin-top: 2px;">
-              <span style="font-weight: 700; font-size: 12px; color: #0f172a;">&#8377;6,90,000.00</span>
+              <span style="font-weight: 700; font-size: 12px; color: #0f172a;">&#8377;6,75,000.00</span>
               <span class="rank-lowest" style="background:#dcfce7;color:#15803d;border:1px solid #86efac;">✓ Matches L1</span>
             </div>
-            <div class="quote-unit">Rate: &#8377;2,30,000.00 / EA</div>
+            <div class="quote-unit">Rate: &#8377;2,25,000.00 / EA</div>
+            <div style="margin-top: 2px;">
+              <a href="javascript:void(0)" onclick="openFreightModal('00010')" class="frt-link-pill" title="Click to view freight conditions breakdown">+&#8377;15,000.00 Delivery (ZI01: &#8377;15,000.00) &#128269;</a>
+            </div>
             <div style="display: flex; align-items: center; gap: 6px; margin-top: 4px;">
               <span style="background:#16a34a;color:#ffffff;padding:2px 8px;border-radius:3px;font-weight:700;font-size:10px;">✓ PO Created</span>
               <span class="btn-po-link">✓ PO 4500021310</span>
@@ -926,26 +1120,38 @@
         <!-- Line Item 2: PO CREATED -->
         <tr>
           <td style="text-align: center; vertical-align: middle;">
-            <span style="display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;border-radius:50%;background:#dcfce7;color:#166534;font-size:11px;font-weight:800;">✓</span>
+            <span class="radio-box radio-sel" style="background:#16a34a;border-color:#16a34a;cursor:not-allowed;" title="Item is Approved">&#10003;</span>
           </td>
           <td style="text-align: center; font-weight: 600; color: #64748b;">00020</td>
           <td><div class="mat-code">8000006476</div></td>
           <td><div class="mat-desc">Graphite Condenser, 15m² Special Duty</div></td>
           <td style="text-align: right;"><div class="mat-qty">2 EA</div></td>
-          <td>
+          <td style="background: #f8fafc; border-left: 1px solid #cbd5e1; border-right: 1px solid #cbd5e1; font-size: 11px;">
+            <div style="font-weight: 700; color: #1e293b; font-size: 12px;">₹4,60,000.00 <span style="font-weight: 400; font-size: 10px; color: #64748b;">/ EA</span></div>
+            <div style="margin-top: 1px;"><a href="javascript:void(0)" onclick="alert('Viewing historical PO 4500018950 in ME23N')" style="color: #2563eb; text-decoration: underline; font-size: 10px; font-weight: 600;" title="View Last PO 4500018950 in ME23N">PO #4500018950 ↗</a></div>
+            <div style="font-size: 10px; color: #64748b; line-height: 1.2;">05.08.2024 · Ceracoats Pvt</div>
+            <span style="display:inline-block;background:#fee2e2;color:#991b1b;font-size:9px;font-weight:700;padding:1px 5px;border-radius:4px;border:1px solid #f87171;margin-top:2px;" title="L1 rate is higher than last PO by 3.3%">▲ +3.3% vs LPP</span>
+          </td>
+          <td class="quote-cell">
             <div style="display: flex; justify-content: space-between; align-items: baseline; gap: 4px;">
-              <span class="quote-amt">&#8377;10,30,000.00</span>
+              <span class="quote-amt">&#8377;10,10,000.00</span>
               <span class="rank-other">L2</span>
             </div>
-            <div class="quote-unit">Rate: &#8377;5,15,000.00 / EA</div>
+            <div class="quote-unit">Rate: &#8377;5,05,000.00 / EA</div>
+            <div style="margin-top: 2px;">
+              <a href="javascript:void(0)" onclick="openFreightModal('00020')" class="frt-link-pill" title="Click to view freight conditions breakdown">+&#8377;20,000.00 Delivery (ZI01: &#8377;20,000.00) &#128269;</a>
+            </div>
+            <div style="margin-top: 4px;">
+              <span style="font-size:10px;color:#94a3b8;font-weight:600;">PO Done</span>
+            </div>
           </td>
-          <td style="background: #f0fdf4; border-left: 2px solid #16a34a; border-right: 2px solid #16a34a;">
+          <td class="quote-cell quote-cell-sel quote-cell-l1">
             <div style="display: flex; justify-content: space-between; align-items: baseline; gap: 4px;">
               <span class="quote-amt">&#8377;9,50,000.00</span>
               <span class="rank-lowest">L1 · Lowest</span>
             </div>
             <div class="quote-unit">Rate: &#8377;4,75,000.00 / EA</div>
-            <div style="margin-top: 3px;">
+            <div style="margin-top: 4px;">
               <span class="btn-po-link">✓ PO 4500021311</span>
             </div>
           </td>
@@ -976,23 +1182,29 @@
         <!-- Line Item 3: PO CREATED -->
         <tr>
           <td style="text-align: center; vertical-align: middle;">
-            <span style="display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;border-radius:50%;background:#dcfce7;color:#166534;font-size:11px;font-weight:800;">✓</span>
+            <span class="radio-box radio-sel" style="background:#16a34a;border-color:#16a34a;cursor:not-allowed;" title="Item is Approved">&#10003;</span>
           </td>
           <td style="text-align: center; font-weight: 600; color: #64748b;">00030</td>
           <td><div class="mat-code">8000006478</div></td>
           <td><div class="mat-desc">Graphite Condenser, 22m² Custom Alloy</div></td>
           <td style="text-align: right;"><div class="mat-qty">2 EA</div></td>
-          <td style="background: #fff1f2; text-align: center;">
+          <td style="background: #f8fafc; border-left: 1px solid #cbd5e1; border-right: 1px solid #cbd5e1; font-size: 11px;">
+            <div style="font-weight: 700; color: #1e293b; font-size: 12px;">₹6,30,000.00 <span style="font-weight: 400; font-size: 10px; color: #64748b;">/ EA</span></div>
+            <div style="margin-top: 1px;"><a href="javascript:void(0)" onclick="alert('Viewing historical PO 4500017420 in ME23N')" style="color: #2563eb; text-decoration: underline; font-size: 10px; font-weight: 600;" title="View Last PO 4500017420 in ME23N">PO #4500017420 ↗</a></div>
+            <div style="font-size: 10px; color: #64748b; line-height: 1.2;">12.04.2024 · Ceracoats Pvt</div>
+            <span style="display:inline-block;background:#f1f5f9;color:#475569;font-size:9px;font-weight:600;padding:1px 5px;border-radius:4px;border:1px solid #cbd5e1;margin-top:2px;">= Same Rate</span>
+          </td>
+          <td class="quote-cell" style="background: #fff1f2; text-align: center;">
             <div style="color: #dc2626; font-weight: 700;">No Price</div>
             <div style="color: #64748b; font-size: 10px;">Price not quoted</div>
           </td>
-          <td style="background: #f0fdf4; border-left: 2px solid #16a34a; border-right: 2px solid #16a34a;">
+          <td class="quote-cell quote-cell-sel quote-cell-l1">
             <div style="display: flex; justify-content: space-between; align-items: baseline; gap: 4px;">
               <span class="quote-amt">&#8377;12,60,000.00</span>
               <span class="rank-lowest">L1 · Lowest</span>
             </div>
             <div class="quote-unit">Rate: &#8377;6,30,000.00 / EA</div>
-            <div style="margin-top: 3px;">
+            <div style="margin-top: 4px;">
               <span class="btn-po-link">✓ PO 4500021312</span>
             </div>
           </td>
@@ -1027,12 +1239,29 @@
 
       </tbody>
       <tfoot>
-        <tr>
-          <td colspan="5" class="tot-label">Total quotation amount</td>
-          <td class="tot-amt">&#8377;21,30,000.00</td>
-          <td class="tot-amt">&#8377;34,20,000.00</td>
-          <td class="tot-min" style="border-left: 2px solid #10b981;">&#8377;33,10,000.00</td>
-          <td class="tot-amt" style="border-left: 2px solid #3b82f6; color: #2563eb;">&#8377;33,60,000.00</td>
+        <!-- 1. Total Item Amount (Excl. Delivery) -->
+        <tr style="background: #f8fafc;">
+          <td colspan="6" class="tot-label" style="color: #475569; font-weight: 600;">Total Item Amount (Excl. Delivery)</td>
+          <td class="tot-amt" style="color: #334155; font-weight: 600;">&#8377;20,85,000.00</td>
+          <td class="tot-amt" style="color: #334155; font-weight: 600;">&#8377;33,70,000.00</td>
+          <td class="tot-min" style="border-left: 2px solid #10b981; font-weight: 600; color: #047857;">&#8377;32,60,000.00</td>
+          <td class="tot-amt" style="border-left: 2px solid #3b82f6; color: #1e40af; font-weight: 600;">&#8377;33,10,000.00</td>
+        </tr>
+        <!-- 2. Total Delivery Cost / Freight (Individual row downside!) -->
+        <tr style="background: #fffbeb; cursor: pointer;" onclick="openFreightModal('ALL')" title="Click to view complete Quotation Freight & Delivery Conditions Breakdown">
+          <td colspan="6" class="tot-label" style="font-weight: 700; color: #b45309;">Total Delivery Cost / Freight <span style="font-size:11px; font-weight:600; text-decoration:underline;">(View Breakdown &#128269;)</span></td>
+          <td class="tot-amt" style="color: #b45309; font-weight: 700;">+&#8377;45,000.00</td>
+          <td class="tot-amt" style="color: #b45309; font-weight: 700;">+&#8377;50,000.00</td>
+          <td class="tot-min" style="border-left: 2px solid #10b981; font-weight: 700; color: #047857;">+&#8377;50,000.00</td>
+          <td class="tot-amt" style="border-left: 2px solid #3b82f6; color: #1e40af; font-weight: 700;">+&#8377;50,000.00</td>
+        </tr>
+        <!-- 3. Total Quotation Amount (Landed Grand Total) -->
+        <tr style="background: #f1f5f9; border-top: 2px solid #64748b; border-bottom: 2px solid #64748b;">
+          <td colspan="6" class="tot-label" style="font-size: 12px; font-weight: 800; color: #0f172a;">Total Quotation Amount</td>
+          <td class="tot-amt" style="font-weight: 800; font-size: 13px; color: #0f172a;">&#8377;21,30,000.00</td>
+          <td class="tot-amt" style="font-weight: 800; font-size: 13px; color: #0f172a;">&#8377;34,20,000.00</td>
+          <td class="tot-min" style="border-left: 2px solid #10b981; font-weight: 800; font-size: 13px; color: #15803d;">&#8377;33,10,000.00</td>
+          <td class="tot-amt" style="border-left: 2px solid #3b82f6; font-weight: 800; font-size: 13px; color: #2563eb;">&#8377;33,60,000.00</td>
         </tr>
       </tfoot>
     </table>
@@ -1120,11 +1349,22 @@
           <td>8000006475</td>
           <td>Graphite Condenser, 12m²</td>
           <td>Val:</td>
-          <td>690000.00</td>
+          <td>675000.00</td>
           <td>750000.00</td>
-          <td>720000.00</td>
-          <td>690000.00</td>
+          <td>712500.00</td>
+          <td>675000.00</td>
           <td class="alv-hotspot" onclick="alert('Opening ME23N for PO 4500021310')">@0V@ PO 4500021310</td>
+        </tr>
+        <tr class="alv-rank-row">
+          <td></td>
+          <td></td>
+          <td>Delivery:</td>
+          <td>Delivery</td>
+          <td class="alv-hotspot" onclick="openFreightModal('00010')">+15000.00 &#128269;</td>
+          <td>0.00</td>
+          <td>7500.00</td>
+          <td class="alv-hotspot" onclick="openFreightModal('00010')">+15000.00 &#128269;</td>
+          <td></td>
         </tr>
         <tr class="alv-rank-row">
           <td></td>
@@ -1156,11 +1396,22 @@
           <td>8000006476</td>
           <td>Graphite Condenser, 15m²</td>
           <td>Val:</td>
-          <td>1030000.00</td>
+          <td>1010000.00</td>
           <td>950000.00</td>
-          <td>990000.00</td>
+          <td>980000.00</td>
           <td>950000.00</td>
           <td class="alv-hotspot" onclick="alert('Opening ME23N for PO 4500021311')">@0V@ PO 4500021311</td>
+        </tr>
+        <tr class="alv-rank-row">
+          <td></td>
+          <td></td>
+          <td>Delivery:</td>
+          <td>Delivery</td>
+          <td class="alv-hotspot" onclick="openFreightModal('00020')">+20000.00 &#128269;</td>
+          <td>0.00</td>
+          <td>10000.00</td>
+          <td>0.00</td>
+          <td></td>
         </tr>
         <tr class="alv-rank-row">
           <td></td>
@@ -1229,6 +1480,17 @@
         <tr class="alv-rank-row">
           <td></td>
           <td></td>
+          <td>Delivery:</td>
+          <td>Delivery</td>
+          <td class="alv-hotspot" onclick="openFreightModal('00040')">+10000.00 &#128269;</td>
+          <td class="alv-hotspot" onclick="openFreightModal('00040')">+50000.00 &#128269;</td>
+          <td>30000.00</td>
+          <td class="alv-hotspot" onclick="openFreightModal('00040')">+10000.00 &#128269;</td>
+          <td></td>
+        </tr>
+        <tr class="alv-rank-row">
+          <td></td>
+          <td></td>
           <td></td>
           <td>Rank:</td>
           <td class="alv-green-cell">1 (L1)</td>
@@ -1239,6 +1501,31 @@
         </tr>
         <tr id="alvItem4ApprRow" class="alv-appr-row">
           <!-- Populated by updateAlvDisplay() -->
+        <!-- Summary Rows: ALV List Parity -->
+        <tr class="alv-sep-row"><td colspan="9"></td></tr>
+        <tr style="background:#f8fafc;font-weight:700;">
+          <td></td><td></td><td>Total Item Amount</td><td></td>
+          <td style="text-align:right;">2085000.00</td>
+          <td style="text-align:right;">3370000.00</td>
+          <td></td>
+          <td style="text-align:right;color:#047857;">2085000.00</td>
+          <td></td>
+        </tr>
+        <tr style="background:#fffbeb;font-weight:700;color:#b45309;cursor:pointer;" onclick="openFreightModal('ALL')" title="Click to view complete Quotation Freight & Delivery Conditions Breakdown">
+          <td></td><td></td><td class="alv-hotspot">Total Delivery Cost &#128269;</td><td></td>
+          <td style="text-align:right;">+45000.00</td>
+          <td style="text-align:right;">+50000.00</td>
+          <td></td>
+          <td style="text-align:right;color:#b45309;">+45000.00</td>
+          <td class="alv-hotspot">@0S@ View Breakdown</td>
+        </tr>
+        <tr style="background:#e2e8f0;font-weight:800;border-top:2px solid #64748b;border-bottom:2px solid #64748b;">
+          <td></td><td></td><td>Total Quotation Amount</td><td></td>
+          <td style="text-align:right;">2130000.00</td>
+          <td style="text-align:right;">3420000.00</td>
+          <td></td>
+          <td style="text-align:right;color:#15803d;font-weight:800;">2130000.00</td>
+          <td></td>
         </tr>
 
       </tbody>
@@ -1489,6 +1776,21 @@
     currentRole = role;
     document.getElementById('btnRoleUser').className = (role === 'USER') ? 'sim-btn active' : 'sim-btn';
     document.getElementById('btnRoleApprover').className = (role === 'APPROVER') ? 'sim-btn active' : 'sim-btn';
+    
+    const hodBadge = document.getElementById('hodHeaderBadge');
+    if (hodBadge) {
+      if (role === 'APPROVER') {
+        hodBadge.innerHTML = 'Approver: Dipak Rathod (DIPAK)';
+        hodBadge.style.background = '#ede9fe';
+        hodBadge.style.color = '#5b21b6';
+        hodBadge.style.borderColor = '#c4b5fd';
+      } else {
+        hodBadge.innerHTML = 'HOD Approver: Dipak Rathod (DIPAK)';
+        hodBadge.style.background = '#f8fafc';
+        hodBadge.style.color = '#334155';
+        hodBadge.style.borderColor = '#cbd5e1';
+      }
+    }
     renderAll();
   }
 
@@ -1496,7 +1798,18 @@
     currentItemState = state;
     document.getElementById('btnStatePending').className = (state === 'PENDING') ? 'sim-btn active amber' : 'sim-btn';
     document.getElementById('btnStateApproved').className = (state === 'APPROVED') ? 'sim-btn active green' : 'sim-btn';
+    document.getElementById('btnStateRejected').className = (state === 'REJECTED') ? 'sim-btn active red' : 'sim-btn';
     renderAll();
+  }
+
+  function promptRejectionRemark() {
+    const remark = prompt("SAP ZPQC_NEW: Mandatory Rejection Remark\n\nEnter the reason why this quotation comparison is being rejected (compulsory):", "Quotation price ₹4,60,000 is higher than L1 (₹4,10,000). Please negotiate with vendor or choose L1.");
+    if (remark === null || remark.trim() === "") {
+      alert("Rejection cancelled. Rejection remark is compulsory!");
+      return;
+    }
+    setItemState('REJECTED');
+    alert('Quotation comparison rejected with remark: "' + remark.trim() + '"');
   }
 
   function renderAll() {
@@ -1517,6 +1830,13 @@
       badgeEl.style.color = '#92400e';
       badgeEl.style.borderColor = '#fcd34d';
       badgeEl.innerText = '⏳ 1 In Approval';
+    } else if (currentItemState === 'REJECTED') {
+      kpiEl.style.color = '#dc2626';
+      kpiEl.innerText = '1';
+      badgeEl.style.background = '#fee2e2';
+      badgeEl.style.color = '#b91c1c';
+      badgeEl.style.borderColor = '#fca5a5';
+      badgeEl.innerText = '✗ 1 Rejected (Action Req)';
     } else {
       kpiEl.style.color = '#16a34a';
       kpiEl.innerText = '1';
@@ -1536,136 +1856,265 @@
       // STATE: IN APPROVAL
       if (currentRole === 'USER') {
         roleBadgeContainer.innerHTML =
-          '<span class="badge-count" style="background:#f59e0b;color:#ffffff;border:1px solid #d97706;font-weight:700;padding:3px 10px;font-size:11px;">⏳ 1 Pending HOD (DIPAK)</span>';
+          '<span class="badge-count" style="background:#f59e0b;color:#ffffff;border:1px solid #d97706;font-weight:700;padding:3px 10px;font-size:11px;">⏳ 1 Pending Approver (Dipak Rathod)</span>';
 
         roleActionsContainer.innerHTML =
-          '<a href="javascript:void(0)" onclick="alert(\'Item is currently awaiting HOD approval. Details and PO creation are locked.\')" class="btn-po-disabled" title="Locked: Awaiting HOD Approval">🔒 Create PO (Locked)</a>';
+          '<a href="javascript:void(0)" onclick="alert(\'Item is currently awaiting Approver approval. Details and PO creation are locked.\')" class="btn-po-disabled" title="Locked: Awaiting HOD Approval">🔒 Create PO (Locked)</a>';
       } else {
         roleBadgeContainer.innerHTML =
-          '<span class="badge-count" style="background:#4f46e5;color:#ffffff;border:1px solid #4338ca;font-weight:700;padding:3px 10px;font-size:11px;">🛡️ Approver Mode (HOD: Dipak Patel)</span>' +
+          '<span class="badge-count" style="background:#4f46e5;color:#ffffff;border:1px solid #4338ca;font-weight:700;padding:3px 10px;font-size:11px;">🛡️ Approver Mode (Dipak Rathod)</span>' +
           ' <span class="badge-count" style="background:#f59e0b;color:#ffffff;border:1px solid #d97706;font-weight:700;padding:3px 10px;font-size:11px;">⏳ 1 Awaiting Approval</span>';
 
         roleActionsContainer.innerHTML =
-          '<a href="javascript:void(0)" onclick="setItemState(\'APPROVED\'); alert(\'Quotation comparison approved by HOD!\')" class="btn-po" style="background:#059669;" title="Approve pending items">✓ Approve All (1)</a>' +
-          ' <a href="javascript:void(0)" onclick="alert(\'Quotation comparison rejected by HOD.\')" class="btn-reject" title="Reject pending items">✗ Reject All</a>';
+          '<a href="javascript:void(0)" onclick="setItemState(\'APPROVED\'); alert(\'Quotation comparison approved by Dipak Rathod!\')" class="btn-po" style="background:#059669;" title="Approve pending items">✓ Approve All (1)</a>' +
+          ' <a href="javascript:void(0)" onclick="promptRejectionRemark()" class="btn-reject" title="Reject pending items (Mandatory Remark)">✗ Reject All</a>';
       }
 
       // ITEM 4 ROW - IN APPROVAL (LOCKED)
       htmlItem4Row.innerHTML =
         '<td style="text-align: center; vertical-align: middle;">' +
-        '  <span class="radio-box radio-sel" style="background:#f59e0b;border-color:#f59e0b;cursor:not-allowed;" title="Item is in Approval Process: Locked"><span class="radio-dot"></span></span>' +
+        '  <span class="radio-box radio-sel" style="background:#f59e0b;border-color:#f59e0b;color:#ffffff;cursor:not-allowed;" title="Item is in Approval Process: Locked">&#9203;</span>' +
         '</td>' +
         '<td style="text-align: center; font-weight: 600; color: #64748b;">00040</td>' +
         '<td><div class="mat-code">8000006490</div></td>' +
         '<td><div class="mat-desc">Shell & Tube Exchanger Header Assembly</div></td>' +
         '<td style="text-align: right;"><div class="mat-qty">1 EA</div></td>' +
-        '<td>' +
+        '<td style="background: #f8fafc; border-left: 1px solid #cbd5e1; border-right: 1px solid #cbd5e1; font-size: 11px;">' +
+        '  <div style="font-weight: 700; color: #1e293b; font-size: 12px;">&#8377;3,95,000.00 <span style="font-weight: 400; font-size: 10px; color: #64748b;">/ EA</span></div>' +
+        '  <div style="margin-top: 1px;"><a href="javascript:void(0)" onclick="alert(\'Viewing historical PO 4500019200 in ME23N\')" style="color: #2563eb; text-decoration: underline; font-size: 10px; font-weight: 600;" title="View Last PO in ME23N">PO #4500019200 &#8599;</a></div>' +
+        '  <div style="font-size: 10px; color: #64748b; line-height: 1.2;">20.09.2024 &middot; Graphite India</div>' +
+        '  <span style="display:inline-block;background:#fee2e2;color:#991b1b;font-size:9px;font-weight:700;padding:1px 5px;border-radius:4px;border:1px solid #f87171;margin-top:2px;" title="L1 rate is higher than last PO by 3.8%">&#9650; +3.8% vs LPP</span>' +
+        '</td>' +
+        '<td class="quote-cell quote-cell-l1">' +
         '  <div style="display: flex; justify-content: space-between; align-items: baseline; gap: 4px;">' +
-        '    <span class="quote-amt">&#8377;4,10,000.00</span>' +
+        '    <span class="quote-amt">&#8377;4,00,000.00</span>' +
         '    <span class="rank-lowest">L1 · Lowest</span>' +
         '  </div>' +
-        '  <div class="quote-unit">Rate: &#8377;4,10,000.00 / EA</div>' +
-        '  <div style="margin-top: 3px;"><span style="font-size:10px;color:#94a3b8;font-style:italic;">🔒 Locked</span></div>' +
+        '  <div class="quote-unit">Rate: &#8377;4,00,000.00 / EA</div>' +
+        '  <div style="margin-top: 2px;"><a href="javascript:void(0)" onclick="openFreightModal(\'00040\')" class="frt-link-pill" title="Click to view freight conditions breakdown">+&#8377;10,000.00 Delivery (ZI01: &#8377;10,000.00) &#128269;</a></div>' +
+        '  <div style="margin-top: 4px;">' + (currentRole === 'APPROVER' ? '<a href="javascript:void(0)" onclick="alert(\'Approver selected L1 (Graphite India Ltd)!\')" class="quote-chk-btn is-unsel" title="Select this quotation"><span class="chk-sq"></span><span>Select</span></a>' : '') + '</div>' +
         '</td>' +
-        '<td style="background: #fffbeb; border-left: 2px solid #f59e0b; border-right: 2px solid #f59e0b;">' +
+        '<td class="quote-cell quote-cell-sel" style="background: #fffbeb; border-left: 2px solid #f59e0b; border-right: 2px solid #f59e0b;">' +
         '  <div style="display: flex; justify-content: space-between; align-items: baseline; gap: 4px;">' +
-        '    <span class="quote-amt">&#8377;4,60,000.00</span>' +
+        '    <span class="quote-amt">&#8377;4,10,000.00</span>' +
         '    <span class="rank-other">L2</span>' +
         '  </div>' +
-        '  <div class="quote-unit">Rate: &#8377;4,60,000.00 / EA</div>' +
-        '  <div style="margin-top: 3px;"><span class="btn-pill-sel" style="background:#f59e0b;color:#ffffff;cursor:default;">⏳ In Approval</span></div>' +
+        '  <div class="quote-unit">Rate: &#8377;4,10,000.00 / EA</div>' +
+        '  <div style="margin-top: 2px;"><a href="javascript:void(0)" onclick="openFreightModal(\'00040\')" class="frt-link-pill" title="Click to view freight conditions breakdown">+&#8377;50,000.00 Delivery (ZI01: &#8377;50,000.00) &#128269;</a></div>' +
+        '  <div style="margin-top: 4px;"><span class="quote-chk-btn is-pend" title="Quotation in Approval Process"><span class="chk-sq">&#9203;</span><span>In Approval</span></span></div>' +
         '</td>' +
         '<td style="background: #f0fdf4; border-left: 2px solid #10b981;">' +
         '  <div style="font-weight: 700; font-size: 12px; color: #065f46;">Graphite India Ltd</div>' +
         '  <div style="font-size: 10px; color: #047857;">RFQ #6000000120</div>' +
         '  <div style="display: flex; justify-content: space-between; align-items: baseline; margin-top: 2px;">' +
-        '    <span style="font-weight: 700; font-size: 12px; color: #15803d;">&#8377;4,10,000.00</span>' +
+        '    <span style="font-weight: 700; font-size: 12px; color: #15803d;">&#8377;4,00,000.00</span>' +
         '    <span class="rank-lowest">L1 · Lowest</span>' +
         '  </div>' +
-        '  <div class="quote-unit">Rate: &#8377;4,10,000.00 / EA</div>' +
+        '  <div class="quote-unit">Rate: &#8377;4,00,000.00 / EA</div>' +
+        '  <div style="margin-top: 2px;"><a href="javascript:void(0)" onclick="openFreightModal(\'00040\')" class="frt-link-pill" title="Click to view freight conditions breakdown">+&#8377;10,000.00 Delivery (ZI01: &#8377;10,000.00) &#128269;</a></div>' +
         '</td>' +
         '<td style="background: #fffbeb; border-left: 3px solid #f59e0b;">' +
         '  <div style="font-weight: 700; font-size: 12px; color: #1e40af;">Ceracoats Pvt Ltd</div>' +
         '  <div style="font-size: 10px; color: #2563eb;">RFQ #6000000121</div>' +
         '  <div style="display: flex; justify-content: space-between; align-items: baseline; margin-top: 2px;">' +
-        '    <span style="font-weight: 700; font-size: 12px; color: #0f172a;">&#8377;4,60,000.00</span>' +
-        '    <span class="rank-other" style="background:#fef3c7;color:#92400e;border:1px solid #fcd34d;">▲ Higher +&#8377;50,000.00</span>' +
+        '    <span style="font-weight: 700; font-size: 12px; color: #0f172a;">&#8377;4,10,000.00</span>' +
+        '    <span class="rank-other" style="background:#fef3c7;color:#92400e;border:1px solid #fcd34d;">▲ Higher +&#8377;10,000.00</span>' +
         '  </div>' +
-        '  <div class="quote-unit">Rate: &#8377;4,60,000.00 / EA</div>' +
+        '  <div class="quote-unit">Rate: &#8377;4,10,000.00 / EA</div>' +
+        '  <div style="margin-top: 2px;"><a href="javascript:void(0)" onclick="openFreightModal(\'00040\')" class="frt-link-pill" title="Click to view freight conditions breakdown">+&#8377;50,000.00 Delivery (ZI01: &#8377;50,000.00) &#128269;</a></div>' +
         '  <div style="margin-top:3px;padding:3px 6px;background:#fef3c7;border:1px solid #f59e0b;border-radius:3px;font-size:10px;line-height:1.2;">' +
-        '    <div style="font-weight:700;color:#92400e;">User Justification (Locked):</div>' +
+        '    <div style="font-weight:700;color:#92400e;">User Justification:</div>' +
         '    <div style="color:#78350f;word-break:break-word;">"Urgent 2-day delivery required for breakdown schedule."</div>' +
         '  </div>' +
         (currentRole === 'USER' ?
           '<div style="display:flex;align-items:center;gap:4px;margin-top:4px;">' +
-          '  <span style="background:#f59e0b;color:#ffffff;padding:2px 8px;border-radius:3px;font-weight:700;font-size:10px;">⏳ Pending HOD (DIPAK)</span>' +
-          '  <span class="btn-po-disabled" style="font-size:10px;padding:2px 6px;">🔒 PO Locked</span>' +
+          '  <span style="background:#f59e0b;color:#ffffff;padding:2px 8px;border-radius:3px;font-weight:700;font-size:10px;">⏳ Pending Approver (Dipak Rathod)</span>' +
           '</div>' :
           '<div style="display:flex;align-items:center;gap:4px;margin-top:4px;flex-wrap:wrap;">' +
           '  <span style="background:#f59e0b;color:#ffffff;padding:2px 8px;border-radius:3px;font-weight:700;font-size:10px;">⏳ Pending Review</span>' +
-          '  <a href="javascript:void(0)" onclick="setItemState(\'APPROVED\'); alert(\'Item 00040 approved by HOD!\')" class="btn-pill-sel" style="font-size:10px;padding:2px 6px;background:#059669;color:#fff;" title="Approve">✓ Approve</a>' +
-          '  <a href="javascript:void(0)" onclick="alert(\'Item 00040 rejected by HOD!\')" class="btn-reject" style="font-size:10px;padding:2px 6px;" title="Reject">✗ Reject</a>' +
+          '  <a href="javascript:void(0)" onclick="setItemState(\'APPROVED\'); alert(\'Item 00040 approved by Dipak Rathod!\')" class="btn-po" style="font-size:10px;padding:2px 8px;background:#059669;color:#fff;" title="Approve">✓ Approve</a>' +
+          '  <a href="javascript:void(0)" onclick="promptRejectionRemark()" class="btn-reject" style="font-size:10px;padding:2px 8px;" title="Reject">✗ Reject</a>' +
           '</div>') +
         '</td>';
 
-    } else {
-      // STATE: APPROVED - ONLY CREATE PO OPTION ALLOWED
-      roleBadgeContainer.innerHTML =
-        '<span class="badge-count" style="background:#16a34a;color:#ffffff;border:1px solid #15803d;font-weight:700;padding:3px 10px;font-size:11px;">✓ 1 Approved by HOD</span>';
+    } else if (currentItemState === 'REJECTED') {
+      // STATE: REJECTED BY APPROVER
+      if (currentRole === 'USER') {
+        roleBadgeContainer.innerHTML =
+          '<span class="badge-count" style="background:#dc2626;color:#ffffff;border:1px solid #b91c1c;font-weight:700;padding:3px 10px;font-size:11px;">✗ 1 Item Rejected by Approver</span>';
 
-      roleActionsContainer.innerHTML =
-        '<a href="javascript:void(0)" onclick="alert(\'PO created successfully for approved Item 00040!\')" class="btn-po" title="Create Purchase Order">🛒 Create PO (1 Approved)</a>';
+        roleActionsContainer.innerHTML =
+          '<a href="javascript:void(0)" onclick="setItemState(\'PENDING\'); alert(\'Quotation comparison resubmitted to Dipak Rathod for approval!\')" class="btn-po" style="background:#d97706;" title="Resubmit after revisions">📤 Resubmit for Approval</a>';
+      } else {
+        roleBadgeContainer.innerHTML =
+          '<span class="badge-count" style="background:#4f46e5;color:#ffffff;border:1px solid #4338ca;font-weight:700;padding:3px 10px;font-size:11px;">🛡️ Approver Mode (Dipak Rathod)</span>' +
+          ' <span class="badge-count" style="background:#dc2626;color:#ffffff;border:1px solid #b91c1c;font-weight:700;padding:3px 10px;font-size:11px;">✗ 1 Rejected Item</span>';
 
-      // ITEM 4 ROW - APPROVED (GREEN BACKGROUND, ONLY CREATE PO ACTIVE)
+        roleActionsContainer.innerHTML =
+          '<a href="javascript:void(0)" onclick="setItemState(\'APPROVED\'); alert(\'Quotation comparison approved by Dipak Rathod!\')" class="btn-po" style="background:#059669;" title="Approve">✓ Approve All (1)</a>' +
+          ' <a href="javascript:void(0)" onclick="promptRejectionRemark()" class="btn-reject" title="Reject with Revised Remark">✗ Re-Reject</a>';
+      }
+
+      // ITEM 4 ROW - REJECTED (SHOWS REJECTION REASON CARD AND ALLOWS USER REVISION)
       htmlItem4Row.innerHTML =
         '<td style="text-align: center; vertical-align: middle;">' +
-        '  <span class="radio-box radio-sel" style="background:#16a34a;border-color:#16a34a;cursor:not-allowed;" title="Item is Approved">✓</span>' +
+        '  <span class="radio-box radio-sel" style="background:#dc2626;border-color:#dc2626;color:#ffffff;cursor:pointer;" title="Item Rejected - Click to change selection" onclick="alert(\'Item unlocked! You can now select L1 vendor or edit remarks.\')">&#10007;</span>' +
         '</td>' +
         '<td style="text-align: center; font-weight: 600; color: #64748b;">00040</td>' +
         '<td><div class="mat-code">8000006490</div></td>' +
         '<td><div class="mat-desc">Shell & Tube Exchanger Header Assembly</div></td>' +
         '<td style="text-align: right;"><div class="mat-qty">1 EA</div></td>' +
-        '<td>' +
+        '<td style="background: #f8fafc; border-left: 1px solid #cbd5e1; border-right: 1px solid #cbd5e1; font-size: 11px;">' +
+        '  <div style="font-weight: 700; color: #1e293b; font-size: 12px;">&#8377;3,95,000.00 <span style="font-weight: 400; font-size: 10px; color: #64748b;">/ EA</span></div>' +
+        '  <div style="margin-top: 1px;"><a href="javascript:void(0)" onclick="alert(\'Viewing historical PO 4500019200 in ME23N\')" style="color: #2563eb; text-decoration: underline; font-size: 10px; font-weight: 600;" title="View Last PO in ME23N">PO #4500019200 &#8599;</a></div>' +
+        '  <div style="font-size: 10px; color: #64748b; line-height: 1.2;">20.09.2024 &middot; Graphite India</div>' +
+        '  <span style="display:inline-block;background:#fee2e2;color:#991b1b;font-size:9px;font-weight:700;padding:1px 5px;border-radius:4px;border:1px solid #f87171;margin-top:2px;" title="L1 rate is higher than last PO by 3.8%">&#9650; +3.8% vs LPP</span>' +
+        '</td>' +
+        '<td class="quote-cell quote-cell-l1">' +
         '  <div style="display: flex; justify-content: space-between; align-items: baseline; gap: 4px;">' +
-        '    <span class="quote-amt">&#8377;4,10,000.00</span>' +
+        '    <span class="quote-amt">&#8377;4,00,000.00</span>' +
         '    <span class="rank-lowest">L1 · Lowest</span>' +
         '  </div>' +
-        '  <div class="quote-unit">Rate: &#8377;4,10,000.00 / EA</div>' +
-        '  <div style="margin-top: 3px;"><span style="font-size:10px;color:#94a3b8;font-style:italic;">🔒 Locked</span></div>' +
+        '  <div class="quote-unit">Rate: &#8377;4,00,000.00 / EA</div>' +
+        '  <div style="margin-top: 2px;"><a href="javascript:void(0)" onclick="openFreightModal(\'00040\')" class="frt-link-pill" title="Click to view freight conditions breakdown">+&#8377;10,000.00 Delivery (ZI01: &#8377;10,000.00) &#128269;</a></div>' +
+        '  <div style="margin-top: 4px;"><a href="javascript:void(0)" onclick="alert(\'Switched to L1 (Graphite India Ltd)!\')" class="quote-chk-btn is-unsel" title="Select L1"><span class="chk-sq"></span><span>Select L1</span></a></div>' +
         '</td>' +
-        '<td style="background: #f0fdf4; border-left: 2px solid #16a34a; border-right: 2px solid #16a34a;">' +
+        '<td class="quote-cell quote-cell-sel" style="background: #fef2f2; border-left: 2px solid #ef4444; border-right: 2px solid #ef4444;">' +
         '  <div style="display: flex; justify-content: space-between; align-items: baseline; gap: 4px;">' +
-        '    <span class="quote-amt">&#8377;4,60,000.00</span>' +
+        '    <span class="quote-amt">&#8377;4,10,000.00</span>' +
         '    <span class="rank-other">L2</span>' +
         '  </div>' +
-        '  <div class="quote-unit">Rate: &#8377;4,60,000.00 / EA</div>' +
-        '  <div style="margin-top: 3px;"><span class="btn-pill-sel" style="background:#16a34a;color:#ffffff;cursor:default;">✓ Approved</span></div>' +
+        '  <div class="quote-unit">Rate: &#8377;4,10,000.00 / EA</div>' +
+        '  <div style="margin-top: 2px;"><a href="javascript:void(0)" onclick="openFreightModal(\'00040\')" class="frt-link-pill" title="Click to view freight conditions breakdown">+&#8377;50,000.00 Delivery (ZI01: &#8377;50,000.00) &#128269;</a></div>' +
+        '  <div style="margin-top: 4px;"><span class="quote-chk-btn is-rej" title="Quotation Rejected"><span class="chk-sq">&#10007;</span><span>Rejected</span></span></div>' +
         '</td>' +
         '<td style="background: #f0fdf4; border-left: 2px solid #10b981;">' +
         '  <div style="font-weight: 700; font-size: 12px; color: #065f46;">Graphite India Ltd</div>' +
         '  <div style="font-size: 10px; color: #047857;">RFQ #6000000120</div>' +
         '  <div style="display: flex; justify-content: space-between; align-items: baseline; margin-top: 2px;">' +
-        '    <span style="font-weight: 700; font-size: 12px; color: #15803d;">&#8377;4,10,000.00</span>' +
+        '    <span style="font-weight: 700; font-size: 12px; color: #15803d;">&#8377;4,00,000.00</span>' +
         '    <span class="rank-lowest">L1 · Lowest</span>' +
         '  </div>' +
+        '  <div class="quote-unit">Rate: &#8377;4,00,000.00 / EA</div>' +
+        '  <div style="margin-top: 2px;"><a href="javascript:void(0)" onclick="openFreightModal(\'00040\')" class="frt-link-pill" title="Click to view freight conditions breakdown">+&#8377;10,000.00 Delivery (ZI01: &#8377;10,000.00) &#128269;</a></div>' +
+        '</td>' +
+        '<td style="background: #fef2f2; border-left: 3px solid #dc2626;">' +
+        '  <div style="font-weight: 700; font-size: 12px; color: #1e40af;">Ceracoats Pvt Ltd</div>' +
+        '  <div style="font-size: 10px; color: #2563eb;">RFQ #6000000121</div>' +
+        '  <div style="display: flex; justify-content: space-between; align-items: baseline; margin-top: 2px;">' +
+        '    <span style="font-weight: 700; font-size: 12px; color: #0f172a;">&#8377;4,10,000.00</span>' +
+        '    <span class="rank-other" style="background:#fee2e2;color:#991b1b;border:1px solid #f87171;">▲ Higher +&#8377;10,000.00</span>' +
+        '  </div>' +
         '  <div class="quote-unit">Rate: &#8377;4,10,000.00 / EA</div>' +
+        '  <div style="margin-top: 2px;"><a href="javascript:void(0)" onclick="openFreightModal(\'00040\')" class="frt-link-pill" title="Click to view freight conditions breakdown">+&#8377;50,000.00 Delivery (ZI01: &#8377;50,000.00) &#128269;</a></div>' +
+        '  <div style="margin-top:3px;padding:3px 6px;background:#fef3c7;border:1px solid #f59e0b;border-radius:3px;font-size:10px;line-height:1.2;">' +
+        '    <div style="font-weight:700;color:#92400e;">User Justification:</div>' +
+        '    <div style="color:#78350f;word-break:break-word;">"Urgent 2-day delivery required for breakdown schedule."</div>' +
+        '  </div>' +
+        '  <div style="margin-top:4px;padding:5px 8px;background:#fee2e2;border:1px solid #f87171;border-radius:4px;font-size:10.5px;line-height:1.3;">' +
+        '    <div style="font-weight:700;color:#991b1b;display:flex;align-items:center;gap:4px;">' +
+        '      <span>⚠️ Rejection Reason (Dipak Rathod):</span>' +
+        '    </div>' +
+        '    <div style="color:#7f1d1d;font-style:italic;margin-top:2px;">"Quotation basic price &#8377;4,10,000 (total &#8377;4,60,000) is higher than L1 (basic &#8377;4,00,000, total &#8377;4,10,000). Please negotiate with vendor or choose L1."</div>' +
+        '  </div>' +
+        (currentRole === 'USER' ?
+          '<div style="display:flex;align-items:center;gap:4px;margin-top:4px;flex-wrap:wrap;">' +
+          '  <span style="background:#dc2626;color:#ffffff;padding:2px 8px;border-radius:3px;font-weight:700;font-size:10px;">✗ Rejected by Approver</span>' +
+          '  <a href="javascript:void(0)" onclick="alert(\'Opening transaction ME47 to update quotation dates and prices...\')" class="btn-refresh" style="font-size:10px;padding:2px 6px;" title="Maintain dates/prices in ME47">✎ Edit ME47</a>' +
+          '  <a href="javascript:void(0)" onclick="setItemState(\'PENDING\'); alert(\'Resubmitted Item 00040 to Dipak Rathod for approval!\')" class="btn-po" style="font-size:10px;padding:2px 8px;background:#f59e0b;color:#fff;">📤 Resend for Approval</a>' +
+          '</div>' :
+          '<div style="display:flex;align-items:center;gap:4px;margin-top:4px;flex-wrap:wrap;">' +
+          '  <span style="background:#dc2626;color:#ffffff;padding:2px 8px;border-radius:3px;font-weight:700;font-size:10px;">✗ Rejected</span>' +
+          '  <a href="javascript:void(0)" onclick="setItemState(\'APPROVED\'); alert(\'Item 00040 approved by Dipak Rathod!\')" class="btn-po" style="font-size:10px;padding:2px 8px;background:#059669;color:#fff;" title="Approve">✓ Approve</a>' +
+          '  <a href="javascript:void(0)" onclick="promptRejectionRemark()" class="btn-reject" style="font-size:10px;padding:2px 8px;" title="Re-Reject">✗ Re-Reject</a>' +
+          '</div>') +
+        '</td>';
+
+    } else {
+      // STATE: APPROVED - ONLY CREATOR CAN CREATE PO
+      if (currentRole === 'USER') {
+        roleBadgeContainer.innerHTML =
+          '<span class="badge-count" style="background:#16a34a;color:#ffffff;border:1px solid #15803d;font-weight:700;padding:3px 10px;font-size:11px;">✓ 1 Approved by Approver</span>';
+
+        roleActionsContainer.innerHTML =
+          '<a href="javascript:void(0)" onclick="alert(\'PO created successfully for approved Item 00040!\')" class="btn-po" title="Create Purchase Order">🛒 Create PO (1 Approved)</a>';
+      } else {
+        roleBadgeContainer.innerHTML =
+          '<span class="badge-count" style="background:#4f46e5;color:#ffffff;border:1px solid #4338ca;font-weight:700;padding:3px 10px;font-size:11px;">🛡️ Approver Mode (Dipak Rathod)</span>' +
+          ' <span class="badge-count" style="background:#16a34a;color:#ffffff;border:1px solid #15803d;font-weight:700;padding:3px 10px;font-size:11px;">✓ 1 Approved</span>' +
+          ' <span class="badge-count" style="background:#dcfce7;color:#15803d;border:1px solid #86efac;font-weight:700;padding:3px 10px;font-size:11px;">Sent to Creator for PO</span>';
+
+        roleActionsContainer.innerHTML =
+          '<span style="font-weight:700;color:#16a34a;font-size:12px;display:flex;align-items:center;gap:4px;">✓ Approved · Sent back to Creator for PO creation</span>' +
+          ' <a href="javascript:void(0)" onclick="promptRejectionRemark()" class="btn-reject" title="Reject comparison with compulsory remark">✗ Reject All</a>';
+      }
+
+      // ITEM 4 ROW - APPROVED (GREEN BACKGROUND, ONLY CREATE PO ACTIVE FOR CREATOR)
+      htmlItem4Row.innerHTML =
+        '<td style="text-align: center; vertical-align: middle;">' +
+        '  <span class="radio-box radio-sel" style="background:#16a34a;border-color:#16a34a;color:#ffffff;cursor:not-allowed;" title="Item is Approved">&#10003;</span>' +
+        '</td>' +
+        '<td style="text-align: center; font-weight: 600; color: #64748b;">00040</td>' +
+        '<td><div class="mat-code">8000006490</div></td>' +
+        '<td><div class="mat-desc">Shell & Tube Exchanger Header Assembly</div></td>' +
+        '<td style="text-align: right;"><div class="mat-qty">1 EA</div></td>' +
+        '<td style="background: #f8fafc; border-left: 1px solid #cbd5e1; border-right: 1px solid #cbd5e1; font-size: 11px;">' +
+        '  <div style="font-weight: 700; color: #1e293b; font-size: 12px;">&#8377;3,95,000.00 <span style="font-weight: 400; font-size: 10px; color: #64748b;">/ EA</span></div>' +
+        '  <div style="margin-top: 1px;"><a href="javascript:void(0)" onclick="alert(\'Viewing historical PO 4500019200 in ME23N\')" style="color: #2563eb; text-decoration: underline; font-size: 10px; font-weight: 600;" title="View Last PO in ME23N">PO #4500019200 &#8599;</a></div>' +
+        '  <div style="font-size: 10px; color: #64748b; line-height: 1.2;">20.09.2024 &middot; Graphite India</div>' +
+        '  <span style="display:inline-block;background:#fee2e2;color:#991b1b;font-size:9px;font-weight:700;padding:1px 5px;border-radius:4px;border:1px solid #f87171;margin-top:2px;" title="L1 rate is higher than last PO by 3.8%">&#9650; +3.8% vs LPP</span>' +
+        '</td>' +
+        '<td class="quote-cell quote-cell-l1">' +
+        '  <div style="display: flex; justify-content: space-between; align-items: baseline; gap: 4px;">' +
+        '    <span class="quote-amt">&#8377;4,00,000.00</span>' +
+        '    <span class="rank-lowest">L1 · Lowest</span>' +
+        '  </div>' +
+        '  <div class="quote-unit">Rate: &#8377;4,00,000.00 / EA</div>' +
+        '  <div style="margin-top: 2px;"><a href="javascript:void(0)" onclick="openFreightModal(\'00040\')" class="frt-link-pill" title="Click to view freight conditions breakdown">+&#8377;10,000.00 Delivery (ZI01: &#8377;10,000.00) &#128269;</a></div>' +
+        '  <div style="margin-top: 4px;">' + (currentRole === 'APPROVER' ? '<a href="javascript:void(0)" onclick="alert(\'Approver switched selection to L1 (Graphite India Ltd)!\')" class="quote-chk-btn is-unsel" title="Select this quotation"><span class="chk-sq"></span><span>Select</span></a>' : '') + '</div>' +
+        '</td>' +
+        '<td class="quote-cell quote-cell-sel" style="background: #f0fdf4; border-left: 2px solid #16a34a; border-right: 2px solid #16a34a;">' +
+        '  <div style="display: flex; justify-content: space-between; align-items: baseline; gap: 4px;">' +
+        '    <span class="quote-amt">&#8377;4,10,000.00</span>' +
+        '    <span class="rank-other">L2</span>' +
+        '  </div>' +
+        '  <div class="quote-unit">Rate: &#8377;4,10,000.00 / EA</div>' +
+        '  <div style="margin-top: 2px;"><a href="javascript:void(0)" onclick="openFreightModal(\'00040\')" class="frt-link-pill" title="Click to view freight conditions breakdown">+&#8377;50,000.00 Delivery (ZI01: &#8377;50,000.00) &#128269;</a></div>' +
+        '  <div style="margin-top: 4px;"><span class="quote-chk-btn is-appr" title="Quotation Approved"><span class="chk-sq">&#10003;</span><span>Approved</span></span></div>' +
+        '</td>' +
+        '<td style="background: #f0fdf4; border-left: 2px solid #10b981;">' +
+        '  <div style="font-weight: 700; font-size: 12px; color: #065f46;">Graphite India Ltd</div>' +
+        '  <div style="font-size: 10px; color: #047857;">RFQ #6000000120</div>' +
+        '  <div style="display: flex; justify-content: space-between; align-items: baseline; margin-top: 2px;">' +
+        '    <span style="font-weight: 700; font-size: 12px; color: #15803d;">&#8377;4,00,000.00</span>' +
+        '    <span class="rank-lowest">L1 · Lowest</span>' +
+        '  </div>' +
+        '  <div class="quote-unit">Rate: &#8377;4,00,000.00 / EA</div>' +
+        '  <div style="margin-top: 2px;"><a href="javascript:void(0)" onclick="openFreightModal(\'00040\')" class="frt-link-pill" title="Click to view freight conditions breakdown">+&#8377;10,000.00 Delivery (ZI01: &#8377;10,000.00) &#128269;</a></div>' +
         '</td>' +
         '<td style="background: #f0fdf4; border-left: 3px solid #16a34a;">' +
         '  <div style="font-weight: 700; font-size: 12px; color: #1e40af;">Ceracoats Pvt Ltd</div>' +
         '  <div style="font-size: 10px; color: #2563eb;">RFQ #6000000121</div>' +
         '  <div style="display: flex; justify-content: space-between; align-items: baseline; margin-top: 2px;">' +
-        '    <span style="font-weight: 700; font-size: 12px; color: #0f172a;">&#8377;4,60,000.00</span>' +
-        '    <span class="rank-other" style="background:#fef3c7;color:#92400e;border:1px solid #fcd34d;">▲ Higher +&#8377;50,000.00</span>' +
+        '    <span style="font-weight: 700; font-size: 12px; color: #0f172a;">&#8377;4,10,000.00</span>' +
+        '    <span class="rank-other" style="background:#fef3c7;color:#92400e;border:1px solid #fcd34d;">▲ Higher +&#8377;10,000.00</span>' +
         '  </div>' +
-        '  <div class="quote-unit">Rate: &#8377;4,60,000.00 / EA</div>' +
+        '  <div class="quote-unit">Rate: &#8377;4,10,000.00 / EA</div>' +
+        '  <div style="margin-top: 2px;"><a href="javascript:void(0)" onclick="openFreightModal(\'00040\')" class="frt-link-pill" title="Click to view freight conditions breakdown">+&#8377;50,000.00 Delivery (ZI01: &#8377;50,000.00) &#128269;</a></div>' +
         '  <div style="margin-top:3px;padding:3px 6px;background:#fef3c7;border:1px solid #f59e0b;border-radius:3px;font-size:10px;line-height:1.2;">' +
         '    <div style="font-weight:700;color:#92400e;">User Justification:</div>' +
         '    <div style="color:#78350f;word-break:break-word;">"Urgent 2-day delivery required for breakdown schedule."</div>' +
         '  </div>' +
-        '  <div style="display:flex;align-items:center;gap:6px;margin-top:4px;">' +
-        '    <span style="background:#16a34a;color:#ffffff;padding:2px 8px;border-radius:3px;font-weight:700;font-size:10px;">✓ Approved</span>' +
-        '    <a href="javascript:void(0)" onclick="alert(\'PO created successfully for Item 00040!\')" class="btn-po" style="font-size:10px;padding:2px 8px;" title="Create PO">🛒 Create PO</a>' +
-        '  </div>' +
+        (currentRole === 'USER' ?
+          '  <div style="display:flex;align-items:center;gap:6px;margin-top:4px;">' +
+          '    <span style="background:#16a34a;color:#ffffff;padding:2px 8px;border-radius:3px;font-weight:700;font-size:10px;">✓ Approved</span>' +
+          '    <a href="javascript:void(0)" onclick="alert(\'PO created successfully for Item 00040!\')" class="btn-po" style="font-size:10px;padding:2px 8px;" title="Create PO">🛒 Create PO</a>' +
+          '  </div>' :
+          '  <div style="display:flex;align-items:center;gap:6px;margin-top:4px;">' +
+          '    <span style="background:#16a34a;color:#ffffff;padding:2px 8px;border-radius:3px;font-weight:700;font-size:10px;">✓ Approved</span>' +
+          '    <span style="font-size:10px;color:#15803d;font-weight:600;">(Sent to Creator for PO)</span>' +
+          '    <a href="javascript:void(0)" onclick="promptRejectionRemark()" class="btn-reject" style="font-size:10px;padding:2px 6px;" title="Reject">✗ Reject</a>' +
+          '  </div>') +
         '</td>';
     }
   }
@@ -1687,7 +2136,7 @@
       if (currentRole === 'USER') {
         alvRow2Action.innerHTML = '@09@ In Appr (1)';
         alvRow2Action.onclick = function() {
-          alert('Item is already submitted to HOD and pending approval.');
+          alert('Item is already submitted to Approver (Dipak Rathod) and pending approval.');
         };
         alvRow4Action.innerHTML = '';
         alvRow4Action.onclick = null;
@@ -1695,11 +2144,11 @@
         alvRow2Action.innerHTML = '@0V@ Approve All (1)';
         alvRow2Action.onclick = function() {
           setItemState('APPROVED');
-          alert('HOD Approved quotation comparison for Item 00040!');
+          alert('Approved quotation comparison for Item 00040 by Dipak Rathod!');
         };
         alvRow4Action.innerHTML = '@0W@ Reject All';
         alvRow4Action.onclick = function() {
-          alert('HOD Rejected quotation comparison.');
+          promptRejectionRemark();
         };
       }
 
@@ -1709,19 +2158,64 @@
         '<td>8000006490</td>' +
         '<td>Shell & Tube Exchanger Header</td>' +
         '<td>Val:</td>' +
+        '<td class="alv-hotspot" onclick="alert(\'Item is in approval process. Supplier change locked.\')">400000.00</td>' +
         '<td class="alv-hotspot" onclick="alert(\'Item is in approval process. Supplier change locked.\')">410000.00</td>' +
-        '<td class="alv-hotspot" onclick="alert(\'Item is in approval process. Supplier change locked.\')">460000.00</td>' +
-        '<td>435000.00</td>' +
-        '<td>410000.00</td>' +
+        '<td>405000.00</td>' +
+        '<td>400000.00</td>' +
         (currentRole === 'USER' ?
           '<td class="alv-hotspot" onclick="alert(\'Item 00040 is in approval process. Details are locked.\')">@09@ In Approval</td>' :
-          '<td class="alv-hotspot" onclick="setItemState(\'APPROVED\'); alert(\'Item 00040 Approved by HOD!\')">@0V@ Approve Item</td>');
+          '<td class="alv-hotspot" onclick="setItemState(\'APPROVED\'); alert(\'Item 00040 Approved by Dipak Rathod!\')">@0V@ Approve Item</td>');
 
       alvItem4ApprRow.innerHTML =
         '<td></td><td></td><td></td>' +
         '<td>Approved</td>' +
         '<td>[ ]</td>' +
         '<td class="alv-yellow-cell">[In Appr]</td>' +
+        '<td></td><td></td><td></td>';
+
+    } else if (currentItemState === 'REJECTED') {
+      // ALV Header Actions for Rejected
+      alvRow1Action.innerHTML = '@0Y@ Create PO';
+      alvRow1Action.onclick = function() {
+        alert('Item is rejected. Please revise and resubmit for approval.');
+      };
+
+      if (currentRole === 'USER') {
+        alvRow2Action.innerHTML = '@0W@ Rejected (1)';
+        alvRow2Action.onclick = function() {
+          alert('Item was rejected by Approver (Dipak Rathod). Click Rej reason or Revise.');
+        };
+        alvRow4Action.innerHTML = '';
+        alvRow4Action.onclick = null;
+      } else {
+        alvRow2Action.innerHTML = '@0V@ Approve All (1)';
+        alvRow2Action.onclick = function() {
+          setItemState('APPROVED');
+          alert('Approved quotation comparison for Item 00040 by Dipak Rathod!');
+        };
+        alvRow4Action.innerHTML = '@0W@ Reject All';
+        alvRow4Action.onclick = function() {
+          promptRejectionRemark();
+        };
+      }
+
+      // ALV Item 4 Rows for Rejected
+      alvItem4ValRow.innerHTML =
+        '<td>@02@ [X]</td>' +
+        '<td>8000006490</td>' +
+        '<td>Shell & Tube Exchanger Header</td>' +
+        '<td>Val:</td>' +
+        '<td class="alv-hotspot" onclick="alert(\'Switched to L1 (Graphite India Ltd)!\')">400000.00</td>' +
+        '<td class="alv-hotspot" onclick="alert(\'Ceracoats Pvt Ltd (Rejected)\')">410000.00</td>' +
+        '<td>405000.00</td>' +
+        '<td>400000.00</td>' +
+        '<td class="alv-hotspot" style="color:#dc2626;font-weight:700;" onclick="alert(\'SAP ZPQC_NEW Rejection Reason (Dipak Rathod):\\n\\nQuotation basic price ₹4,10,000 (total ₹4,60,000) is higher than L1 (basic ₹4,00,000, total ₹4,10,000). Please negotiate with vendor or choose L1.\')">@0W@ Rej: Rate too high...</td>';
+
+      alvItem4ApprRow.innerHTML =
+        '<td></td><td></td><td></td>' +
+        '<td>Approved</td>' +
+        '<td>[ ]</td>' +
+        '<td class="alv-red-cell" style="background:#fee2e2;color:#b91c1c;font-weight:700;">[Rejected]</td>' +
         '<td></td><td></td><td></td>';
 
     } else {
@@ -1751,10 +2245,10 @@
         '<td>8000006490</td>' +
         '<td>Shell & Tube Exchanger Header</td>' +
         '<td>Val:</td>' +
+        '<td class="alv-hotspot" onclick="alert(\'Item is approved. Supplier change locked; only Create PO is allowed.\')">400000.00</td>' +
         '<td class="alv-hotspot" onclick="alert(\'Item is approved. Supplier change locked; only Create PO is allowed.\')">410000.00</td>' +
-        '<td class="alv-hotspot" onclick="alert(\'Item is approved. Supplier change locked; only Create PO is allowed.\')">460000.00</td>' +
-        '<td>435000.00</td>' +
-        '<td>410000.00</td>' +
+        '<td>405000.00</td>' +
+        '<td>400000.00</td>' +
         '<td class="alv-hotspot" onclick="alert(\'PO created for approved Item 00040!\')" style="font-weight:800;color:#16a34a;">@15@ Create PO</td>';
 
       alvItem4ApprRow.innerHTML =
@@ -1768,7 +2262,194 @@
 
   // Initialize
   renderAll();
+
+  // ==================== FREIGHT BREAKDOWN MODAL LOGIC ====================
+  const FREIGHT_CONDITIONS_DATA = [
+    // Demonstration Project Items
+    { scope: 'DEMO', ebeln: '6000000120', ebelp: '00010', lifnr: '100450', name1: 'Graphite India Ltd', kschl: 'ZI01', vtext: 'Ocean Freight / Delivery', kbetr: '15000.00', waers: 'INR', kwert: '15000.00', waerk: 'INR', inr_amt: 15000.00 },
+    { scope: 'DEMO', ebeln: '6000000120', ebelp: '00020', lifnr: '100450', name1: 'Graphite India Ltd', kschl: 'ZI01', vtext: 'Ocean Freight / Delivery', kbetr: '20000.00', waers: 'INR', kwert: '20000.00', waerk: 'INR', inr_amt: 20000.00 },
+    { scope: 'DEMO', ebeln: '6000000120', ebelp: '00040', lifnr: '100450', name1: 'Graphite India Ltd', kschl: 'ZI01', vtext: 'Ocean Freight / Delivery', kbetr: '10000.00', waers: 'INR', kwert: '10000.00', waerk: 'INR', inr_amt: 10000.00 },
+    { scope: 'DEMO', ebeln: '6000000121', ebelp: '00040', lifnr: '100520', name1: 'Ceracoats Pvt Ltd', kschl: 'ZI01', vtext: 'Ocean Freight / Delivery', kbetr: '50000.00', waers: 'INR', kwert: '50000.00', waerk: 'INR', inr_amt: 50000.00 },
+
+    // Live SAP DS4/220 Collective 0000100815 Conditions
+    { scope: 'SAP', ebeln: '0200001278', ebelp: '00010', lifnr: '200033', name1: 'Sinochem Agro Co. (L1)', kschl: 'ZI01', vtext: 'Ocean Freight Charges', kbetr: '50000.00', waers: 'INR', kwert: '518.13', waerk: 'USD', inr_amt: 50000.00 },
+    { scope: 'SAP', ebeln: '0200001278', ebelp: '00010', lifnr: '200033', name1: 'Sinochem Agro Co. (L1)', kschl: 'ZI04', vtext: 'Customs Clearance Charges', kbetr: '5000.00', waers: 'INR', kwert: '51.81', waerk: 'USD', inr_amt: 5000.00 },
+    { scope: 'SAP', ebeln: '0200001279', ebelp: '00010', lifnr: '200036', name1: 'Zhejiang Chemicals', kschl: 'ZI01', vtext: 'Ocean Freight Charges', kbetr: '50000.00', waers: 'INR', kwert: '518.13', waerk: 'USD', inr_amt: 50000.00 },
+    { scope: 'SAP', ebeln: '0200001279', ebelp: '00010', lifnr: '200036', name1: 'Zhejiang Chemicals', kschl: 'ZI42', vtext: 'Marine Transit Insurance', kbetr: '15000.00', waers: 'INR', kwert: '155.44', waerk: 'USD', inr_amt: 15000.00 }
+  ];
+
+  let currentModalScope = 'ALL';
+
+  function openFreightModal(scope) {
+    currentModalScope = scope || 'ALL';
+    renderFreightModal();
+    const modal = document.getElementById('freightModal');
+    if (modal) {
+      modal.style.display = 'flex';
+    }
+  }
+
+  function closeFreightModal() {
+    const modal = document.getElementById('freightModal');
+    if (modal) {
+      modal.style.display = 'none';
+    }
+  }
+
+  function setModalScope(scope) {
+    currentModalScope = scope;
+    renderFreightModal();
+  }
+
+  function renderFreightModal() {
+    const titleEl = document.getElementById('freightModalTitle');
+    const tbody = document.getElementById('freightModalBody');
+    const totalEl = document.getElementById('freightModalTotal');
+    const countEl = document.getElementById('modalRecordCount');
+
+    // Update active tab buttons
+    ['modalTabAll', 'modalTabItem1', 'modalTabItem4', 'modalTabSap'].forEach(id => {
+      const btn = document.getElementById(id);
+      if (btn) {
+        btn.style.background = '#f8fafc';
+        btn.style.color = '#475569';
+        btn.style.borderColor = '#cbd5e1';
+      }
+    });
+
+    let filtered = [];
+    if (currentModalScope === 'SAP') {
+      filtered = FREIGHT_CONDITIONS_DATA.filter(r => r.scope === 'SAP');
+      titleEl.innerHTML = 'SAP Live System (Collective 0000100815) - Freight & Delivery Conditions Breakdown';
+      const b = document.getElementById('modalTabSap');
+      if (b) { b.style.background = '#16a34a'; b.style.color = '#ffffff'; b.style.borderColor = '#16a34a'; }
+    } else if (currentModalScope === '00010') {
+      filtered = FREIGHT_CONDITIONS_DATA.filter(r => r.ebelp === '00010' && r.scope === 'DEMO');
+      titleEl.innerHTML = 'Freight Conditions Breakdown - Item 00010 (Graphite Condenser 12m²)';
+      const b = document.getElementById('modalTabItem1');
+      if (b) { b.style.background = '#3b82f6'; b.style.color = '#ffffff'; b.style.borderColor = '#3b82f6'; }
+    } else if (currentModalScope === '00040') {
+      filtered = FREIGHT_CONDITIONS_DATA.filter(r => r.ebelp === '00040' && r.scope === 'DEMO');
+      titleEl.innerHTML = 'Freight Conditions Breakdown - Item 00040 (Shell & Tube Exchanger Header)';
+      const b = document.getElementById('modalTabItem4');
+      if (b) { b.style.background = '#3b82f6'; b.style.color = '#ffffff'; b.style.borderColor = '#3b82f6'; }
+    } else {
+      filtered = FREIGHT_CONDITIONS_DATA.filter(r => r.scope === 'DEMO');
+      titleEl.innerHTML = 'Quotation Freight & Delivery Conditions Breakdown (All Items)';
+      const b = document.getElementById('modalTabAll');
+      if (b) { b.style.background = '#3b82f6'; b.style.color = '#ffffff'; b.style.borderColor = '#3b82f6'; }
+    }
+
+    if (countEl) {
+      countEl.textContent = `${filtered.length} condition record${filtered.length === 1 ? '' : 's'} displayed`;
+    }
+
+    let rowsHtml = '';
+    let grandTotal = 0;
+
+    filtered.forEach((r, idx) => {
+      grandTotal += r.inr_amt;
+      const bg = idx % 2 === 0 ? '#ffffff' : '#f8fafc';
+      rowsHtml += `
+        <tr style="background: ${bg}; border-bottom: 1px solid #e2e8f0;">
+          <td style="padding: 8px 10px; font-weight: 600; color: #1e293b;">${r.ebeln}</td>
+          <td style="padding: 8px 10px; color: #64748b;">${r.ebelp}</td>
+          <td style="padding: 8px 10px; font-family: monospace; color: #0284c7;">${r.lifnr}</td>
+          <td style="padding: 8px 10px; font-weight: 500; color: #0f172a;">${r.name1}</td>
+          <td style="padding: 8px 10px; font-weight: 700; color: #b45309;">${r.kschl}</td>
+          <td style="padding: 8px 10px; color: #334155;">${r.vtext}</td>
+          <td style="padding: 8px 10px; text-align: right; font-family: monospace;">${parseFloat(r.kbetr).toLocaleString('en-IN', {minimumFractionDigits: 2})}</td>
+          <td style="padding: 8px 10px; color: #64748b;">${r.waers}</td>
+          <td style="padding: 8px 10px; text-align: right; font-family: monospace;">${parseFloat(r.kwert).toLocaleString('en-IN', {minimumFractionDigits: 2})}</td>
+          <td style="padding: 8px 10px; color: #64748b;">${r.waerk}</td>
+          <td style="padding: 8px 10px; text-align: right; font-weight: 700; color: #b45309; font-family: monospace;">&#8377;${r.inr_amt.toLocaleString('en-IN', {minimumFractionDigits: 2})}</td>
+        </tr>
+      `;
+    });
+
+    if (filtered.length === 0) {
+      rowsHtml = `<tr><td colspan="11" style="text-align: center; padding: 24px; color: #94a3b8; font-style: italic;">No freight conditions found for this selection.</td></tr>`;
+    }
+
+    if (tbody) {
+      tbody.innerHTML = rowsHtml;
+    }
+    if (totalEl) {
+      totalEl.innerHTML = `&#8377;${grandTotal.toLocaleString('en-IN', {minimumFractionDigits: 2})}`;
+    }
+  }
+
+  // Close modal on escape key
+  document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape') {
+      closeFreightModal();
+    }
+  });
 </script>
+
+<!-- ==================== FREIGHT BREAKDOWN MODAL DIALOG ==================== -->
+<div id="freightModal" style="display:none; position:fixed; z-index:99999; left:0; top:0; width:100%; height:100%; background:rgba(15,23,42,0.65); backdrop-filter:blur(4px); align-items:center; justify-content:center;">
+  <div style="background:#ffffff; border-radius:10px; box-shadow:0 25px 50px -12px rgba(0,0,0,0.25); width:92%; max-width:960px; max-height:88vh; display:flex; flex-direction:column; overflow:hidden; border:1px solid #cbd5e1;">
+    <div style="padding:16px 20px; background:#f8fafc; border-bottom:1px solid #e2e8f0; display:flex; justify-content:space-between; align-items:center;">
+      <div style="display:flex; align-items:center; gap:10px;">
+        <span style="font-size:20px; background:#fef3c7; color:#b45309; padding:4px 8px; border-radius:6px; border:1px solid #fde68a;">🚚</span>
+        <div>
+          <div id="freightModalTitle" style="font-weight:700; font-size:15px; color:#0f172a;">Quotation Freight & Delivery Conditions Breakdown</div>
+          <div style="font-size:11px; color:#64748b;">Pricing elements evaluated from SAP table <code>PRCD_ELEMENTS</code> / <code>KONV</code> in Base Currency (INR)</div>
+        </div>
+      </div>
+      <button onclick="closeFreightModal()" style="border:none; background:#f1f5f9; cursor:pointer; font-size:20px; width:34px; height:34px; border-radius:50%; color:#64748b; font-weight:700; display:flex; align-items:center; justify-content:center;">&times;</button>
+    </div>
+
+    <!-- Scope Switcher / Filter Pills -->
+    <div style="padding:10px 20px; background:#ffffff; border-bottom:1px solid #f1f5f9; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px;">
+      <div style="display:flex; gap:6px; align-items:center;">
+        <span style="font-size:11px; font-weight:600; color:#475569;">Scope:</span>
+        <button id="modalTabAll" onclick="setModalScope('ALL')" style="padding:4px 10px; font-size:11px; font-weight:600; border-radius:4px; border:1px solid #cbd5e1; background:#3b82f6; color:#ffffff; cursor:pointer;">All Quotations & Items</button>
+        <button id="modalTabItem1" onclick="setModalScope('00010')" style="padding:4px 10px; font-size:11px; font-weight:600; border-radius:4px; border:1px solid #cbd5e1; background:#f8fafc; color:#475569; cursor:pointer;">Item 00010</button>
+        <button id="modalTabItem4" onclick="setModalScope('00040')" style="padding:4px 10px; font-size:11px; font-weight:600; border-radius:4px; border:1px solid #cbd5e1; background:#f8fafc; color:#475569; cursor:pointer;">Item 00040</button>
+        <button id="modalTabSap" onclick="setModalScope('SAP')" style="padding:4px 10px; font-size:11px; font-weight:600; border-radius:4px; border:1px solid #86efac; background:#dcfce7; color:#15803d; cursor:pointer;">✨ Live SAP (Collective 0000100815)</button>
+      </div>
+      <div id="modalRecordCount" style="font-size:11px; color:#64748b; font-weight:500;">Showing all conditions</div>
+    </div>
+
+    <div style="padding:16px 20px; overflow-y:auto; flex:1;">
+      <table style="width:100%; border-collapse:collapse; font-size:12px;">
+        <thead>
+          <tr style="background:#f8fafc; color:#334155; border-bottom:2px solid #cbd5e1; text-align:left;">
+            <th style="padding:8px 10px; font-weight:700;">Quotation No</th>
+            <th style="padding:8px 10px; font-weight:700;">Item</th>
+            <th style="padding:8px 10px; font-weight:700;">Vendor</th>
+            <th style="padding:8px 10px; font-weight:700;">Vendor Name</th>
+            <th style="padding:8px 10px; font-weight:700;">Cond Type</th>
+            <th style="padding:8px 10px; font-weight:700;">Description</th>
+            <th style="padding:8px 10px; text-align:right; font-weight:700;">Rate</th>
+            <th style="padding:8px 10px; font-weight:700;">Curr</th>
+            <th style="padding:8px 10px; text-align:right; font-weight:700;">Doc Value</th>
+            <th style="padding:8px 10px; font-weight:700;">Doc Curr</th>
+            <th style="padding:8px 10px; text-align:right; font-weight:700; color:#b45309;">Amount (INR)</th>
+          </tr>
+        </thead>
+        <tbody id="freightModalBody">
+          <!-- Dynamically populated -->
+        </tbody>
+        <tfoot style="border-top:2px solid #cbd5e1; font-weight:700; background:#fffbeb;">
+          <tr>
+            <td colspan="10" style="padding:10px; text-align:right; color:#b45309; font-size:12px;">Total Freight / Delivery Cost:</td>
+            <td id="freightModalTotal" style="padding:10px; text-align:right; color:#b45309; font-size:13px; font-weight:800;">&#8377;0.00</td>
+          </tr>
+        </tfoot>
+      </table>
+    </div>
+
+    <div style="padding:12px 20px; background:#f8fafc; border-top:1px solid #e2e8f0; display:flex; justify-content:space-between; align-items:center;">
+      <div style="font-size:11px; color:#64748b;">
+        💡 <b>Rule Verification:</b> Basic prices (PB00, PBXX, P001, P002) and discounts are strictly excluded from delivery totals.
+      </div>
+      <button onclick="closeFreightModal()" style="padding:7px 18px; background:#1e293b; color:#ffffff; border:none; border-radius:4px; font-size:12px; font-weight:600; cursor:pointer;">Close</button>
+    </div>
+  </div>
+</div>
 
 </body>
 </html>

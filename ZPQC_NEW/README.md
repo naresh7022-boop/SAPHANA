@@ -1,7 +1,7 @@
 # ZPQC_NEW - RFQ Price Comparison, PO Creation & Fiori Cockpit
 
 **SAP Transaction Code:** `ZPQC_NEW`  
-**ABAP Report Program:** `ZMM_R_ME49N` (Active Version: **v3.1**)  
+**ABAP Report Program:** `ZMM_R_ME49N` (Active Version: **v3.4**)  
 **System:** SAP S/4HANA (`DS4/220`) · Client `220`  
 **Package:** `$TMP` (Local Object)  
 **Fiori Launchpad Intent:** `#ZPQC_NEW-manage`  
@@ -10,9 +10,50 @@
 
 ## 📌 Executive Summary
 
-`ZPQC_NEW` is an enterprise quotation price comparison and PO generation cockpit built for SAP S/4HANA. It provides procurement buyers and approval managers with an interactive matrix comparing up to 40 supplier quotations per collective RFQ. The system supports multi-currency conversion to base currency (INR), automated lowest-cost (L1) ranking, role-based approval workflows with compulsory non-L1 justification remarks, strict state-locking safeguards, and one-click Purchase Order creation via standard BAPI (`BAPI_PO_CREATE1`).
+`ZPQC_NEW` is an enterprise quotation price comparison and PO generation cockpit built for SAP S/4HANA. It provides procurement buyers and approval managers with an interactive matrix comparing up to 40 supplier quotations per collective RFQ. The system supports multi-currency conversion to base currency (INR), automated lowest-cost (L1) ranking factoring item & header delivery costs/freight from `PRCD_ELEMENTS`, historical Last Purchase Price (LPP) benchmarking with % variance badges, role-based approval workflows with compulsory non-L1 justification remarks, strict state-locking safeguards, and one-click Purchase Order creation via standard BAPI (`BAPI_PO_CREATE1`).
 
 In addition to traditional SAP GUI access, `ZPQC_NEW` is fully configured for deployment as a **SAP Fiori Launchpad Tile** (WebGUI / SAP GUI for HTML), allowing buyers to launch and use the comparison cockpit directly from their Fiori Launchpad homepage.
+
+---
+
+## 🌟 What's New in Version 3.4
+
+### 1. Quotation-Wise Item-Level Delivery Cost & Individual Downside Rows
+* **Item-Level Freight Extraction (`PRCD_ELEMENTS`)**: Reads item condition records using 6-digit `kposn` (`UNPACK ls_data-ebelp TO lv_kposn_item`) matching `NUMC 6` format in `PRCD_ELEMENTS` (resolving character length mismatch where `kposn = '000010'` and `ebelp = '00010'`).
+* **Condition Pool**: Captures all 122 delivery & freight condition types configured in `T685A` (`KNTYP = 'B'` / `KOAID = 'B'` / `KSCHL LIKE 'FR%'`, `ZAFR`, `ZDT1`, `ZDP1`, `ZI01`, etc.).
+* **Individual Downside Row (`Total Delivery Cost`)**: Added a dedicated individual summary row directly below item amounts in both Classical ALV (`ls_frt_tot`, `maktx = 'Total Delivery Cost'`, color `C300`) and the Modern HTML dashboard (`Total Delivery Cost / Freight`, highlighted in amber `#b45309`).
+* **Landed Total Calculation**: `Total Quotation Amount` explicitly sums material item total + total delivery cost:
+  $$\text{Total Quotation Amount} = \text{Total Item Amount} + \text{Total Delivery Cost}$$
+* **Financing Parity**: Maintained `gt_final1` indexing (index 1 = `ls_total`, index 2 = `ls_days`) so interest/financing evaluations continue to calculate based on the true Landed Grand Total.
+
+### 2. Standardized Approver Rejection Error Notification & Creator Return
+* **Specific Rejection Error Format**: Rejection notifications now match the exact required format:
+  `Item { ebelp } rejected with remark: { remark }. Sent back to creator.`
+* **Message Display (`TYPE 'S' DISPLAY LIKE 'E'`)**: Renders with red error bar styling in SAP GUI without aborting or dumping the transaction, alerting the user immediately.
+* **Unlock for Creator**: Rejected items automatically unlock remarks and line-item preferences so the creator can edit quotation details via `ME47` and resubmit back to HOD for approval.
+* **PO Creation Guard**: PO creation remains strictly locked for any item in `Rejected` (`R`) or `Draft` state.
+
+---
+
+## 🌟 Previous Milestones (Version 3.3)
+
+### 1. Last Purchase Price (LPP) Historical Benchmark & Variance Analytics
+* **Automated PO History Extraction:** Queries `EKPO` + `EKKO` + `LFA1` (`bstyp = 'F'`, `loekz = ' '`, `netpr > 0`) ordered by `bedat DESC` to find the most recent standard Purchase Order for each material.
+* **Comparative Metrics:** Displays the historical unit rate, unit of measure, previous PO number with direct `ME23N` hyperlink, PO order date, and previous supplier name.
+* **Smart Variance Badges:** Calculates percentage difference between the current System Suggested (L1) rate and the previous PO rate:
+  * 🟢 **Cost Savings (`▼ -X% Savings`):** Current L1 price is cheaper than previous purchase.
+  * 🔴 **Inflation Warning (`▲ +X% vs LPP`):** Current L1 price is higher than previous purchase, alerting the purchasing manager to negotiate.
+  * ⚪ **Price Parity (`= Same Rate`):** Price identical to previous purchase.
+
+### 2. Resolved Default Supplier Selection (Always Defaults to L1 Winner)
+* **Root Cause Identified:** In `init_approval_status`, when no saved user preference existed (`userpref = 'X'`), a fallback `READ TABLE lt_t021 WITH KEY zqitem = ebelp` matched the very first row in `ZMM_T_021`. Because RFQs are queried and sorted by `lifnr ASCENDING`, Supplier 1 was always picked by default.
+* **Resolution:** Removed the blind first-row fallback. When no explicit preference has been saved in `ZMM_T_021`, the cockpit strictly pre-populates the **System Suggested L1 (Lowest Landed Cost)** winner as default.
+
+### 3. Delivery Cost & Additional Freight Condition Integration
+* **Pricing Condition Extraction:** Reads active pricing condition records from `PRCD_ELEMENTS` linked by `EKKO-KNUMV` and filters for delivery condition category `KNTYP = 'B'` (e.g. `FRA1`, `FRB1`, `FRC1`) and custom freight types (`ZAFR`, `WT01`, `FREI`) defined in `T685A`.
+* **Landed Cost Ranking:** Adds item-specific freight condition amounts and apportioned header-level freight conditions into the quotation landed total. L1 ranking is evaluated on true landed cost.
+* **Visual Breakdown:** Each supplier quotation explicitly displays `+₹{ freight } Delivery` if freight conditions exist, and the L1/Selected columns display `(incl. ₹{ freight } delivery)`.
+* **PO Condition Inheritance:** During `BAPI_PO_CREATE1` execution, `ls_poitem-rfq_no` and `ls_poitem-rfq_item` link the PO to the winning quotation, ensuring standard SAP copies all pricing and delivery conditions directly into the new Purchase Order.
 
 ---
 
@@ -20,7 +61,7 @@ In addition to traditional SAP GUI access, `ZPQC_NEW` is fully configured for de
 
 | File | Type | Description |
 | :--- | :--- | :--- |
-| **[`zmm_r_me49n.prog.abap`](file:///Users/naresh/Documents/Github%20Development/SAPHANA/ZPQC_NEW/zmm_r_me49n.prog.abap)** | ABAP Source | Main executable report program (v3.1) deployed as `ZMM_R_ME49N`. |
+| **[`zmm_r_me49n.prog.abap`](file:///Users/naresh/Documents/Github%20Development/SAPHANA/ZPQC_NEW/zmm_r_me49n.prog.abap)** | ABAP Source | Main executable report program (v3.3) deployed as `ZMM_R_ME49N`. |
 | **[`zcreate_fiori_tile_zpqc.prog.abap`](file:///Users/naresh/Documents/Github%20Development/SAPHANA/ZPQC_NEW/zcreate_fiori_tile_zpqc.prog.abap)** | ABAP Utility | Automated setup program that registered Semantic Objects `ZPQC_NEW` and `ZPriceComparison` on SAP. |
 | **[`price_comparison_preview.html`](file:///Users/naresh/Documents/Github%20Development/SAPHANA/ZPQC_NEW/price_comparison_preview.html)** | Interactive UI | Live interactive preview supporting **SAP Fiori Launchpad**, **Modern HTML View**, and **Classical ALV Grid (AVL)**. |
 | **[`zcreate_tcode_me49n.prog.abap`](file:///Users/naresh/Documents/Github%20Development/SAPHANA/ZPQC_NEW/zcreate_tcode_me49n.prog.abap)** | ABAP Helper | Utility report used to register SAP transaction code `ZPQC_NEW`. |
@@ -119,6 +160,16 @@ In transaction `/UI2/FLPCM_CUST` (or Launchpad Designer `/UI2/FLPD_CUST`), confi
 * Automatically retrieves the RFQ net price from quotation condition table `ZMM_T_021` or `A016` / `EKPO-NETPR`.
 * Derives required fields: Material, Plant, Storage Location, Quantity, Unit of Measure, Net Price, Currency, and Vendor.
 * On successful creation, immediately records the generated PO number (`EBELN`) and provides direct navigation to `ME23N`.
+
+### 7. Accurate Freight & Delivery Condition Calculation & Item-Wise Breakdown
+* **Data Source:** Evaluated directly from `PRCD_ELEMENTS` (S/4HANA pricing condition table) using condition record logic (`KNUMV`, `KPOSN`, `KSCHL`).
+* **Condition Classification:** Condition classes `B` (Basic prices: `PB00`, `PBXX`, `P001`, `P002`), discounts (`RA00`, `SKTO`), and taxes are strictly segregated from freight and delivery. Only delivery charges (`ZI01` Ocean Freight, `ZI04` Customs Clearance, `ZI42` Marine Insurance, etc.) are included in the delivery total.
+* **Currency Conversion:** Automatically converts foreign quotation freight conditions (e.g., USD via exchange rate `EKKO-WKURS`) into base currency (INR).
+* **Quotation & Item-Wise Granularity:**
+  - In Classical ALV: Dedicated `Delivery:` row for each item with `@0S@ View Breakdown` hotspot and clickable summary row `Total Delivery Cost`.
+  - In Modern HTML Cockpit: Interactive link `+₹X Delivery (ZI01: ₹X) 🔍` under each quote, L1 column, and user-selected column, plus clickable footer `Total Delivery Cost / Freight`.
+* **Interactive Drill-Down (`show_item_freight_details`):**
+  - Clicking any delivery hotspot or link opens a detailed ALV grid popup listing Quotation No, Item No, Vendor Code, Vendor Name, Condition Type, Description, Condition Rate, Rate Currency, Condition Value, Document Currency, and Total Amount in INR.
 
 ---
 

@@ -32,6 +32,12 @@
 *&                      Items in approval cannot change supplier, selection, or remarks;
 *&                      Approved items can only trigger 'Create PO';
 *&                      Identical workflow, visual status, and lock enforcement applied to ALV list
+*&   v3.2 (14.10.2026) - Approver Resolution for DIPAK RATHOD, Mandatory Rejection Remark,
+*&                      Open Collective F4 Search Help for Approver, and Rejection Reason display.
+*&   v3.3 (14.10.2026) - Last Purchase Price (LPP) of material benchmark from EKPO/EKKO;
+*&                      Default selection to System Suggested L1 (fixed 1st supplier bug);
+*&                      Delivery Cost & Additional Freight Condition evaluation from PRCD_ELEMENTS;
+*&                      Direct RFQ quotation reference in BAPI_PO_CREATE1 (RFQ_NO/RFQ_ITEM).
 *& System      : DS4 / 220
 *&---------------------------------------------------------------------*
 REPORT zmm_r_me49n.
@@ -57,70 +63,89 @@ TYPES: BEGIN OF ty_hdr,
          ekgrp TYPE ekko-ekgrp,
          ekorg TYPE ekko-ekorg,
          zterm TYPE ekko-zterm,
+         knumv TYPE ekko-knumv,
        END OF ty_hdr,
 
        BEGIN OF ty_rfq_item,
-         ebeln TYPE ekko-ebeln,
-         ebelp TYPE ekpo-ebelp,
-         submi TYPE ekko-submi,
-         ekorg TYPE ekko-ekorg,
-         ekgrp TYPE ekko-ekgrp,
-         bukrs TYPE ekko-bukrs,
-         lifnr TYPE ekko-lifnr,
-         name1 TYPE lfa1-name1,
-         ihrez TYPE ekko-ihrez,
-         inco1 TYPE ekko-inco1,
-         waers TYPE ekko-waers,
-         wkurs TYPE ekko-wkurs,
-         zterm TYPE ekko-zterm,
-         matnr TYPE ekpo-matnr,
-         txz01 TYPE ekpo-txz01,
-         ktmng TYPE ekpo-ktmng,
-         menge TYPE ekpo-menge,
-         meins TYPE ekpo-meins,
-         netpr TYPE ekpo-netpr,
-         peinh TYPE ekpo-peinh,
-         netwr TYPE ekpo-netwr,
-         werks TYPE ekpo-werks,
-         ztag1 TYPE t052-ztag1,
-         text1 TYPE t052u-text1,
+         ebeln   TYPE ekko-ebeln,
+         ebelp   TYPE ekpo-ebelp,
+         submi   TYPE ekko-submi,
+         ekorg   TYPE ekko-ekorg,
+         ekgrp   TYPE ekko-ekgrp,
+         bukrs   TYPE ekko-bukrs,
+         lifnr   TYPE ekko-lifnr,
+         name1   TYPE lfa1-name1,
+         ihrez   TYPE ekko-ihrez,
+         inco1   TYPE ekko-inco1,
+         waers   TYPE ekko-waers,
+         wkurs   TYPE ekko-wkurs,
+         zterm   TYPE ekko-zterm,
+         knumv   TYPE ekko-knumv,
+         matnr   TYPE ekpo-matnr,
+         txz01   TYPE ekpo-txz01,
+         ktmng   TYPE ekpo-ktmng,
+         menge   TYPE ekpo-menge,
+         meins   TYPE ekpo-meins,
+         netpr   TYPE ekpo-netpr,
+         peinh   TYPE ekpo-peinh,
+         netwr   TYPE ekpo-netwr,
+         freight     TYPE decfloat34,
+         tot_amt     TYPE decfloat34,
+         frt_details TYPE string,
+         werks       TYPE ekpo-werks,
+         ztag1   TYPE t052-ztag1,
+         text1   TYPE t052u-text1,
        END OF ty_rfq_item,
 
        BEGIN OF ty_item_ref,
-         matnr     TYPE ekpo-matnr,
-         ebelp     TYPE ekpo-ebelp,
-         txz01     TYPE ekpo-txz01,
-         menge     TYPE ekpo-menge,
-         meins     TYPE ekpo-meins,
-         werks     TYPE ekpo-werks,
-         bukrs     TYPE ekko-bukrs,
-         ekorg     TYPE ekko-ekorg,
-         ekgrp     TYPE ekko-ekgrp,
-         submi     TYPE ekko-submi,
-         l1_sel_col TYPE slis_fieldname,
-         l1_ebeln  TYPE ekko-ebeln,
-         l1_ebelp  TYPE ekpo-ebelp,
-         l1_lifnr  TYPE ekko-lifnr,
-         l1_name1  TYPE lfa1-name1,
-         l1_netpr  TYPE ekpo-netpr,
-         l1_peinh  TYPE ekpo-peinh,
-         l1_waers  TYPE ekko-waers,
+         matnr       TYPE ekpo-matnr,
+         ebelp       TYPE ekpo-ebelp,
+         txz01       TYPE ekpo-txz01,
+         menge       TYPE ekpo-menge,
+         meins       TYPE ekpo-meins,
+         werks       TYPE ekpo-werks,
+         bukrs       TYPE ekko-bukrs,
+         ekorg       TYPE ekko-ekorg,
+         ekgrp       TYPE ekko-ekgrp,
+         submi       TYPE ekko-submi,
+         lpp_ebeln   TYPE ekko-ebeln,
+         lpp_ebelp   TYPE ekpo-ebelp,
+         lpp_bedat   TYPE ekko-bedat,
+         lpp_netpr   TYPE ekpo-netpr,
+         lpp_peinh   TYPE ekpo-peinh,
+         lpp_waers   TYPE ekko-waers,
+         lpp_meins   TYPE ekpo-meins,
+         lpp_lifnr   TYPE ekko-lifnr,
+         lpp_name1   TYPE lfa1-name1,
+         lpp_upr_amt TYPE decfloat34,
+         l1_sel_col  TYPE slis_fieldname,
+         l1_ebeln    TYPE ekko-ebeln,
+         l1_ebelp    TYPE ekpo-ebelp,
+         l1_lifnr    TYPE ekko-lifnr,
+         l1_name1    TYPE lfa1-name1,
+         l1_netpr    TYPE ekpo-netpr,
+         l1_peinh    TYPE ekpo-peinh,
+         l1_waers    TYPE ekko-waers,
          l1_zterm    TYPE ekko-zterm,
          l1_inco1    TYPE ekko-inco1,
-         l1_tot_amt  TYPE decfloat34,
-         l1_upr_amt  TYPE decfloat34,
-         sel_col     TYPE slis_fieldname,
-         sel_ebeln   TYPE ekko-ebeln,
-         sel_ebelp   TYPE ekpo-ebelp,
-         sel_lifnr   TYPE ekko-lifnr,
-         sel_name1   TYPE lfa1-name1,
-         sel_netpr   TYPE ekpo-netpr,
-         sel_peinh   TYPE ekpo-peinh,
-         sel_waers   TYPE ekko-waers,
-         sel_zterm   TYPE ekko-zterm,
-         sel_inco1   TYPE ekko-inco1,
-         sel_tot_amt TYPE decfloat34,
-         sel_upr_amt TYPE decfloat34,
+         l1_freight      TYPE decfloat34,
+         l1_tot_amt      TYPE decfloat34,
+         l1_upr_amt      TYPE decfloat34,
+         l1_frt_details  TYPE string,
+         sel_col         TYPE slis_fieldname,
+         sel_ebeln       TYPE ekko-ebeln,
+         sel_ebelp       TYPE ekpo-ebelp,
+         sel_lifnr       TYPE ekko-lifnr,
+         sel_name1       TYPE lfa1-name1,
+         sel_netpr       TYPE ekpo-netpr,
+         sel_peinh       TYPE ekpo-peinh,
+         sel_waers       TYPE ekko-waers,
+         sel_zterm       TYPE ekko-zterm,
+         sel_inco1       TYPE ekko-inco1,
+         sel_freight     TYPE decfloat34,
+         sel_tot_amt     TYPE decfloat34,
+         sel_upr_amt     TYPE decfloat34,
+         sel_frt_details TYPE string,
          appr_status TYPE c LENGTH 1,
          user_pref   TYPE c LENGTH 1,
          user_remark TYPE zmm_de_remark,
@@ -132,6 +157,7 @@ TYPES: BEGIN OF ty_hdr,
          sel(12)       TYPE c,         " '@01@ [X]' / '@R7@ [ ]' or '@01@ [X]All'
          matnr         TYPE mara-matnr,
          maktx         TYPE makt-maktx,
+         lpp(30)       TYPE c,         " Last Purchase Price benchmark
          quat(10)      TYPE c,
          quat1(40)     TYPE c,
          quat2(40)     TYPE c,
@@ -182,21 +208,37 @@ CLASS lcl_html_handler DEFINITION FINAL.
       IMPORTING action frame getdata postdata query_table.
 ENDCLASS.
 
+TYPES: BEGIN OF ty_q_frt_item,
+         ebeln   TYPE ekko-ebeln,
+         ebelp   TYPE ekpo-ebelp,
+         lifnr   TYPE ekko-lifnr,
+         name1   TYPE lfa1-name1,
+         kschl   TYPE prcd_elements-kschl,
+         vtext   TYPE string,
+         kbetr   TYPE prcd_elements-kbetr,
+         waers   TYPE prcd_elements-waers,
+         kwert   TYPE prcd_elements-kwert,
+         waerk   TYPE prcd_elements-waerk,
+         inr_amt TYPE decfloat34,
+       END OF ty_q_frt_item.
+
 *----------------------------------------------------------------------*
 * Global Data
 *----------------------------------------------------------------------*
-DATA: gt_final     TYPE TABLE OF ty_final,
-      gt_final1    TYPE TABLE OF ty_final,
-      gt_hdr       TYPE TABLE OF ty_hdr,
-      gt_rfq_items TYPE ty_t_rfq_item,
-      gt_item_ref  TYPE TABLE OF ty_item_ref,
-      lt_rank      TYPE STANDARD TABLE OF ty_rank,
+DATA: gt_final       TYPE TABLE OF ty_final,
+      gt_final1      TYPE TABLE OF ty_final,
+      gt_hdr         TYPE TABLE OF ty_hdr,
+      gt_rfq_items   TYPE ty_t_rfq_item,
+      gt_q_frt_items TYPE STANDARD TABLE OF ty_q_frt_item WITH DEFAULT KEY,
+      gt_item_ref    TYPE TABLE OF ty_item_ref,
+      lt_rank        TYPE STANDARD TABLE OF ty_rank,
       ls_rank     TYPE ty_rank,
       lv_amt      TYPE ekpo-netwr,
       lv_rank     TYPE i,
       ls_total    LIKE LINE OF gt_final,
       ls_interest LIKE LINE OF gt_final1,
       gs_val      LIKE LINE OF gt_final,
+      gs_frt      LIKE LINE OF gt_final,
       gs_rank     LIKE LINE OF gt_final,
       gs_pkg      LIKE LINE OF gt_final,
       gs_app      LIKE LINE OF gt_final,
@@ -217,7 +259,7 @@ DATA: gt_final     TYPE TABLE OF ty_final,
 * Selection Screen
 *----------------------------------------------------------------------*
 SELECTION-SCREEN BEGIN OF BLOCK b1 WITH FRAME TITLE t_b1.
-  SELECT-OPTIONS: s_ekorg FOR ekko-ekorg DEFAULT 'AE01',
+  SELECT-OPTIONS: s_ekorg FOR ekko-ekorg,
                   s_ebeln FOR ekko-ebeln,
                   s_submi FOR ekko-submi NO INTERVALS NO-EXTENSION,
                   s_lifnr FOR ekko-lifnr,
@@ -268,10 +310,68 @@ AT SELECTION-SCREEN OUTPUT.
     CLEAR go_html.
   ENDIF.
 
+  " Auto-detect Approver role from master table ZMM_T_023
+  DATA: lv_is_appr_sel TYPE abap_bool VALUE abap_false.
+  SELECT COUNT(*) FROM zmm_t_023 WHERE zuser = @sy-uname.
+  IF sy-subrc = 0 AND sy-dbcnt > 0.
+    lv_is_appr_sel = abap_true.
+    p_apprv        = abap_true.
+  ENDIF.
+
+  " Auto-default collective number if empty (for BOTH User and Approver)
+  IF s_submi[] IS INITIAL AND s_submi-low IS INITIAL.
+    DATA: lv_def_submi TYPE ekko-submi.
+    PERFORM get_default_open_collective USING sy-uname CHANGING lv_def_submi.
+    IF lv_def_submi IS NOT INITIAL.
+      s_submi-sign   = 'I'.
+      s_submi-option = 'EQ'.
+      s_submi-low    = lv_def_submi.
+      APPEND s_submi.
+    ENDIF.
+  ENDIF.
+
+*----------------------------------------------------------------------*
+* Selection Screen F4 Value-Request for Collective Number
+*----------------------------------------------------------------------*
+AT SELECTION-SCREEN ON VALUE-REQUEST FOR s_submi-low.
+  PERFORM f4_collective_number.
+
 *----------------------------------------------------------------------*
 * Start of Selection
 *----------------------------------------------------------------------*
 START-OF-SELECTION.
+
+  " 1. Synchronize single value from screen header if internal table empty
+  IF s_submi-low IS NOT INITIAL AND s_submi[] IS INITIAL.
+    s_submi-sign   = 'I'.
+    s_submi-option = 'EQ'.
+    APPEND s_submi.
+  ENDIF.
+
+  " 2. Auto-pad collective number with leading zeroes if purely numeric
+  LOOP AT s_submi ASSIGNING FIELD-SYMBOL(<fs_submi>).
+    IF <fs_submi>-low IS NOT INITIAL AND <fs_submi>-low CO '0123456789 '.
+      CONDENSE <fs_submi>-low NO-GAPS.
+      <fs_submi>-low = |{ <fs_submi>-low ALPHA = IN }|.
+    ENDIF.
+    IF <fs_submi>-high IS NOT INITIAL AND <fs_submi>-high CO '0123456789 '.
+      CONDENSE <fs_submi>-high NO-GAPS.
+      <fs_submi>-high = |{ <fs_submi>-high ALPHA = IN }|.
+    ENDIF.
+  ENDLOOP.
+
+  " 3. If still empty, default to latest open collective
+  IF s_submi[] IS INITIAL.
+    DATA: lv_sos_submi TYPE ekko-submi.
+    PERFORM get_default_open_collective USING sy-uname CHANGING lv_sos_submi.
+    IF lv_sos_submi IS NOT INITIAL.
+      s_submi-sign   = 'I'.
+      s_submi-option = 'EQ'.
+      s_submi-low    = lv_sos_submi.
+      APPEND s_submi.
+    ENDIF.
+  ENDIF.
+
   PERFORM get_data.
 
   IF cl_gui_alv_grid=>offline( ) <> 0 OR sy-batch IS NOT INITIAL.
@@ -300,6 +400,15 @@ TOP-OF-PAGE.
 *&---------------------------------------------------------------------*
 FORM get_data.
 
+  " Determine Purchasing Org filter:
+  " If user specified a collective number and left s_ekorg blank, do NOT restrict by purchasing org.
+  DATA: lt_ekorg_range TYPE RANGE OF ekko-ekorg.
+  IF s_submi[] IS NOT INITIAL AND s_ekorg[] IS INITIAL.
+    CLEAR lt_ekorg_range.
+  ELSE.
+    lt_ekorg_range = s_ekorg[].
+  ENDIF.
+
   SELECT FROM ekko
     INNER JOIN ekpo ON ekko~ebeln = ekpo~ebeln
     LEFT JOIN lfa1 ON ekko~lifnr = lfa1~lifnr
@@ -316,6 +425,7 @@ FORM get_data.
            ekko~waers,
            ekko~wkurs,
            ekko~zterm,
+           ekko~knumv,
            ekpo~ebelp,
            ekpo~matnr,
            ekpo~txz01,
@@ -332,11 +442,55 @@ FORM get_data.
     WHERE ekko~bstyp = 'A'
       AND ekko~ebeln IN @s_ebeln
       AND ekko~submi IN @s_submi
-      AND ekko~ekorg IN @s_ekorg
+      AND ekko~ekorg IN @lt_ekorg_range
       AND ekko~lifnr IN @s_lifnr
       AND ekpo~matnr IN @s_matnr
       AND ekpo~loekz = @space
     INTO TABLE @DATA(it_data).
+
+  IF it_data IS INITIAL.
+    " Safe fallback: if filtered by purchasing org, retry across all orgs for this collective
+    IF lt_ekorg_range IS NOT INITIAL.
+      CLEAR lt_ekorg_range.
+      SELECT FROM ekko
+        INNER JOIN ekpo ON ekko~ebeln = ekpo~ebeln
+        LEFT JOIN lfa1 ON ekko~lifnr = lfa1~lifnr
+        LEFT JOIN t052u ON ekko~zterm = t052u~zterm AND t052u~spras = @sy-langu
+        LEFT JOIN t052 ON ekko~zterm = t052~zterm
+        FIELDS ekko~ebeln,
+               ekko~submi,
+               ekko~ekorg,
+               ekko~ekgrp,
+               ekko~bukrs,
+               ekko~lifnr,
+               ekko~ihrez,
+               ekko~inco1,
+               ekko~waers,
+               ekko~wkurs,
+               ekko~zterm,
+               ekko~knumv,
+               ekpo~ebelp,
+               ekpo~matnr,
+               ekpo~txz01,
+               ekpo~ktmng,
+               ekpo~menge,
+               ekpo~meins,
+               ekpo~netpr,
+               ekpo~peinh,
+               ekpo~netwr,
+               ekpo~werks,
+               lfa1~name1,
+               t052~ztag1,
+               t052u~text1
+        WHERE ekko~bstyp = 'A'
+          AND ekko~ebeln IN @s_ebeln
+          AND ekko~submi IN @s_submi
+          AND ekko~lifnr IN @s_lifnr
+          AND ekpo~matnr IN @s_matnr
+          AND ekpo~loekz = @space
+        INTO TABLE @it_data.
+    ENDIF.
+  ENDIF.
 
   IF it_data IS INITIAL.
     MESSAGE 'No data found for selection criteria.' TYPE 'S' DISPLAY LIKE 'E'.
@@ -377,10 +531,11 @@ FORM get_data.
       ekgrp = wa_data-ekgrp
       ekorg = wa_data-ekorg
       zterm = wa_data-zterm
+      knumv = wa_data-knumv
     ) ).
 
-  SORT gt_hdr BY lifnr ASCENDING.
-  DELETE ADJACENT DUPLICATES FROM gt_hdr COMPARING lifnr.
+  SORT gt_hdr BY ebeln ASCENDING.
+  DELETE ADJACENT DUPLICATES FROM gt_hdr COMPARING ebeln.
 
   DATA(lv_count) = lines( gt_hdr ).
   IF lv_count = 0.
@@ -431,7 +586,7 @@ FORM get_data.
   SORT lt_existing_pos BY ebeln DESCENDING.
   DELETE ADJACENT DUPLICATES FROM lt_existing_pos COMPARING ebeln ebelp.
 
-  CLEAR: gt_final, gt_final1, gt_item_ref.
+  CLEAR: gt_final, gt_final1, gt_item_ref, gt_q_frt_items.
 
   " Build Top Header Rows (Matching ZME49 Screenshot)
   gt_final = VALUE #(
@@ -503,6 +658,153 @@ FORM get_data.
       po_action = ''
       color     = 'C210' )
   ).
+  " Fetch Last Purchase Price (LPP) from EKPO / EKKO for distinct materials
+  TYPES: BEGIN OF ty_lpp,
+           matnr TYPE ekpo-matnr,
+           ebeln TYPE ekko-ebeln,
+           ebelp TYPE ekpo-ebelp,
+           netpr TYPE ekpo-netpr,
+           peinh TYPE ekpo-peinh,
+           meins TYPE ekpo-meins,
+           waers TYPE ekko-waers,
+           bedat TYPE ekko-bedat,
+           lifnr TYPE ekko-lifnr,
+           name1 TYPE lfa1-name1,
+         END OF ty_lpp.
+  DATA: lt_lpp TYPE STANDARD TABLE OF ty_lpp WITH DEFAULT KEY.
+  CLEAR lt_lpp.
+
+  DATA: lr_mat_all TYPE RANGE OF ekpo-matnr.
+  lr_mat_all = VALUE #( FOR wa_m IN it_data WHERE ( matnr IS NOT INITIAL )
+                        ( sign = 'I' option = 'EQ' low = wa_m-matnr ) ).
+  SORT lr_mat_all BY low.
+  DELETE ADJACENT DUPLICATES FROM lr_mat_all COMPARING low.
+
+  IF lr_mat_all IS NOT INITIAL.
+    SELECT p~matnr, p~ebeln, p~ebelp, p~netpr, p~peinh, p~meins,
+           k~waers, k~bedat, k~lifnr, l~name1
+      FROM ekpo AS p
+      INNER JOIN ekko AS k ON p~ebeln = k~ebeln
+      LEFT JOIN lfa1 AS l ON k~lifnr = l~lifnr
+      WHERE k~bstyp = 'F'
+        AND p~loekz = @space
+        AND p~matnr IN @lr_mat_all
+        AND p~netpr > 0
+      ORDER BY p~matnr ASCENDING, k~bedat DESCENDING, p~ebeln DESCENDING
+      INTO TABLE @lt_lpp.
+
+    DELETE ADJACENT DUPLICATES FROM lt_lpp COMPARING matnr.
+  ENDIF.
+
+  " Ensure knumv is populated for all quotation headers and items
+  LOOP AT gt_hdr ASSIGNING FIELD-SYMBOL(<fs_gh_k>) WHERE knumv IS INITIAL.
+    SELECT SINGLE knumv FROM ekko INTO @<fs_gh_k>-knumv WHERE ebeln = @<fs_gh_k>-ebeln.
+  ENDLOOP.
+  LOOP AT it_data ASSIGNING FIELD-SYMBOL(<fs_it_k>) WHERE knumv IS INITIAL.
+    SELECT SINGLE knumv FROM ekko INTO @<fs_it_k>-knumv WHERE ebeln = @<fs_it_k>-ebeln.
+  ENDLOOP.
+
+  " Fetch quotation pricing conditions (delivery costs / freight) from PRCD_ELEMENTS
+  TYPES: BEGIN OF ty_q_cond,
+           knumv TYPE prcd_elements-knumv,
+           kposn TYPE prcd_elements-kposn,
+           stunr TYPE prcd_elements-stunr,
+           zaehk TYPE prcd_elements-zaehk,
+           kschl TYPE prcd_elements-kschl,
+           kinak TYPE prcd_elements-kinak,
+           krech TYPE prcd_elements-krech,
+           kbetr TYPE prcd_elements-kbetr,
+           kwert TYPE prcd_elements-kwert,
+           kkurs TYPE prcd_elements-kkurs,
+           waers TYPE prcd_elements-waers,
+           waerk TYPE prcd_elements-waerk,
+           kpein TYPE prcd_elements-kpein,
+           kmein TYPE prcd_elements-kmein,
+         END OF ty_q_cond.
+  DATA: lt_q_conds TYPE STANDARD TABLE OF ty_q_cond WITH DEFAULT KEY.
+  CLEAR lt_q_conds.
+
+  DATA: lt_knumv_range TYPE RANGE OF ekko-knumv.
+  lt_knumv_range = VALUE #( FOR wa_h IN gt_hdr WHERE ( knumv IS NOT INITIAL )
+                            ( sign = 'I' option = 'EQ' low = wa_h-knumv ) ).
+  LOOP AT it_data INTO DATA(wa_it_d) WHERE knumv IS NOT INITIAL.
+    IF NOT line_exists( lt_knumv_range[ low = wa_it_d-knumv ] ).
+      APPEND VALUE #( sign = 'I' option = 'EQ' low = wa_it_d-knumv ) TO lt_knumv_range.
+    ENDIF.
+  ENDLOOP.
+  SORT lt_knumv_range BY low.
+  DELETE ADJACENT DUPLICATES FROM lt_knumv_range COMPARING low.
+
+  IF lt_knumv_range IS NOT INITIAL.
+    SELECT knumv, kposn, stunr, zaehk, kschl, kinak, krech, kbetr, kwert, kkurs, waers, waerk, kpein, kmein
+      FROM prcd_elements
+      WHERE knumv IN @lt_knumv_range
+        AND kinak = @space
+        AND ( kwert <> 0 OR kbetr <> 0 )
+      INTO CORRESPONDING FIELDS OF TABLE @lt_q_conds.
+  ENDIF.
+
+  " Retrieve delivery cost / freight condition types from customizing (T685A)
+  " Note: Strictly exclude base prices (koaid = 'B' or kntyp = 'H') and gross price conditions
+  DATA: lr_freight_conds TYPE RANGE OF prcd_elements-kschl.
+  CLEAR lr_freight_conds.
+  SELECT kschl FROM t685a
+    WHERE kappl = 'M'
+      AND ( kntyp = 'B' OR kntyp = 'b'
+            OR kschl LIKE 'FR%' OR kschl LIKE 'Z%FR%'
+            OR kschl IN ( 'ZAFR', 'WT01', 'U4V', 'FREI', 'ZTRK', 'ZI01', 'ZI04', 'ZI08', 'ZI16', 'ZI23', 'ZDP1', 'ZDT1', 'ZI42' ) )
+      AND koaid <> 'B'
+      AND ( kntyp IS INITIAL OR kntyp <> 'H' )
+      AND kschl NOT IN ( 'PB00', 'PBXX', 'P001', 'P002', 'RA00', 'SKTO' )
+    INTO TABLE @DATA(lt_f_conds).
+  lr_freight_conds = VALUE #( FOR wa_fc IN lt_f_conds ( sign = 'I' option = 'EQ' low = wa_fc-kschl ) ).
+  IF lr_freight_conds IS INITIAL.
+    lr_freight_conds = VALUE #(
+      ( sign = 'I' option = 'EQ' low = 'FRA1' )
+      ( sign = 'I' option = 'EQ' low = 'FRA2' )
+      ( sign = 'I' option = 'EQ' low = 'FRB1' )
+      ( sign = 'I' option = 'EQ' low = 'FRB2' )
+      ( sign = 'I' option = 'EQ' low = 'FRC1' )
+      ( sign = 'I' option = 'EQ' low = 'FRC2' )
+      ( sign = 'I' option = 'EQ' low = 'ZAFR' )
+      ( sign = 'I' option = 'EQ' low = 'ZDT1' )
+      ( sign = 'I' option = 'EQ' low = 'ZDP1' )
+      ( sign = 'I' option = 'EQ' low = 'ZI01' )
+      ( sign = 'I' option = 'EQ' low = 'ZI04' )
+      ( sign = 'I' option = 'EQ' low = 'ZI08' )
+      ( sign = 'I' option = 'EQ' low = 'ZI16' )
+      ( sign = 'I' option = 'EQ' low = 'ZI23' )
+      ( sign = 'I' option = 'EQ' low = 'ZI42' )
+    ).
+  ENDIF.
+
+  " Fetch condition metadata (calculation rule) from T685A
+  TYPES: BEGIN OF ty_t685a_info,
+           kschl TYPE t685a-kschl,
+           krech TYPE t685a-krech,
+           kntyp TYPE t685a-kntyp,
+           koaid TYPE t685a-koaid,
+         END OF ty_t685a_info.
+  DATA: lt_t685a_info TYPE HASHED TABLE OF ty_t685a_info WITH UNIQUE KEY kschl.
+  SELECT kschl, krech, kntyp, koaid FROM t685a
+    WHERE kappl = 'M'
+    INTO TABLE @lt_t685a_info.
+
+  " Fetch condition descriptions from T685T
+  TYPES: BEGIN OF ty_cond_text,
+           kschl TYPE t685t-kschl,
+           vtext TYPE t685t-vtext,
+         END OF ty_cond_text.
+  DATA: lt_cond_texts TYPE HASHED TABLE OF ty_cond_text WITH UNIQUE KEY kschl.
+  SELECT kschl, vtext FROM t685t
+    WHERE spras = @sy-langu AND kappl = 'M'
+    INTO TABLE @DATA(lt_all_ctexts).
+  IF lt_all_ctexts IS INITIAL AND sy-langu <> 'E'.
+    SELECT kschl, vtext FROM t685t
+      WHERE spras = 'E' AND kappl = 'M'
+      INTO TABLE @lt_all_ctexts.
+  ENDIF.
+  lt_cond_texts = CORRESPONDING #( lt_all_ctexts ).
 
   DATA(it_data1) = it_data.
   SORT it_data1 BY ebelp matnr.
@@ -517,7 +819,7 @@ FORM get_data.
     DATA: lv_win_col TYPE slis_fieldname.
     CLEAR: lv_win_col, lt_rank.
     lv_rank = 1.
-    CLEAR: gs_val, gs_rank, gs_pkg, gs_app.
+    CLEAR: gs_val, gs_frt, gs_rank, gs_pkg, gs_app.
 
     " Separator Row (Yellow C310 line)
     gs_val-color = 'C310'.
@@ -593,6 +895,13 @@ FORM get_data.
     gs_val-quat      = 'Val:'.
     gs_val-ebelp     = ls_data1-ebelp.
 
+    gs_frt-matnr     = ls_data1-matnr.
+    gs_frt-maktx     = 'Delivery / Freight'.
+    gs_frt-quat      = 'Delivery:'.
+    gs_frt-ebelp     = ls_data1-ebelp.
+    gs_frt-color     = 'C300'.
+    gs_frt-po_action = '@0S@ View Breakdown'.
+
     gs_rank-quat     = 'Rank:'.
     gs_rank-ebelp    = ls_data1-ebelp.
 
@@ -608,42 +917,49 @@ FORM get_data.
     IF lines( gt_hdr ) >= 1.
       gs_val-quat1  = 'No Price'.
       gs_pkg-quat1  = 'No Price'.
+      gs_frt-quat1  = 'No Price'.
       gs_rank-quat1 = 'No Price'.
       gs_app-quat1  = COND #( WHEN lv_found_po IS NOT INITIAL THEN '[PO Done]' ELSE '[ ]' ).
     ENDIF.
     IF lines( gt_hdr ) >= 2.
       gs_val-quat2  = 'No Price'.
       gs_pkg-quat2  = 'No Price'.
+      gs_frt-quat2  = 'No Price'.
       gs_rank-quat2 = 'No Price'.
       gs_app-quat2  = COND #( WHEN lv_found_po IS NOT INITIAL THEN '[PO Done]' ELSE '[ ]' ).
     ENDIF.
     IF lines( gt_hdr ) >= 3.
       gs_val-quat3  = 'No Price'.
       gs_pkg-quat3  = 'No Price'.
+      gs_frt-quat3  = 'No Price'.
       gs_rank-quat3 = 'No Price'.
       gs_app-quat3  = COND #( WHEN lv_found_po IS NOT INITIAL THEN '[PO Done]' ELSE '[ ]' ).
     ENDIF.
     IF lines( gt_hdr ) >= 4.
       gs_val-quat4  = 'No Price'.
       gs_pkg-quat4  = 'No Price'.
+      gs_frt-quat4  = 'No Price'.
       gs_rank-quat4 = 'No Price'.
       gs_app-quat4  = COND #( WHEN lv_found_po IS NOT INITIAL THEN '[PO Done]' ELSE '[ ]' ).
     ENDIF.
     IF lines( gt_hdr ) >= 5.
       gs_val-quat5  = 'No Price'.
       gs_pkg-quat5  = 'No Price'.
+      gs_frt-quat5  = 'No Price'.
       gs_rank-quat5 = 'No Price'.
       gs_app-quat5  = COND #( WHEN lv_found_po IS NOT INITIAL THEN '[PO Done]' ELSE '[ ]' ).
     ENDIF.
     IF lines( gt_hdr ) >= 6.
       gs_val-quat6  = 'No Price'.
       gs_pkg-quat6  = 'No Price'.
+      gs_frt-quat6  = 'No Price'.
       gs_rank-quat6 = 'No Price'.
       gs_app-quat6  = COND #( WHEN lv_found_po IS NOT INITIAL THEN '[PO Done]' ELSE '[ ]' ).
     ENDIF.
     IF lines( gt_hdr ) >= 7.
       gs_val-quat7  = 'No Price'.
       gs_pkg-quat7  = 'No Price'.
+      gs_frt-quat7  = 'No Price'.
       gs_rank-quat7 = 'No Price'.
       gs_app-quat7  = COND #( WHEN lv_found_po IS NOT INITIAL THEN '[PO Done]' ELSE '[ ]' ).
     ENDIF.
@@ -662,55 +978,217 @@ FORM get_data.
       DATA(lv_peinh) = COND ekpo-peinh( WHEN ls_data-peinh > 0 THEN ls_data-peinh ELSE 1 ).
 
       DATA: lv_calc_tot TYPE decfloat34,
-            lv_calc_upr TYPE decfloat34.
+            lv_calc_upr TYPE decfloat34,
+            lv_b_upr    TYPE decfloat34,
+            lv_b_tot    TYPE decfloat34,
+            lv_frt_inr  TYPE decfloat34 VALUE 0.
 
-      lv_calc_upr = CONV decfloat34( ls_data-netpr ) /
-                    COND decfloat34( WHEN lv_peinh > 0 THEN lv_peinh ELSE 1 ).
+      lv_b_upr = CONV decfloat34( ls_data-netpr ) /
+                 COND decfloat34( WHEN lv_peinh > 0 THEN lv_peinh ELSE 1 ).
       IF ls_data-waers = 'USD' AND ls_data-wkurs > 0.
-        lv_calc_upr = lv_calc_upr * CONV decfloat34( ls_data-wkurs ).
+        lv_b_upr = lv_b_upr * CONV decfloat34( ls_data-wkurs ).
+      ENDIF.
+      lv_b_tot = CONV decfloat34( lv_item_qty ) * lv_b_upr.
+
+      " Calculate freight / delivery cost from PRCD_ELEMENTS for this quotation item
+      DATA: lv_item_frt_str TYPE string.
+      CLEAR lv_item_frt_str.
+
+      IF lt_q_conds IS NOT INITIAL AND ls_data-knumv IS NOT INITIAL.
+        DATA: lv_kposn_item TYPE prcd_elements-kposn,
+              lv_kposn_raw  TYPE prcd_elements-kposn.
+        UNPACK ls_data-ebelp TO lv_kposn_item.
+        lv_kposn_raw = ls_data-ebelp.
+
+        LOOP AT lt_q_conds INTO DATA(ls_q_c)
+          WHERE knumv = ls_data-knumv
+            AND ( kposn = lv_kposn_item OR kposn = lv_kposn_raw )
+            AND kschl IN lr_freight_conds.
+
+          DATA: lv_cond_inr TYPE decfloat34 VALUE 0,
+                lv_crule    TYPE t685a-krech.
+          CLEAR lv_crule.
+          IF ls_q_c-krech IS NOT INITIAL.
+            lv_crule = ls_q_c-krech.
+          ELSEIF line_exists( lt_t685a_info[ kschl = ls_q_c-kschl ] ).
+            lv_crule = lt_t685a_info[ kschl = ls_q_c-kschl ]-krech.
+          ENDIF.
+
+          IF ls_q_c-waers = 'INR'.
+            IF lv_crule = 'B' AND ls_q_c-kbetr <> 0.
+              lv_cond_inr = CONV decfloat34( ls_q_c-kbetr ).
+            ELSEIF lv_crule = 'C' AND ls_q_c-kbetr <> 0.
+              DATA(lv_kpein_val) = COND decfloat34( WHEN ls_q_c-kpein > 0 THEN ls_q_c-kpein ELSE 1 ).
+              lv_cond_inr = ( CONV decfloat34( ls_q_c-kbetr ) * CONV decfloat34( lv_item_qty ) ) / lv_kpein_val.
+            ELSEIF ls_q_c-kwert <> 0.
+              lv_cond_inr = CONV decfloat34( ls_q_c-kwert ).
+              IF ls_q_c-waerk = 'USD' AND ls_data-wkurs > 0.
+                lv_cond_inr = lv_cond_inr * CONV decfloat34( ls_data-wkurs ).
+              ENDIF.
+            ELSE.
+              lv_cond_inr = CONV decfloat34( ls_q_c-kbetr ).
+            ENDIF.
+          ELSE.
+            IF ls_q_c-kwert <> 0.
+              lv_cond_inr = CONV decfloat34( ls_q_c-kwert ).
+              IF ( ls_q_c-waerk = 'USD' OR ls_data-waers = 'USD' ) AND ls_data-wkurs > 0.
+                lv_cond_inr = lv_cond_inr * CONV decfloat34( ls_data-wkurs ).
+              ENDIF.
+            ELSEIF ls_q_c-kbetr <> 0.
+              lv_cond_inr = CONV decfloat34( ls_q_c-kbetr ).
+              IF ( ls_q_c-waers = 'USD' OR ls_data-waers = 'USD' ) AND ls_data-wkurs > 0.
+                lv_cond_inr = lv_cond_inr * CONV decfloat34( ls_data-wkurs ).
+              ENDIF.
+            ENDIF.
+          ENDIF.
+
+          lv_frt_inr = lv_frt_inr + lv_cond_inr.
+
+          " Find condition description
+          DATA: lv_c_desc TYPE string.
+          CLEAR lv_c_desc.
+          READ TABLE lt_cond_texts INTO DATA(ls_ctext) WITH KEY kschl = ls_q_c-kschl.
+          IF sy-subrc = 0 AND ls_ctext-vtext IS NOT INITIAL.
+            lv_c_desc = ls_ctext-vtext.
+          ELSE.
+            lv_c_desc = ls_q_c-kschl.
+          ENDIF.
+
+          " Store individual condition in global table
+          APPEND VALUE #(
+            ebeln   = ls_data-ebeln
+            ebelp   = ls_data-ebelp
+            lifnr   = ls_data-lifnr
+            name1   = ls_data-name1
+            kschl   = ls_q_c-kschl
+            vtext   = lv_c_desc
+            kbetr   = ls_q_c-kbetr
+            waers   = ls_q_c-waers
+            kwert   = ls_q_c-kwert
+            waerk   = ls_q_c-waerk
+            inr_amt = lv_cond_inr
+          ) TO gt_q_frt_items.
+
+          DATA: lv_famt_str TYPE string.
+          PERFORM format_inr USING lv_cond_inr CHANGING lv_famt_str.
+          IF lv_item_frt_str IS INITIAL.
+            lv_item_frt_str = |{ ls_q_c-kschl }: ₹{ lv_famt_str }|.
+          ELSE.
+            lv_item_frt_str = |{ lv_item_frt_str } · { ls_q_c-kschl }: ₹{ lv_famt_str }|.
+          ENDIF.
+        ENDLOOP.
+
+        " Header freight distributed to item
+        DATA: lv_hdr_frt TYPE decfloat34 VALUE 0.
+        LOOP AT lt_q_conds INTO ls_q_c
+          WHERE knumv = ls_data-knumv AND ( kposn = '000000' OR kposn = '00000' ) AND kschl IN lr_freight_conds.
+          DATA: lv_hcond_inr TYPE decfloat34 VALUE 0.
+          IF ls_q_c-waers = 'INR'.
+            IF ls_q_c-kbetr <> 0.
+              lv_hcond_inr = CONV decfloat34( ls_q_c-kbetr ).
+            ELSEIF ls_q_c-kwert <> 0.
+              lv_hcond_inr = CONV decfloat34( ls_q_c-kwert ).
+              IF ls_q_c-waerk = 'USD' AND ls_data-wkurs > 0.
+                lv_hcond_inr = lv_hcond_inr * CONV decfloat34( ls_data-wkurs ).
+              ENDIF.
+            ENDIF.
+          ELSE.
+            IF ls_q_c-kwert <> 0.
+              lv_hcond_inr = CONV decfloat34( ls_q_c-kwert ).
+              IF ( ls_q_c-waerk = 'USD' OR ls_data-waers = 'USD' ) AND ls_data-wkurs > 0.
+                lv_hcond_inr = lv_hcond_inr * CONV decfloat34( ls_data-wkurs ).
+              ENDIF.
+            ELSEIF ls_q_c-kbetr <> 0.
+              lv_hcond_inr = CONV decfloat34( ls_q_c-kbetr ).
+              IF ( ls_q_c-waers = 'USD' OR ls_data-waers = 'USD' ) AND ls_data-wkurs > 0.
+                lv_hcond_inr = lv_hcond_inr * CONV decfloat34( ls_data-wkurs ).
+              ENDIF.
+            ENDIF.
+          ENDIF.
+          lv_hdr_frt = lv_hdr_frt + lv_hcond_inr.
+        ENDLOOP.
+        IF lv_hdr_frt > 0.
+          DATA: lv_q_icnt TYPE i VALUE 0.
+          LOOP AT it_data TRANSPORTING NO FIELDS WHERE ebeln = ls_data-ebeln AND netpr > 0.
+            lv_q_icnt = lv_q_icnt + 1.
+          ENDLOOP.
+          IF lv_q_icnt > 0.
+            DATA(lv_dist_hdr) = lv_hdr_frt / lv_q_icnt.
+            lv_frt_inr = lv_frt_inr + lv_dist_hdr.
+            IF lv_item_frt_str IS INITIAL.
+              DATA: lv_fhdr_str TYPE string.
+              PERFORM format_inr USING lv_dist_hdr CHANGING lv_fhdr_str.
+              lv_item_frt_str = |Hdr: ₹{ lv_fhdr_str }|.
+            ELSE.
+              DATA: lv_fhdr_str2 TYPE string.
+              PERFORM format_inr USING lv_dist_hdr CHANGING lv_fhdr_str2.
+              lv_item_frt_str = |{ lv_item_frt_str } · Hdr: ₹{ lv_fhdr_str2 }|.
+            ENDIF.
+          ENDIF.
+        ENDIF.
       ENDIF.
 
-      lv_calc_tot = CONV decfloat34( lv_item_qty ) * lv_calc_upr.
+      " Store freight and basic total in gt_rfq_items
+      READ TABLE gt_rfq_items ASSIGNING FIELD-SYMBOL(<fs_up_rqi>)
+        WITH KEY ebeln = ls_data-ebeln ebelp = ls_data-ebelp.
+      IF sy-subrc = 0.
+        <fs_up_rqi>-freight     = lv_frt_inr.
+        <fs_up_rqi>-tot_amt     = lv_b_tot.
+        <fs_up_rqi>-frt_details = lv_item_frt_str.
+      ENDIF.
 
-      lv_val = |{ lv_calc_tot STYLE = SIMPLE }|.
+      " Line-level item amount is strictly Basic Amount (Price * Quantity)
+      lv_val = |{ lv_b_tot STYLE = SIMPLE }|.
+      DATA(lv_frt_s) = |{ lv_frt_inr STYLE = SIMPLE }|.
 
       CLEAR ls_rank.
       ls_rank-lifnr   = ls_data-lifnr.
-      ls_rank-amount  = lv_calc_tot.
-      ls_rank-amount1 = lv_calc_upr.
+      ls_rank-amount  = lv_b_tot.
+      ls_rank-amount1 = lv_b_upr.
       APPEND ls_rank TO lt_rank.
 
-      IF lines( gt_hdr ) >= 1 AND ls_data-lifnr = gt_hdr[ 1 ]-lifnr.
+      IF lines( gt_hdr ) >= 1 AND ls_data-ebeln = gt_hdr[ 1 ]-ebeln.
         gs_val-quat1 = lv_val.
-        gs_pkg-quat1 = |{ ls_rank-amount1 STYLE = SIMPLE }|.
-      ELSEIF lines( gt_hdr ) >= 2 AND ls_data-lifnr = gt_hdr[ 2 ]-lifnr.
+        gs_pkg-quat1 = |{ lv_b_upr STYLE = SIMPLE }|.
+        gs_frt-quat1 = lv_frt_s.
+      ELSEIF lines( gt_hdr ) >= 2 AND ls_data-ebeln = gt_hdr[ 2 ]-ebeln.
         gs_val-quat2 = lv_val.
-        gs_pkg-quat2 = |{ ls_rank-amount1 STYLE = SIMPLE }|.
-      ELSEIF lines( gt_hdr ) >= 3 AND ls_data-lifnr = gt_hdr[ 3 ]-lifnr.
+        gs_pkg-quat2 = |{ lv_b_upr STYLE = SIMPLE }|.
+        gs_frt-quat2 = lv_frt_s.
+      ELSEIF lines( gt_hdr ) >= 3 AND ls_data-ebeln = gt_hdr[ 3 ]-ebeln.
         gs_val-quat3 = lv_val.
-        gs_pkg-quat3 = |{ ls_rank-amount1 STYLE = SIMPLE }|.
-      ELSEIF lines( gt_hdr ) >= 4 AND ls_data-lifnr = gt_hdr[ 4 ]-lifnr.
+        gs_pkg-quat3 = |{ lv_b_upr STYLE = SIMPLE }|.
+        gs_frt-quat3 = lv_frt_s.
+      ELSEIF lines( gt_hdr ) >= 4 AND ls_data-ebeln = gt_hdr[ 4 ]-ebeln.
         gs_val-quat4 = lv_val.
-        gs_pkg-quat4 = |{ ls_rank-amount1 STYLE = SIMPLE }|.
-      ELSEIF lines( gt_hdr ) >= 5 AND ls_data-lifnr = gt_hdr[ 5 ]-lifnr.
+        gs_pkg-quat4 = |{ lv_b_upr STYLE = SIMPLE }|.
+        gs_frt-quat4 = lv_frt_s.
+      ELSEIF lines( gt_hdr ) >= 5 AND ls_data-ebeln = gt_hdr[ 5 ]-ebeln.
         gs_val-quat5 = lv_val.
-        gs_pkg-quat5 = |{ ls_rank-amount1 STYLE = SIMPLE }|.
-      ELSEIF lines( gt_hdr ) >= 6 AND ls_data-lifnr = gt_hdr[ 6 ]-lifnr.
+        gs_pkg-quat5 = |{ lv_b_upr STYLE = SIMPLE }|.
+        gs_frt-quat5 = lv_frt_s.
+      ELSEIF lines( gt_hdr ) >= 6 AND ls_data-ebeln = gt_hdr[ 6 ]-ebeln.
         gs_val-quat6 = lv_val.
-        gs_pkg-quat6 = |{ ls_rank-amount1 STYLE = SIMPLE }|.
-      ELSEIF lines( gt_hdr ) >= 7 AND ls_data-lifnr = gt_hdr[ 7 ]-lifnr.
+        gs_pkg-quat6 = |{ lv_b_upr STYLE = SIMPLE }|.
+        gs_frt-quat6 = lv_frt_s.
+      ELSEIF lines( gt_hdr ) >= 7 AND ls_data-ebeln = gt_hdr[ 7 ]-ebeln.
         gs_val-quat7 = lv_val.
-        gs_pkg-quat7 = |{ ls_rank-amount1 STYLE = SIMPLE }|.
+        gs_pkg-quat7 = |{ lv_b_upr STYLE = SIMPLE }|.
+        gs_frt-quat7 = lv_frt_s.
       ENDIF.
     ENDLOOP.
 
     CONDENSE: gs_val-quat1, gs_val-quat2, gs_val-quat3, gs_val-quat4,
-              gs_val-quat5, gs_val-quat6, gs_val-quat7.
+              gs_val-quat5, gs_val-quat6, gs_val-quat7,
+              gs_frt-quat1, gs_frt-quat2, gs_frt-quat3, gs_frt-quat4,
+              gs_frt-quat5, gs_frt-quat6, gs_frt-quat7.
 
     " Calculate Mean only for quotations with price > 0
-    DATA: lv_val_sum TYPE decfloat34 VALUE 0,
-          lv_pkg_sum TYPE decfloat34 VALUE 0,
-          lv_prc_cnt TYPE i VALUE 0.
+    DATA: lv_val_sum TYPE decfloat34,
+          lv_pkg_sum TYPE decfloat34,
+          lv_frt_sum TYPE decfloat34,
+          lv_prc_cnt TYPE i.
+    CLEAR: lv_val_sum, lv_pkg_sum, lv_frt_sum, lv_prc_cnt.
 
     LOOP AT lt_rank INTO DATA(ls_rm).
       lv_val_sum = lv_val_sum + ls_rm-amount.
@@ -718,14 +1196,24 @@ FORM get_data.
       lv_prc_cnt = lv_prc_cnt + 1.
     ENDLOOP.
 
+    LOOP AT it_data INTO DATA(ls_d_frt) WHERE ebelp = ls_data1-ebelp AND matnr = ls_data1-matnr AND netpr > 0.
+      READ TABLE gt_rfq_items INTO DATA(ls_rq_f) WITH KEY ebeln = ls_d_frt-ebeln ebelp = ls_d_frt-ebelp.
+      IF sy-subrc = 0.
+        lv_frt_sum = lv_frt_sum + ls_rq_f-freight.
+      ENDIF.
+    ENDLOOP.
+
     IF lv_prc_cnt > 0.
       lv_mean = lv_val_sum / lv_prc_cnt.
       gs_val-mean = |{ lv_mean STYLE = SIMPLE }|.
       lv_mean = lv_pkg_sum / lv_prc_cnt.
       gs_pkg-mean = |{ lv_mean STYLE = SIMPLE }|.
+      lv_mean = lv_frt_sum / lv_prc_cnt.
+      gs_frt-mean = |{ lv_mean STYLE = SIMPLE }|.
     ELSE.
       gs_val-mean = 'No Price'.
       gs_pkg-mean = 'No Price'.
+      gs_frt-mean = 'No Price'.
     ENDIF.
 
     " Determine Ranks & L1 Minimum Winner
@@ -760,6 +1248,32 @@ FORM get_data.
         ls_item_ref-ekgrp      = ls_win-ekgrp.
         ls_item_ref-l1_tot_amt = ls_top_r-amount.
         ls_item_ref-l1_upr_amt = ls_top_r-amount1.
+        READ TABLE gt_rfq_items INTO DATA(ls_l1_rfq_chk)
+          WITH KEY ebeln = ls_win-ebeln ebelp = ls_win-ebelp.
+        IF sy-subrc = 0.
+          ls_item_ref-l1_freight     = ls_l1_rfq_chk-freight.
+          ls_item_ref-l1_frt_details = ls_l1_rfq_chk-frt_details.
+          gs_frt-minimum             = |{ ls_l1_rfq_chk-freight STYLE = SIMPLE }|.
+        ENDIF.
+      ENDIF.
+    ENDIF.
+
+    " Populate Last Purchase Price (LPP) benchmark for this material
+    READ TABLE lt_lpp INTO DATA(ls_mat_lpp) WITH KEY matnr = ls_data1-matnr.
+    IF sy-subrc = 0.
+      ls_item_ref-lpp_ebeln   = ls_mat_lpp-ebeln.
+      ls_item_ref-lpp_ebelp   = ls_mat_lpp-ebelp.
+      ls_item_ref-lpp_bedat   = ls_mat_lpp-bedat.
+      ls_item_ref-lpp_netpr   = ls_mat_lpp-netpr.
+      ls_item_ref-lpp_peinh   = COND #( WHEN ls_mat_lpp-peinh > 0 THEN ls_mat_lpp-peinh ELSE 1 ).
+      ls_item_ref-lpp_waers   = ls_mat_lpp-waers.
+      ls_item_ref-lpp_meins   = ls_mat_lpp-meins.
+      ls_item_ref-lpp_lifnr   = ls_mat_lpp-lifnr.
+      ls_item_ref-lpp_name1   = ls_mat_lpp-name1.
+      ls_item_ref-lpp_upr_amt = CONV decfloat34( ls_mat_lpp-netpr ) /
+                                CONV decfloat34( ls_item_ref-lpp_peinh ).
+      IF ls_mat_lpp-waers = 'USD' AND ls_data1-wkurs > 0.
+        ls_item_ref-lpp_upr_amt = ls_item_ref-lpp_upr_amt * CONV decfloat34( ls_data1-wkurs ).
       ENDIF.
     ENDIF.
 
@@ -778,12 +1292,24 @@ FORM get_data.
         ENDIF.
       ENDIF.
     ELSE.
-      CLEAR: ls_item_ref-sel_col, ls_item_ref-sel_ebeln, ls_item_ref-sel_ebelp,
-             ls_item_ref-sel_lifnr, ls_item_ref-sel_name1, ls_item_ref-sel_netpr,
-             ls_item_ref-sel_peinh, ls_item_ref-sel_waers, ls_item_ref-sel_zterm,
-             ls_item_ref-sel_inco1.
-      gs_val-sel       = '@R7@ [ ]'.
-      gs_val-po_action = '@0Y@ Select Supplier'.
+      " Default selection to System Suggested L1 winner by default
+      ls_item_ref-sel_col         = ls_item_ref-l1_sel_col.
+      ls_item_ref-sel_ebeln       = ls_item_ref-l1_ebeln.
+      ls_item_ref-sel_ebelp       = ls_item_ref-l1_ebelp.
+      ls_item_ref-sel_lifnr       = ls_item_ref-l1_lifnr.
+      ls_item_ref-sel_name1       = ls_item_ref-l1_name1.
+      ls_item_ref-sel_netpr       = ls_item_ref-l1_netpr.
+      ls_item_ref-sel_peinh       = ls_item_ref-l1_peinh.
+      ls_item_ref-sel_waers       = ls_item_ref-l1_waers.
+      ls_item_ref-sel_zterm       = ls_item_ref-l1_zterm.
+      ls_item_ref-sel_inco1       = ls_item_ref-l1_inco1.
+      ls_item_ref-sel_tot_amt     = ls_item_ref-l1_tot_amt.
+      ls_item_ref-sel_upr_amt     = ls_item_ref-l1_upr_amt.
+      ls_item_ref-sel_freight     = ls_item_ref-l1_freight.
+      ls_item_ref-sel_frt_details = ls_item_ref-l1_frt_details.
+      ls_item_ref-user_pref       = space.
+      gs_val-sel                  = '@01@ [X]'.
+      gs_val-po_action            = |@0Y@ PO -> { ls_item_ref-l1_name1(12) }|.
     ENDIF.
 
     IF lt_rank IS NOT INITIAL.
@@ -870,11 +1396,27 @@ FORM get_data.
     ELSE.
       gs_val-minimum = 'No Price'.
       gs_pkg-minimum = 'No Price'.
+      gs_frt-minimum = 'No Price'.
+    ENDIF.
+
+    IF ls_item_ref-po_number IS INITIAL AND ls_item_ref-sel_col IS INITIAL.
+      ls_item_ref-sel_col = ls_item_ref-l1_sel_col.
+    ENDIF.
+
+    IF ls_item_ref-lpp_upr_amt > 0.
+      DATA: lv_fmt_lpp_alv TYPE string.
+      PERFORM format_inr USING ls_item_ref-lpp_upr_amt CHANGING lv_fmt_lpp_alv.
+      gs_rank-matnr = 'Last PO:'.
+      gs_rank-maktx = |₹{ lv_fmt_lpp_alv }/ { ls_item_ref-lpp_meins } (PO { ls_item_ref-lpp_ebeln })|.
+    ELSE.
+      gs_rank-matnr = 'Last PO:'.
+      gs_rank-maktx = 'No PO History'.
     ENDIF.
 
     APPEND ls_item_ref TO gt_item_ref.
 
     APPEND gs_val  TO gt_final.
+    APPEND gs_frt  TO gt_final.
     APPEND gs_rank TO gt_final.
     APPEND gs_pkg  TO gt_final.
     APPEND gs_app  TO gt_final.
@@ -886,116 +1428,157 @@ FORM get_data.
   SORT lt_win_cols.
   DELETE ADJACENT DUPLICATES FROM lt_win_cols.
 
-  " Calculate Total Quotation Amount Row
+  " 1. Total Item Amount Row (Basic material cost)
+  DATA: ls_item_tot TYPE ty_final.
+  CLEAR ls_item_tot.
+  ls_item_tot-maktx = 'Total Item Amount'.
+  ls_item_tot-color = 'C110'.
+
+  " 2. Total Delivery Cost Row (Individual row down side!)
+  DATA: ls_frt_tot TYPE ty_final.
+  CLEAR ls_frt_tot.
+  ls_frt_tot-maktx = 'Total Delivery Cost'.
+  ls_frt_tot-color = 'C300'.
+
+  " 3. Total Quotation Amount Row (Landed: Item Amount + Delivery Cost)
   CLEAR ls_total.
   ls_total-maktx = 'Total Quotation Amount'.
   ls_total-color = 'C110'.
 
-  DATA: lv_has_prc1 TYPE abap_bool VALUE abap_false,
-        lv_has_prc2 TYPE abap_bool VALUE abap_false,
-        lv_has_prc3 TYPE abap_bool VALUE abap_false,
-        lv_has_prc4 TYPE abap_bool VALUE abap_false,
-        lv_has_prc5 TYPE abap_bool VALUE abap_false,
-        lv_has_prc6 TYPE abap_bool VALUE abap_false,
-        lv_has_prc7 TYPE abap_bool VALUE abap_false.
+  DO lines( gt_hdr ) TIMES.
+    DATA(lv_h_idx) = sy-index.
+    DATA(ls_h_curr) = gt_hdr[ lv_h_idx ].
 
-  LOOP AT gt_final INTO DATA(ls_chk) WHERE quat = 'Val:'.
-    IF ls_chk-quat1 IS NOT INITIAL AND ls_chk-quat1 NE 'No Price'. lv_has_prc1 = abap_true. ENDIF.
-    IF ls_chk-quat2 IS NOT INITIAL AND ls_chk-quat2 NE 'No Price'. lv_has_prc2 = abap_true. ENDIF.
-    IF ls_chk-quat3 IS NOT INITIAL AND ls_chk-quat3 NE 'No Price'. lv_has_prc3 = abap_true. ENDIF.
-    IF ls_chk-quat4 IS NOT INITIAL AND ls_chk-quat4 NE 'No Price'. lv_has_prc4 = abap_true. ENDIF.
-    IF ls_chk-quat5 IS NOT INITIAL AND ls_chk-quat5 NE 'No Price'. lv_has_prc5 = abap_true. ENDIF.
-    IF ls_chk-quat6 IS NOT INITIAL AND ls_chk-quat6 NE 'No Price'. lv_has_prc6 = abap_true. ENDIF.
-    IF ls_chk-quat7 IS NOT INITIAL AND ls_chk-quat7 NE 'No Price'. lv_has_prc7 = abap_true. ENDIF.
+    DATA: lv_has_q_prc TYPE abap_bool,
+          lv_v_mat     TYPE decfloat34,
+          lv_v_frt     TYPE decfloat34,
+          lv_v_tot     TYPE decfloat34.
+
+    CLEAR: lv_has_q_prc, lv_v_mat, lv_v_frt, lv_v_tot.
+
+    LOOP AT gt_rfq_items INTO DATA(ls_rqi_v) WHERE ebeln = ls_h_curr-ebeln AND netpr > 0.
+      lv_has_q_prc = abap_true.
+      DATA(lv_v_peinh) = COND ekpo-peinh( WHEN ls_rqi_v-peinh > 0 THEN ls_rqi_v-peinh ELSE 1 ).
+      DATA(lv_v_menge) = COND ekpo-menge( WHEN ls_rqi_v-menge > 0 THEN ls_rqi_v-menge
+                                          WHEN ls_rqi_v-ktmng > 0 THEN ls_rqi_v-ktmng ELSE 1 ).
+      DATA: lv_item_mat TYPE decfloat34.
+      lv_item_mat = ( CONV decfloat34( lv_v_menge ) * CONV decfloat34( ls_rqi_v-netpr ) ) / CONV decfloat34( lv_v_peinh ).
+      IF ls_rqi_v-waers = 'USD' AND ls_rqi_v-wkurs > 0.
+        lv_item_mat = lv_item_mat * CONV decfloat34( ls_rqi_v-wkurs ).
+      ENDIF.
+      lv_v_mat = lv_v_mat + lv_item_mat.
+      lv_v_frt = lv_v_frt + ls_rqi_v-freight.
+    ENDLOOP.
+    lv_v_tot = lv_v_mat + lv_v_frt.
+
+    DATA: lv_str_mat TYPE string,
+          lv_str_frt TYPE string,
+          lv_str_tot TYPE string.
+
+    IF lv_has_q_prc = abap_true.
+      lv_str_mat = |{ lv_v_mat STYLE = SIMPLE }|.
+      lv_str_frt = |{ lv_v_frt STYLE = SIMPLE }|.
+      lv_str_tot = |{ lv_v_tot STYLE = SIMPLE }|.
+    ELSE.
+      lv_str_mat = 'No Price'.
+      lv_str_frt = 'No Price'.
+      lv_str_tot = 'No Price'.
+    ENDIF.
+
+    CASE lv_h_idx.
+      WHEN 1.
+        ls_item_tot-quat1 = lv_str_mat.
+        ls_frt_tot-quat1  = lv_str_frt.
+        ls_total-quat1    = lv_str_tot.
+      WHEN 2.
+        ls_item_tot-quat2 = lv_str_mat.
+        ls_frt_tot-quat2  = lv_str_frt.
+        ls_total-quat2    = lv_str_tot.
+      WHEN 3.
+        ls_item_tot-quat3 = lv_str_mat.
+        ls_frt_tot-quat3  = lv_str_frt.
+        ls_total-quat3    = lv_str_tot.
+      WHEN 4.
+        ls_item_tot-quat4 = lv_str_mat.
+        ls_frt_tot-quat4  = lv_str_frt.
+        ls_total-quat4    = lv_str_tot.
+      WHEN 5.
+        ls_item_tot-quat5 = lv_str_mat.
+        ls_frt_tot-quat5  = lv_str_frt.
+        ls_total-quat5    = lv_str_tot.
+      WHEN 6.
+        ls_item_tot-quat6 = lv_str_mat.
+        ls_frt_tot-quat6  = lv_str_frt.
+        ls_total-quat6    = lv_str_tot.
+      WHEN 7.
+        ls_item_tot-quat7 = lv_str_mat.
+        ls_frt_tot-quat7  = lv_str_frt.
+        ls_total-quat7    = lv_str_tot.
+    ENDCASE.
+  ENDDO.
+
+  " Calculate Mean for summary rows across valid quotations
+  DATA: lv_m_mat_sum TYPE decfloat34,
+        lv_m_frt_sum TYPE decfloat34,
+        lv_m_tot_sum TYPE decfloat34,
+        lv_m_cnt     TYPE i.
+  CLEAR: lv_m_mat_sum, lv_m_frt_sum, lv_m_tot_sum, lv_m_cnt.
+
+  DO lines( gt_hdr ) TIMES.
+    DATA: lv_col_mat TYPE string,
+          lv_col_frt TYPE string,
+          lv_col_tot TYPE string.
+    CASE sy-index.
+      WHEN 1. lv_col_mat = ls_item_tot-quat1. lv_col_frt = ls_frt_tot-quat1. lv_col_tot = ls_total-quat1.
+      WHEN 2. lv_col_mat = ls_item_tot-quat2. lv_col_frt = ls_frt_tot-quat2. lv_col_tot = ls_total-quat2.
+      WHEN 3. lv_col_mat = ls_item_tot-quat3. lv_col_frt = ls_frt_tot-quat3. lv_col_tot = ls_total-quat3.
+      WHEN 4. lv_col_mat = ls_item_tot-quat4. lv_col_frt = ls_frt_tot-quat4. lv_col_tot = ls_total-quat4.
+      WHEN 5. lv_col_mat = ls_item_tot-quat5. lv_col_frt = ls_frt_tot-quat5. lv_col_tot = ls_total-quat5.
+      WHEN 6. lv_col_mat = ls_item_tot-quat6. lv_col_frt = ls_frt_tot-quat6. lv_col_tot = ls_total-quat6.
+      WHEN 7. lv_col_mat = ls_item_tot-quat7. lv_col_frt = ls_frt_tot-quat7. lv_col_tot = ls_total-quat7.
+    ENDCASE.
+    IF lv_col_mat IS NOT INITIAL AND lv_col_mat NE 'No Price'.
+      lv_m_mat_sum = lv_m_mat_sum + CONV decfloat34( lv_col_mat ).
+      lv_m_frt_sum = lv_m_frt_sum + CONV decfloat34( lv_col_frt ).
+      lv_m_tot_sum = lv_m_tot_sum + CONV decfloat34( lv_col_tot ).
+      lv_m_cnt     = lv_m_cnt + 1.
+    ENDIF.
+  ENDDO.
+
+  IF lv_m_cnt > 0.
+    ls_item_tot-mean = |{ ( lv_m_mat_sum / lv_m_cnt ) STYLE = SIMPLE }|.
+    ls_frt_tot-mean  = |{ ( lv_m_frt_sum / lv_m_cnt ) STYLE = SIMPLE }|.
+    ls_total-mean    = |{ ( lv_m_tot_sum / lv_m_cnt ) STYLE = SIMPLE }|.
+  ELSE.
+    ls_item_tot-mean = 'No Price'.
+    ls_frt_tot-mean  = 'No Price'.
+    ls_total-mean    = 'No Price'.
+  ENDIF.
+
+  " Calculate L1 minimum values for summary rows
+  DATA: lv_l1_m_mat TYPE decfloat34,
+        lv_l1_m_frt TYPE decfloat34,
+        lv_l1_m_tot TYPE decfloat34.
+  CLEAR: lv_l1_m_mat, lv_l1_m_frt, lv_l1_m_tot.
+  LOOP AT gt_item_ref INTO DATA(ls_ir_alv) WHERE l1_tot_amt > 0.
+    lv_l1_m_mat = lv_l1_m_mat + ls_ir_alv-l1_tot_amt.
+    lv_l1_m_frt = lv_l1_m_frt + ls_ir_alv-l1_freight.
+    lv_l1_m_tot = lv_l1_m_tot + ( ls_ir_alv-l1_tot_amt + ls_ir_alv-l1_freight ).
   ENDLOOP.
-
-  IF lines( gt_hdr ) >= 1.
-    IF lv_has_prc1 = abap_true.
-      ls_total-quat1 = |{ REDUCE decfloat34( INIT s = CONV decfloat34( 0 )
-                            FOR ls IN gt_final WHERE ( quat = 'Val:' )
-                            NEXT s = s + COND decfloat34(
-                              WHEN ls-quat1 IS NOT INITIAL AND ls-quat1 NE 'No Price'
-                              THEN CONV decfloat34( ls-quat1 )
-                              ELSE 0 ) ) STYLE = SIMPLE }|.
-    ELSE.
-      ls_total-quat1 = 'No Price'.
-    ENDIF.
-  ENDIF.
-  IF lines( gt_hdr ) >= 2.
-    IF lv_has_prc2 = abap_true.
-      ls_total-quat2 = |{ REDUCE decfloat34( INIT s = CONV decfloat34( 0 )
-                            FOR ls IN gt_final WHERE ( quat = 'Val:' )
-                            NEXT s = s + COND decfloat34(
-                              WHEN ls-quat2 IS NOT INITIAL AND ls-quat2 NE 'No Price'
-                              THEN CONV decfloat34( ls-quat2 )
-                              ELSE 0 ) ) STYLE = SIMPLE }|.
-    ELSE.
-      ls_total-quat2 = 'No Price'.
-    ENDIF.
-  ENDIF.
-  IF lines( gt_hdr ) >= 3.
-    IF lv_has_prc3 = abap_true.
-      ls_total-quat3 = |{ REDUCE decfloat34( INIT s = CONV decfloat34( 0 )
-                            FOR ls IN gt_final WHERE ( quat = 'Val:' )
-                            NEXT s = s + COND decfloat34(
-                              WHEN ls-quat3 IS NOT INITIAL AND ls-quat3 NE 'No Price'
-                              THEN CONV decfloat34( ls-quat3 )
-                              ELSE 0 ) ) STYLE = SIMPLE }|.
-    ELSE.
-      ls_total-quat3 = 'No Price'.
-    ENDIF.
-  ENDIF.
-  IF lines( gt_hdr ) >= 4.
-    IF lv_has_prc4 = abap_true.
-      ls_total-quat4 = |{ REDUCE decfloat34( INIT s = CONV decfloat34( 0 )
-                            FOR ls IN gt_final WHERE ( quat = 'Val:' )
-                            NEXT s = s + COND decfloat34(
-                              WHEN ls-quat4 IS NOT INITIAL AND ls-quat4 NE 'No Price'
-                              THEN CONV decfloat34( ls-quat4 )
-                              ELSE 0 ) ) STYLE = SIMPLE }|.
-    ELSE.
-      ls_total-quat4 = 'No Price'.
-    ENDIF.
-  ENDIF.
-  IF lines( gt_hdr ) >= 5.
-    IF lv_has_prc5 = abap_true.
-      ls_total-quat5 = |{ REDUCE decfloat34( INIT s = CONV decfloat34( 0 )
-                            FOR ls IN gt_final WHERE ( quat = 'Val:' )
-                            NEXT s = s + COND decfloat34(
-                              WHEN ls-quat5 IS NOT INITIAL AND ls-quat5 NE 'No Price'
-                              THEN CONV decfloat34( ls-quat5 )
-                              ELSE 0 ) ) STYLE = SIMPLE }|.
-    ELSE.
-      ls_total-quat5 = 'No Price'.
-    ENDIF.
-  ENDIF.
-  IF lines( gt_hdr ) >= 6.
-    IF lv_has_prc6 = abap_true.
-      ls_total-quat6 = |{ REDUCE decfloat34( INIT s = CONV decfloat34( 0 )
-                            FOR ls IN gt_final WHERE ( quat = 'Val:' )
-                            NEXT s = s + COND decfloat34(
-                              WHEN ls-quat6 IS NOT INITIAL AND ls-quat6 NE 'No Price'
-                              THEN CONV decfloat34( ls-quat6 )
-                              ELSE 0 ) ) STYLE = SIMPLE }|.
-    ELSE.
-      ls_total-quat6 = 'No Price'.
-    ENDIF.
-  ENDIF.
-  IF lines( gt_hdr ) >= 7.
-    IF lv_has_prc7 = abap_true.
-      ls_total-quat7 = |{ REDUCE decfloat34( INIT s = CONV decfloat34( 0 )
-                            FOR ls IN gt_final WHERE ( quat = 'Val:' )
-                            NEXT s = s + COND decfloat34(
-                              WHEN ls-quat7 IS NOT INITIAL AND ls-quat7 NE 'No Price'
-                              THEN CONV decfloat34( ls-quat7 )
-                              ELSE 0 ) ) STYLE = SIMPLE }|.
-    ELSE.
-      ls_total-quat7 = 'No Price'.
-    ENDIF.
+  IF lv_l1_m_tot > 0.
+    ls_item_tot-minimum = |{ lv_l1_m_mat STYLE = SIMPLE }|.
+    ls_frt_tot-minimum  = |{ lv_l1_m_frt STYLE = SIMPLE }|.
+    ls_total-minimum    = |{ lv_l1_m_tot STYLE = SIMPLE }|.
+  ELSE.
+    ls_item_tot-minimum = 'No Price'.
+    ls_frt_tot-minimum  = 'No Price'.
+    ls_total-minimum    = 'No Price'.
   ENDIF.
 
-  APPEND ls_total TO gt_final.
-  APPEND ls_total TO gt_final1.
+  APPEND ls_item_tot TO gt_final.
+  APPEND ls_frt_tot  TO gt_final.
+  APPEND ls_total    TO gt_final.
+  APPEND ls_total    TO gt_final1.
 
   " Incoterms Row
   APPEND VALUE #(
@@ -1129,7 +1712,7 @@ FORM display.
     ( fieldname = 'SEL'       seltext_m = 'Select'   outputlen = '12' hotspot = 'X' )
     ( fieldname = 'MATNR'     seltext_m = ' '        outputlen = '18' hotspot = 'X' )
     ( fieldname = 'MAKTX'     seltext_m = ' '        outputlen = '40' hotspot = 'X' )
-    ( fieldname = 'QUAT'      seltext_m = ' '        outputlen = '10' )
+    ( fieldname = 'QUAT'      seltext_m = ' '        outputlen = '10' hotspot = 'X' )
     ( fieldname = 'QUAT1'     seltext_m = ' '        outputlen = '20' hotspot = 'X' )
     ( fieldname = 'QUAT2'     seltext_m = ' '        outputlen = '20' hotspot = 'X' )
     ( fieldname = 'QUAT3'     seltext_m = ' '        outputlen = '20' hotspot = 'X' )
@@ -1227,6 +1810,32 @@ FORM user_command USING r_ucomm LIKE sy-ucomm
     RETURN.
   ENDIF.
 
+  " Freight & Delivery Condition Details Breakdown
+  IF r_ucomm = '&FRT' OR r_ucomm = 'FREIGHT'
+     OR rs_selfield-value CS 'Breakdown'.
+    IF rs_selfield-tabindex > 0 AND rs_selfield-tabindex <= lines( gt_final ).
+      READ TABLE gt_final INTO DATA(ls_uc_f) INDEX rs_selfield-tabindex.
+      IF sy-subrc = 0.
+        PERFORM show_item_freight_details USING ls_uc_f-ebelp rs_selfield-fieldname.
+        RETURN.
+      ENDIF.
+    ENDIF.
+    PERFORM show_item_freight_details USING space space.
+    RETURN.
+  ENDIF.
+
+  " Check if a Delivery / Freight row was clicked
+  IF rs_selfield-tabindex > 0 AND rs_selfield-tabindex <= lines( gt_final ).
+    READ TABLE gt_final INTO DATA(ls_uc_check) INDEX rs_selfield-tabindex.
+    IF sy-subrc = 0.
+      IF ls_uc_check-quat = 'Delivery:' OR ls_uc_check-maktx = 'Total Delivery Cost'
+         OR ls_uc_check-maktx = 'Delivery / Freight'.
+        PERFORM show_item_freight_details USING ls_uc_check-ebelp rs_selfield-fieldname.
+        RETURN.
+      ENDIF.
+    ENDIF.
+  ENDIF.
+
   " Direct trigger for Actions:
   " - Toolbar button CREATE_PO or PO_CREATE
   " - Hotspot value contains 'Create PO' or 'PO ->'
@@ -1239,6 +1848,10 @@ FORM user_command USING r_ucomm LIKE sy-ucomm
 
     " Row 1: Create PO for all approved items
     IF rs_selfield-tabindex = 1 OR r_ucomm = 'CREATE_PO' OR r_ucomm = 'PO_CREATE'.
+      IF gv_is_approver = abap_true.
+        MESSAGE 'Approval completed. Only creator/requester can create Purchase Orders.' TYPE 'I'.
+        RETURN.
+      ENDIF.
       IF gv_appr_items_cnt > 0.
         PERFORM create_po_for_selected USING rs_selfield-tabindex.
       ELSE.
@@ -1281,11 +1894,7 @@ FORM user_command USING r_ucomm LIKE sy-ucomm
 
     " Row 4: Reject All (Approver only)
     IF rs_selfield-tabindex = 4 AND gv_is_approver = abap_true.
-      IF gv_pend_items_cnt > 0.
-        PERFORM handle_html_action USING 'REJECT' space.
-      ELSE.
-        MESSAGE 'No pending items to reject.' TYPE 'I'.
-      ENDIF.
+      PERFORM handle_html_action USING 'REJECT' space.
       rs_selfield-refresh    = abap_true.
       rs_selfield-col_stable = abap_true.
       rs_selfield-row_stable = abap_true.
@@ -1313,6 +1922,10 @@ FORM user_command USING r_ucomm LIKE sy-ucomm
           ENDIF.
           RETURN.
         ELSEIF <fs_act_row>-po_action CS 'Create PO' OR <fs_act_row>-po_action CS '@15@'.
+          IF gv_is_approver = abap_true.
+            MESSAGE 'Approval completed. Only creator/requester can create Purchase Orders.' TYPE 'I'.
+            RETURN.
+          ENDIF.
           IF lv_act_ebelp IS NOT INITIAL.
             PERFORM create_po_for_single_item USING lv_act_ebelp.
           ELSE.
@@ -1333,6 +1946,48 @@ FORM user_command USING r_ucomm LIKE sy-ucomm
           rs_selfield-col_stable = abap_true.
           rs_selfield-row_stable = abap_true.
           RETURN.
+        ELSEIF <fs_act_row>-po_action CS 'Reject' OR <fs_act_row>-po_action CS '@0W@'
+               OR <fs_act_row>-po_action CS '@02@ [R]'.
+          IF gv_is_approver = abap_true AND lv_act_ebelp IS NOT INITIAL.
+            DATA: lv_act_p_rej TYPE string.
+            lv_act_p_rej = |item={ lv_act_ebelp }|.
+            PERFORM handle_html_action USING 'REJECT_ITEM' lv_act_p_rej.
+            rs_selfield-refresh    = abap_true.
+            rs_selfield-col_stable = abap_true.
+            rs_selfield-row_stable = abap_true.
+            RETURN.
+          ELSEIF lv_act_ebelp IS NOT INITIAL.
+            READ TABLE gt_item_ref INTO DATA(ls_r_info) WITH KEY ebelp = lv_act_ebelp.
+            IF sy-subrc = 0.
+              DATA: lv_ans_resub TYPE c,
+                    lv_q_text    TYPE string.
+              IF ls_r_info-appr_remark IS NOT INITIAL.
+                lv_q_text = |Rejection Reason: "{ ls_r_info-appr_remark }". Resend Item { lv_act_ebelp } for HOD approval?|.
+              ELSE.
+                lv_q_text = |Resend Item { lv_act_ebelp } for HOD approval?|.
+              ENDIF.
+              CALL FUNCTION 'POPUP_TO_CONFIRM'
+                EXPORTING
+                  titlebar       = 'Resubmit Rejected Item'
+                  text_question  = lv_q_text
+                  text_button_1  = 'Resend'
+                  text_button_2  = 'Cancel'
+                  default_button = '1'
+                IMPORTING
+                  answer         = lv_ans_resub
+                EXCEPTIONS
+                  OTHERS         = 1.
+              IF lv_ans_resub = '1'.
+                DATA: lv_act_p_res TYPE string.
+                lv_act_p_res = |item={ lv_act_ebelp }|.
+                PERFORM handle_html_action USING 'SUBMIT_SINGLE' lv_act_p_res.
+                rs_selfield-refresh    = abap_true.
+                rs_selfield-col_stable = abap_true.
+                rs_selfield-row_stable = abap_true.
+                RETURN.
+              ENDIF.
+            ENDIF.
+          ENDIF.
         ELSEIF <fs_act_row>-po_action CS 'In Approval' OR <fs_act_row>-po_action CS '@09@'.
           MESSAGE |Item { lv_act_ebelp } is in approval process. Details are locked.| TYPE 'I'.
           RETURN.
@@ -1393,13 +2048,15 @@ FORM user_command USING r_ucomm LIKE sy-ucomm
               ENDIF.
               RETURN.
             ENDIF.
-            IF sy-subrc = 0 AND ls_ir_sel-appr_status = 'X'.
-              MESSAGE |Item { lv_target_sel_ebelp } is approved. Selection locked; only Create PO is allowed.| TYPE 'W'.
-              RETURN.
-            ENDIF.
-            IF sy-subrc = 0 AND ls_ir_sel-user_pref = 'X'.
-              MESSAGE |Item { lv_target_sel_ebelp } is in approval process. Selection locked.| TYPE 'W'.
-              RETURN.
+            IF sy-subrc = 0 AND gv_is_approver = abap_false.
+              IF ls_ir_sel-appr_status = 'X'.
+                MESSAGE |Item { lv_target_sel_ebelp } is approved. Selection locked; only Create PO is allowed.| TYPE 'W'.
+                RETURN.
+              ENDIF.
+              IF ls_ir_sel-user_pref = 'X' AND ls_ir_sel-appr_status <> 'R'.
+                MESSAGE |Item { lv_target_sel_ebelp } is in approval process. Selection locked.| TYPE 'W'.
+                RETURN.
+              ENDIF.
             ENDIF.
             PERFORM toggle_item_selection USING lv_target_sel_ebelp.
           ENDIF.
@@ -1454,13 +2111,15 @@ FORM user_command USING r_ucomm LIKE sy-ucomm
               MESSAGE |PO { ls_ir_col-po_number } already created for Item { lv_target_ebelp }. Supplier change disabled.| TYPE 'W'.
               RETURN.
             ENDIF.
-            IF sy-subrc = 0 AND ls_ir_col-appr_status = 'X'.
-              MESSAGE |Item { lv_target_ebelp } is approved. Supplier change locked; only Create PO is allowed.| TYPE 'W'.
-              RETURN.
-            ENDIF.
-            IF sy-subrc = 0 AND ls_ir_col-user_pref = 'X'.
-              MESSAGE |Item { lv_target_ebelp } is in approval process. Supplier change locked.| TYPE 'W'.
-              RETURN.
+            IF sy-subrc = 0 AND gv_is_approver = abap_false.
+              IF ls_ir_col-appr_status = 'X'.
+                MESSAGE |Item { lv_target_ebelp } is approved. Supplier change locked; only Create PO is allowed.| TYPE 'W'.
+                RETURN.
+              ENDIF.
+              IF ls_ir_col-user_pref = 'X' AND ls_ir_col-appr_status <> 'R'.
+                MESSAGE |Item { lv_target_ebelp } is in approval process. Supplier change locked.| TYPE 'W'.
+                RETURN.
+              ENDIF.
             ENDIF.
             PERFORM select_supplier_for_item USING lv_target_ebelp rs_selfield-fieldname.
             rs_selfield-refresh    = abap_true.
@@ -1499,6 +2158,178 @@ FORM user_command USING r_ucomm LIKE sy-ucomm
 ENDFORM.
 
 *&---------------------------------------------------------------------*
+*& Form show_item_freight_details
+*&---------------------------------------------------------------------*
+FORM show_item_freight_details USING pv_ebelp TYPE any
+                                     pv_col   TYPE any.
+
+  DATA: lv_flt_ebelp TYPE ekpo-ebelp.
+  CLEAR lv_flt_ebelp.
+  IF pv_ebelp IS NOT INITIAL AND pv_ebelp <> space.
+    lv_flt_ebelp = pv_ebelp.
+  ENDIF.
+
+  TYPES: BEGIN OF ty_frt_disp,
+           ebeln   TYPE ekko-ebeln,
+           ebelp   TYPE ekpo-ebelp,
+           lifnr   TYPE ekko-lifnr,
+           name1   TYPE lfa1-name1,
+           kschl   TYPE prcd_elements-kschl,
+           vtext   TYPE c LENGTH 30,
+           kbetr   TYPE prcd_elements-kbetr,
+           waers   TYPE prcd_elements-waers,
+           kwert   TYPE prcd_elements-kwert,
+           waerk   TYPE prcd_elements-waerk,
+           inr_amt TYPE bprei,
+         END OF ty_frt_disp.
+
+  DATA: lt_frt_disp TYPE STANDARD TABLE OF ty_frt_disp WITH DEFAULT KEY,
+        ls_frt_disp TYPE ty_frt_disp.
+
+  DATA: lt_fcat   TYPE slis_t_fieldcat_alv,
+        ls_fcat   TYPE slis_fieldcat_alv,
+        ls_layout TYPE slis_layout_alv.
+
+  CLEAR lt_frt_disp.
+
+  " Filter conditions based on lv_flt_ebelp
+  LOOP AT gt_q_frt_items INTO DATA(ls_qf).
+    IF lv_flt_ebelp IS NOT INITIAL AND ls_qf-ebelp <> lv_flt_ebelp.
+      CONTINUE.
+    ENDIF.
+    CLEAR ls_frt_disp.
+    ls_frt_disp-ebeln   = ls_qf-ebeln.
+    ls_frt_disp-ebelp   = ls_qf-ebelp.
+    ls_frt_disp-lifnr   = ls_qf-lifnr.
+    ls_frt_disp-name1   = ls_qf-name1.
+    ls_frt_disp-kschl   = ls_qf-kschl.
+    ls_frt_disp-vtext   = ls_qf-vtext.
+    ls_frt_disp-kbetr   = ls_qf-kbetr.
+    ls_frt_disp-waers   = ls_qf-waers.
+    ls_frt_disp-kwert   = ls_qf-kwert.
+    ls_frt_disp-waerk   = ls_qf-waerk.
+    ls_frt_disp-inr_amt = CONV bprei( ls_qf-inr_amt ).
+    APPEND ls_frt_disp TO lt_frt_disp.
+  ENDLOOP.
+
+  IF lt_frt_disp IS INITIAL.
+    MESSAGE 'No individual freight or delivery conditions found for this selection.' TYPE 'I'.
+    RETURN.
+  ENDIF.
+
+  " Sort by Quotation, Item, Condition Type
+  SORT lt_frt_disp BY ebeln ebelp kschl.
+
+  CLEAR lt_fcat.
+
+  CLEAR ls_fcat.
+  ls_fcat-fieldname = 'EBELN'.
+  ls_fcat-seltext_l = 'Quotation No'.
+  ls_fcat-seltext_m = 'Quotation'.
+  ls_fcat-outputlen = 12.
+  APPEND ls_fcat TO lt_fcat.
+
+  CLEAR ls_fcat.
+  ls_fcat-fieldname = 'EBELP'.
+  ls_fcat-seltext_l = 'Item No'.
+  ls_fcat-seltext_m = 'Item'.
+  ls_fcat-outputlen = 6.
+  APPEND ls_fcat TO lt_fcat.
+
+  CLEAR ls_fcat.
+  ls_fcat-fieldname = 'LIFNR'.
+  ls_fcat-seltext_l = 'Vendor'.
+  ls_fcat-seltext_m = 'Vendor'.
+  ls_fcat-outputlen = 10.
+  APPEND ls_fcat TO lt_fcat.
+
+  CLEAR ls_fcat.
+  ls_fcat-fieldname = 'NAME1'.
+  ls_fcat-seltext_l = 'Vendor Name'.
+  ls_fcat-seltext_m = 'Vendor Name'.
+  ls_fcat-outputlen = 25.
+  APPEND ls_fcat TO lt_fcat.
+
+  CLEAR ls_fcat.
+  ls_fcat-fieldname = 'KSCHL'.
+  ls_fcat-seltext_l = 'Condition Type'.
+  ls_fcat-seltext_m = 'Cond Type'.
+  ls_fcat-outputlen = 10.
+  APPEND ls_fcat TO lt_fcat.
+
+  CLEAR ls_fcat.
+  ls_fcat-fieldname = 'VTEXT'.
+  ls_fcat-seltext_l = 'Condition Description'.
+  ls_fcat-seltext_m = 'Description'.
+  ls_fcat-outputlen = 25.
+  APPEND ls_fcat TO lt_fcat.
+
+  CLEAR ls_fcat.
+  ls_fcat-fieldname  = 'KBETR'.
+  ls_fcat-seltext_l  = 'Condition Rate'.
+  ls_fcat-seltext_m  = 'Rate'.
+  ls_fcat-cfieldname = 'WAERS'.
+  ls_fcat-outputlen  = 14.
+  APPEND ls_fcat TO lt_fcat.
+
+  CLEAR ls_fcat.
+  ls_fcat-fieldname = 'WAERS'.
+  ls_fcat-seltext_l = 'Rate Currency'.
+  ls_fcat-seltext_m = 'Curr'.
+  ls_fcat-outputlen = 6.
+  APPEND ls_fcat TO lt_fcat.
+
+  CLEAR ls_fcat.
+  ls_fcat-fieldname  = 'KWERT'.
+  ls_fcat-seltext_l  = 'Condition Value'.
+  ls_fcat-seltext_m  = 'Doc Value'.
+  ls_fcat-cfieldname = 'WAERK'.
+  ls_fcat-outputlen  = 14.
+  APPEND ls_fcat TO lt_fcat.
+
+  CLEAR ls_fcat.
+  ls_fcat-fieldname = 'WAERK'.
+  ls_fcat-seltext_l = 'Doc Currency'.
+  ls_fcat-seltext_m = 'Doc Curr'.
+  ls_fcat-outputlen = 6.
+  APPEND ls_fcat TO lt_fcat.
+
+  CLEAR ls_fcat.
+  ls_fcat-fieldname = 'INR_AMT'.
+  ls_fcat-seltext_l = 'Amount (INR)'.
+  ls_fcat-seltext_m = 'Amount (INR)'.
+  ls_fcat-do_sum    = 'X'.
+  ls_fcat-outputlen = 16.
+  APPEND ls_fcat TO lt_fcat.
+
+  ls_layout-colwidth_optimize = 'X'.
+  ls_layout-zebra             = 'X'.
+
+  DATA: lv_title TYPE lvc_title.
+  IF lv_flt_ebelp IS NOT INITIAL.
+    lv_title = |Freight Conditions Breakdown - Item { lv_flt_ebelp }|.
+  ELSE.
+    lv_title = 'Quotation Freight & Delivery Conditions Breakdown (All Items)'.
+  ENDIF.
+
+  CALL FUNCTION 'REUSE_ALV_GRID_DISPLAY'
+    EXPORTING
+      i_grid_title          = lv_title
+      is_layout             = ls_layout
+      it_fieldcat           = lt_fcat
+      i_screen_start_column = 10
+      i_screen_start_line   = 4
+      i_screen_end_column   = 135
+      i_screen_end_line     = 22
+    TABLES
+      t_outtab              = lt_frt_disp
+    EXCEPTIONS
+      program_error         = 1
+      OTHERS                = 2.
+
+ENDFORM.
+
+*&---------------------------------------------------------------------*
 *& Form popup_choose_supplier
 *&---------------------------------------------------------------------*
 FORM popup_choose_supplier USING pv_ebelp TYPE ekpo-ebelp.
@@ -1531,14 +2362,16 @@ FORM popup_choose_supplier USING pv_ebelp TYPE ekpo-ebelp.
     RETURN.
   ENDIF.
 
-  IF <fs_ref>-appr_status = 'X'.
-    MESSAGE |Item { pv_ebelp } is approved. Supplier change locked; only Create PO is allowed.| TYPE 'W'.
-    RETURN.
-  ENDIF.
+  IF gv_is_approver = abap_false.
+    IF <fs_ref>-appr_status = 'X'.
+      MESSAGE |Item { pv_ebelp } is approved. Supplier change locked; only Create PO is allowed.| TYPE 'W'.
+      RETURN.
+    ENDIF.
 
-  IF <fs_ref>-user_pref = 'X'.
-    MESSAGE |Item { pv_ebelp } is in approval process. Supplier change locked.| TYPE 'W'.
-    RETURN.
+    IF <fs_ref>-user_pref = 'X' AND <fs_ref>-appr_status <> 'R'.
+      MESSAGE |Item { pv_ebelp } is in approval process. Supplier change locked.| TYPE 'W'.
+      RETURN.
+    ENDIF.
   ENDIF.
 
   DATA: lv_idx TYPE i VALUE 0.
@@ -1643,14 +2476,16 @@ FORM select_supplier_for_item USING pv_ebelp     TYPE ekpo-ebelp
     RETURN.
   ENDIF.
 
-  IF <fs_ref>-appr_status = 'X'.
-    MESSAGE |Item { pv_ebelp } is approved. Supplier change locked; only Create PO is allowed.| TYPE 'W'.
-    RETURN.
-  ENDIF.
+  IF gv_is_approver = abap_false.
+    IF <fs_ref>-appr_status = 'X'.
+      MESSAGE |Item { pv_ebelp } is approved. Supplier change locked; only Create PO is allowed.| TYPE 'W'.
+      RETURN.
+    ENDIF.
 
-  IF <fs_ref>-user_pref = 'X'.
-    MESSAGE |Item { pv_ebelp } is in approval process. Supplier change locked.| TYPE 'W'.
-    RETURN.
+    IF <fs_ref>-user_pref = 'X' AND <fs_ref>-appr_status <> 'R'.
+      MESSAGE |Item { pv_ebelp } is in approval process. Supplier change locked.| TYPE 'W'.
+      RETURN.
+    ENDIF.
   ENDIF.
 
   READ TABLE gt_final ASSIGNING FIELD-SYMBOL(<fs_val_cur>)
@@ -1685,21 +2520,26 @@ FORM select_supplier_for_item USING pv_ebelp     TYPE ekpo-ebelp
   <fs_ref>-sel_peinh = ls_rfq-peinh.
   <fs_ref>-sel_waers = ls_rfq-waers.
   <fs_ref>-sel_zterm = ls_rfq-zterm.
-  <fs_ref>-sel_inco1 = ls_rfq-inco1.
-  <fs_ref>-bukrs     = COND #( WHEN ls_rfq-bukrs IS NOT INITIAL THEN ls_rfq-bukrs ELSE '1000' ).
-  <fs_ref>-ekorg     = COND #( WHEN ls_rfq-ekorg IS NOT INITIAL THEN ls_rfq-ekorg ELSE 'AE01' ).
-  <fs_ref>-ekgrp     = COND #( WHEN ls_rfq-ekgrp IS NOT INITIAL THEN ls_rfq-ekgrp ELSE '101' ).
+  <fs_ref>-sel_inco1   = ls_rfq-inco1.
+  <fs_ref>-sel_freight     = ls_rfq-freight.
+  <fs_ref>-sel_frt_details = ls_rfq-frt_details.
+  <fs_ref>-bukrs       = COND #( WHEN ls_rfq-bukrs IS NOT INITIAL THEN ls_rfq-bukrs ELSE '1000' ).
+  <fs_ref>-ekorg       = COND #( WHEN ls_rfq-ekorg IS NOT INITIAL THEN ls_rfq-ekorg ELSE 'AE01' ).
+  <fs_ref>-ekgrp       = COND #( WHEN ls_rfq-ekgrp IS NOT INITIAL THEN ls_rfq-ekgrp ELSE '101' ).
 
   DATA(lv_s_qty) = COND ekpo-menge( WHEN <fs_ref>-menge > 0 THEN <fs_ref>-menge
                                     WHEN ls_rfq-ktmng > 0 THEN ls_rfq-ktmng
                                     WHEN ls_rfq-menge > 0 THEN ls_rfq-menge
                                     ELSE 1 ).
   DATA(lv_s_pe) = COND ekpo-peinh( WHEN ls_rfq-peinh > 0 THEN ls_rfq-peinh ELSE 1 ).
-  <fs_ref>-sel_upr_amt = CONV decfloat34( ls_rfq-netpr ) / CONV decfloat34( lv_s_pe ).
+  DATA(lv_b_upr_s) = CONV decfloat34( ls_rfq-netpr ) / CONV decfloat34( lv_s_pe ).
   IF ls_rfq-waers = 'USD' AND ls_rfq-wkurs > 0.
-    <fs_ref>-sel_upr_amt = <fs_ref>-sel_upr_amt * CONV decfloat34( ls_rfq-wkurs ).
+    lv_b_upr_s = lv_b_upr_s * CONV decfloat34( ls_rfq-wkurs ).
   ENDIF.
-  <fs_ref>-sel_tot_amt = CONV decfloat34( lv_s_qty ) * <fs_ref>-sel_upr_amt.
+  <fs_ref>-sel_tot_amt     = CONV decfloat34( lv_s_qty ) * lv_b_upr_s.
+  <fs_ref>-sel_upr_amt     = lv_b_upr_s.
+  <fs_ref>-sel_freight     = ls_rfq-freight.
+  <fs_ref>-sel_frt_details = ls_rfq-frt_details.
 
   IF <fs_ref>-sel_lifnr <> <fs_ref>-l1_lifnr AND <fs_ref>-user_remark IS INITIAL.
     DATA: lv_sel_cancel TYPE abap_bool.
@@ -1708,14 +2548,16 @@ FORM select_supplier_for_item USING pv_ebelp     TYPE ekpo-ebelp
                                       lv_sel_cancel.
   ENDIF.
 
-  IF <fs_ref>-appr_status = 'X'.
+  IF <fs_ref>-appr_status = 'X' OR <fs_ref>-appr_status = 'R'.
     <fs_ref>-appr_status = space.
     <fs_ref>-user_pref   = space.
+    <fs_ref>-appr_remark = space.
     UPDATE zmm_t_021
       SET zapprover1 = ' ',
-          userpref   = ' '
-      WHERE zquotation = @<fs_ref>-sel_ebeln
-        AND zqitem     = @<fs_ref>-sel_ebelp.
+          userpref   = ' ',
+          zaremark   = ' '
+      WHERE zcollectno = @<fs_ref>-submi
+        AND zqitem     = @pv_ebelp.
     COMMIT WORK.
   ENDIF.
   PERFORM init_approval_status.
@@ -1777,14 +2619,16 @@ FORM toggle_item_selection USING pv_ebelp TYPE ekpo-ebelp.
     RETURN.
   ENDIF.
 
-  IF <fs_ref>-appr_status = 'X'.
-    MESSAGE |Item { pv_ebelp } is approved. Selection locked; only Create PO is allowed.| TYPE 'W'.
-    RETURN.
-  ENDIF.
+  IF gv_is_approver = abap_false.
+    IF <fs_ref>-appr_status = 'X'.
+      MESSAGE |Item { pv_ebelp } is approved. Selection locked; only Create PO is allowed.| TYPE 'W'.
+      RETURN.
+    ENDIF.
 
-  IF <fs_ref>-user_pref = 'X'.
-    MESSAGE |Item { pv_ebelp } is in approval process. Selection locked.| TYPE 'W'.
-    RETURN.
+    IF <fs_ref>-user_pref = 'X' AND <fs_ref>-appr_status <> 'R'.
+      MESSAGE |Item { pv_ebelp } is in approval process. Selection locked.| TYPE 'W'.
+      RETURN.
+    ENDIF.
   ENDIF.
 
   READ TABLE gt_final ASSIGNING FIELD-SYMBOL(<fs_app>)
@@ -1976,6 +2820,12 @@ FORM create_po_for_selected USING pv_tabindex TYPE slis_selfield-tabindex.
   DATA: lt_sel_items TYPE STANDARD TABLE OF ty_item_ref.
   CLEAR lt_sel_items.
 
+  IF gv_is_approver = abap_true.
+    MESSAGE 'Approval completed. Only creator/requester can create Purchase Orders.'
+      TYPE 'S' DISPLAY LIKE 'E'.
+    RETURN.
+  ENDIF.
+
   " Check if all items in this collective group already have POs
   READ TABLE gt_item_ref WITH KEY po_number = space TRANSPORTING NO FIELDS.
   IF sy-subrc <> 0.
@@ -2077,11 +2927,11 @@ FORM create_po_for_selected USING pv_tabindex TYPE slis_selfield-tabindex.
   " Step 3: Validate collected items
   IF lt_sel_items IS INITIAL.
     IF lv_unappr_cnt > 0.
-      MESSAGE 'Selected line item(s) are not approved by HOD. Only Approved line items can be converted to Purchase Orders.'
-        TYPE 'W'.
+      MESSAGE 'PO creation blocked: Selected line items are not approved by HOD. Only Approved items can be converted to PO.'
+        TYPE 'E'.
     ELSE.
-      MESSAGE 'No items selected for PO creation. Please select supplier for items by clicking the quotation column.'
-        TYPE 'I'.
+      MESSAGE 'PO creation blocked: No approved line items found for PO creation. Draft or Rejected items cannot be converted.'
+        TYPE 'E'.
     ENDIF.
     RETURN.
   ENDIF.
@@ -2193,6 +3043,12 @@ ENDFORM.
 *&---------------------------------------------------------------------*
 FORM create_po_for_single_item USING pv_ebelp TYPE ekpo-ebelp.
 
+  IF gv_is_approver = abap_true.
+    MESSAGE 'Approval completed. Only creator/requester can create Purchase Orders.'
+      TYPE 'S' DISPLAY LIKE 'E'.
+    RETURN.
+  ENDIF.
+
   READ TABLE gt_item_ref ASSIGNING FIELD-SYMBOL(<fs_ref>) WITH KEY ebelp = pv_ebelp.
   IF sy-subrc = 0.
     IF <fs_ref>-po_number IS NOT INITIAL.
@@ -2201,7 +3057,7 @@ FORM create_po_for_single_item USING pv_ebelp TYPE ekpo-ebelp.
     ENDIF.
 
     IF <fs_ref>-appr_status <> 'X'.
-      MESSAGE |PO creation locked: Item { pv_ebelp } is not approved by HOD. Only Approved items can be converted to PO.|
+      MESSAGE |PO creation blocked: Item { pv_ebelp } is not approved by HOD. Only Approved items can be converted to PO.|
         TYPE 'E'.
       RETURN.
     ENDIF.
@@ -2465,6 +3321,8 @@ FORM execute_bapi_po_create USING ps_vend     TYPE ty_vend_group
     ls_poitem-price_unit  = lv_item_peinh.
     ls_poitem-tax_code    = lv_tax_code.
     ls_poitem-trackingno  = ls_item-sel_ebeln.
+    ls_poitem-rfq_no      = ls_item-sel_ebeln.
+    ls_poitem-rfq_item    = ls_item-sel_ebelp.
 
     ls_poitemx-po_item     = lv_item_no.
     ls_poitemx-po_itemx    = abap_true.
@@ -2477,6 +3335,8 @@ FORM execute_bapi_po_create USING ps_vend     TYPE ty_vend_group
     ls_poitemx-price_unit  = abap_true.
     ls_poitemx-tax_code    = abap_true.
     ls_poitemx-trackingno  = abap_true.
+    ls_poitemx-rfq_no      = abap_true.
+    ls_poitemx-rfq_item    = abap_true.
 
     APPEND ls_poitem TO lt_poitem.
     APPEND ls_poitemx TO lt_poitemx.
@@ -2676,12 +3536,14 @@ FORM render_html.
         ls_q    TYPE ty_rfq_item.
 
   " Compute selection totals
-  DATA: lv_sel_items_count TYPE i VALUE 0,
-        lv_done_items_cnt  TYPE i VALUE 0,
-        lv_pending_cnt     TYPE i VALUE 0,
-        lv_total_items_cnt TYPE i VALUE 0,
-        lv_selected_total  TYPE decfloat34 VALUE 0,
-        lv_all_sel         TYPE abap_bool VALUE abap_false.
+  DATA: lv_sel_items_count  TYPE i VALUE 0,
+        lv_done_items_cnt   TYPE i VALUE 0,
+        lv_pending_cnt      TYPE i VALUE 0,
+        lv_total_items_cnt  TYPE i VALUE 0,
+        lv_selected_total   TYPE decfloat34 VALUE 0,
+        lv_selected_mat_tot TYPE decfloat34 VALUE 0,
+        lv_selected_frt_tot TYPE decfloat34 VALUE 0,
+        lv_all_sel          TYPE abap_bool VALUE abap_false.
 
   lv_total_items_cnt = lines( gt_item_ref ).
   LOOP AT gt_item_ref INTO DATA(ls_ir).
@@ -2702,11 +3564,15 @@ FORM render_html.
                                               WHEN ls_q-ktmng > 0 THEN ls_q-ktmng
                                               WHEN ls_q-menge > 0 THEN ls_q-menge
                                               ELSE 1 ).
-          DATA: lv_amt_sel TYPE decfloat34.
-          lv_amt_sel = ( CONV decfloat34( lv_sel_qty ) * CONV decfloat34( ls_q-netpr ) ) / CONV decfloat34( lv_pe ).
+          DATA: lv_amt_sel TYPE decfloat34,
+                lv_mat_sel TYPE decfloat34.
+          lv_mat_sel = ( CONV decfloat34( lv_sel_qty ) * CONV decfloat34( ls_q-netpr ) ) / CONV decfloat34( lv_pe ).
           IF ls_q-waers = 'USD' AND ls_q-wkurs > 0.
-            lv_amt_sel = lv_amt_sel * CONV decfloat34( ls_q-wkurs ).
+            lv_mat_sel = lv_mat_sel * CONV decfloat34( ls_q-wkurs ).
           ENDIF.
+          lv_selected_mat_tot = lv_selected_mat_tot + lv_mat_sel.
+          lv_selected_frt_tot = lv_selected_frt_tot + ls_q-freight.
+          lv_amt_sel = lv_mat_sel + ls_q-freight.
           lv_selected_total = lv_selected_total + lv_amt_sel.
         ENDIF.
       ENDIF.
@@ -2717,88 +3583,154 @@ FORM render_html.
     lv_all_sel = abap_true.
   ENDIF.
 
-  DATA: lv_fmt_sel_tot TYPE string.
+  DATA: lv_fmt_sel_tot TYPE string,
+        lv_fmt_sel_mat TYPE string,
+        lv_fmt_sel_frt TYPE string.
   PERFORM format_inr USING lv_selected_total CHANGING lv_fmt_sel_tot.
+  PERFORM format_inr USING lv_selected_mat_tot CHANGING lv_fmt_sel_mat.
+  PERFORM format_inr USING lv_selected_frt_tot CHANGING lv_fmt_sel_frt.
 
   lv_css =
     '<style>' &&
     '* { box-sizing: border-box; margin: 0; padding: 0; }' &&
     'html, body {' &&
-    '  margin: 0; padding: 4px; background: #f1f5f9; width: 100%; box-sizing: border-box;' &&
-    '  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;' &&
-    '  color: #0f172a; font-size: 12px;' &&
+    '  margin: 0; padding: 6px; background: #f8fafc; width: 100%; box-sizing: border-box;' &&
+    '  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Inter", "Helvetica Neue", Arial, sans-serif;' &&
+    '  color: #0f172a; font-size: 12px; -webkit-font-smoothing: antialiased;' &&
     '}' &&
     '.container { width: 100%; max-width: 100%; margin: 0; padding: 0; }' &&
     '.top-header {' &&
     '  display: flex; justify-content: space-between; align-items: center;' &&
-    '  padding: 5px 10px; background: #ffffff; border: 1px solid #94a3b8; border-radius: 4px;' &&
-    '  margin-bottom: 5px; flex-wrap: wrap; gap: 8px;' &&
+    '  padding: 8px 12px; background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);' &&
+    '  border: 1px solid #cbd5e1; border-radius: 8px;' &&
+    '  margin-bottom: 8px; flex-wrap: wrap; gap: 8px;' &&
+    '  box-shadow: 0 2px 6px -1px rgba(0,0,0,0.05);' &&
     '}' &&
     '.top-left { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }' &&
     '.top-right { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }' &&
     '.select-all-btn {' &&
-    '  display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 600;' &&
+    '  display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 700;' &&
     '  color: #1e293b; text-decoration: none; cursor: pointer;' &&
+    '  padding: 3px 6px; border-radius: 4px; transition: background 0.15s;' &&
     '}' &&
+    '.select-all-btn:hover { background: #f1f5f9; }' &&
     '.badge-count {' &&
     '  background: #f1f5f9; color: #334155; font-size: 11px; font-weight: 600;' &&
-    '  padding: 2px 8px; border-radius: 12px; display: inline-block; border: 1px solid #cbd5e1;' &&
+    '  padding: 3px 8px; border-radius: 6px; display: inline-block; border: 1px solid #cbd5e1;' &&
     '}' &&
-    '.val-summary { font-size: 13px; font-weight: 700; color: #0f172a; }' &&
+    '.val-summary {' &&
+    '  font-size: 13px; font-weight: 800; color: #0f172a;' &&
+    '  background: #ffffff; border: 1.5px solid #e2e8f0; border-radius: 6px;' &&
+    '  padding: 3px 10px; box-shadow: 0 1px 3px rgba(0,0,0,0.03);' &&
+    '  display: inline-flex; align-items: center; gap: 4px;' &&
+    '}' &&
     '.rate-box {' &&
     '  display: inline-flex; align-items: center; gap: 4px; background: #ffffff;' &&
-    '  padding: 2px 6px; border-radius: 4px; border: 1px solid #cbd5e1; font-size: 11px;' &&
+    '  padding: 2px 6px; border-radius: 6px; border: 1px solid #cbd5e1; font-size: 11px;' &&
     '  font-weight: 600; color: #334155;' &&
     '}' &&
     '.rate-input {' &&
-    '  width: 48px; padding: 1px 3px; border: 1px solid #cbd5e1; border-radius: 3px;' &&
+    '  width: 50px; padding: 2px 4px; border: 1px solid #cbd5e1; border-radius: 4px;' &&
     '  font-weight: 700; text-align: center; background: #ffffff; outline: none; font-size: 11px;' &&
     '}' &&
+    '.rate-input:focus { border-color: #2563eb; }' &&
     '.btn-apply {' &&
-    '  background: #334155; color: #ffffff; border: none; border-radius: 3px;' &&
-    '  padding: 2px 6px; font-size: 10px; font-weight: 600; cursor: pointer;' &&
+    '  background: #334155; color: #ffffff; border: none; border-radius: 4px;' &&
+    '  padding: 3px 8px; font-size: 10px; font-weight: 700; cursor: pointer; transition: all 0.15s;' &&
     '}' &&
-    '.btn-apply:hover { background: #1e293b; }' &&
+    '.btn-apply:hover { background: #0f172a; transform: translateY(-0.5px); }' &&
     '.btn-refresh {' &&
-    '  background: #ffffff; color: #374151; border: 1px solid #cbd5e1; border-radius: 4px;' &&
-    '  padding: 3px 8px; font-size: 11px; font-weight: 600; text-decoration: none;' &&
-    '  display: inline-flex; align-items: center; gap: 3px; cursor: pointer;' &&
+    '  background: #ffffff; color: #374151; border: 1px solid #cbd5e1; border-radius: 6px;' &&
+    '  padding: 4px 10px; font-size: 11px; font-weight: 600; text-decoration: none;' &&
+    '  display: inline-flex; align-items: center; gap: 4px; cursor: pointer; transition: all 0.15s;' &&
     '}' &&
-    '.btn-refresh:hover { background: #f1f5f9; border-color: #94a3b8; }' &&
+    '.btn-refresh:hover { background: #f8fafc; border-color: #94a3b8; transform: translateY(-0.5px); }' &&
     '.btn-po {' &&
-    '  background: #059669; color: #ffffff; border-radius: 4px;' &&
-    '  padding: 3px 12px; font-size: 11px; font-weight: 700; text-decoration: none;' &&
+    '  background: linear-gradient(135deg, #059669 0%, #047857 100%); color: #ffffff; border-radius: 6px;' &&
+    '  padding: 4px 12px; font-size: 11px; font-weight: 700; text-decoration: none;' &&
     '  display: inline-flex; align-items: center; gap: 4px; border: none; cursor: pointer;' &&
+    '  box-shadow: 0 1px 3px rgba(5,150,105,0.3); transition: all 0.15s;' &&
     '}' &&
-    '.btn-po:hover { background: #047857; }' &&
+    '.btn-po:hover { background: #047857; transform: translateY(-0.5px); box-shadow: 0 3px 8px rgba(5,150,105,0.4); }' &&
     '.btn-po-disabled {' &&
-    '  background: #e2e8f0; color: #94a3b8; border-radius: 4px; padding: 3px 12px;' &&
+    '  background: #e2e8f0; color: #94a3b8; border-radius: 6px; padding: 4px 12px;' &&
     '  font-size: 11px; font-weight: 700; display: inline-flex; align-items: center; gap: 4px; pointer-events: none;' &&
     '}' &&
     '.btn-appr-submit {' &&
-    '  background: #2563eb; color: #ffffff; border-radius: 4px; padding: 3px 12px;' &&
+    '  background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%); color: #ffffff; border-radius: 6px; padding: 4px 12px;' &&
     '  font-size: 11px; font-weight: 700; text-decoration: none; display: inline-flex;' &&
     '  align-items: center; gap: 4px; border: none; cursor: pointer;' &&
+    '  box-shadow: 0 1px 3px rgba(37,99,235,0.3); transition: all 0.15s;' &&
     '}' &&
-    '.btn-appr-submit:hover { background: #1d4ed8; }' &&
+    '.btn-appr-submit:hover { background: #1d4ed8; transform: translateY(-0.5px); box-shadow: 0 3px 8px rgba(37,99,235,0.4); }' &&
     '.btn-reject {' &&
-    '  background: #ffffff; color: #dc2626; border: 1px solid #f87171; border-radius: 4px;' &&
+    '  background: #ffffff; color: #dc2626; border: 1.5px solid #f87171; border-radius: 6px;' &&
     '  padding: 3px 8px; font-size: 11px; font-weight: 700; text-decoration: none;' &&
-    '  display: inline-flex; align-items: center; gap: 3px; cursor: pointer;' &&
+    '  display: inline-flex; align-items: center; gap: 3px; cursor: pointer; transition: all 0.15s;' &&
     '}' &&
-    '.btn-reject:hover { background: #fee2e2; }' &&
+    '.btn-reject:hover { background: #fee2e2; border-color: #dc2626; }' &&
     '.radio-box {' &&
-    '  display: inline-flex; align-items: center; justify-content: center; width: 18px; height: 18px;' &&
-    '  border-radius: 50%; box-sizing: border-box; cursor: pointer; text-decoration: none;' &&
-    '  vertical-align: middle; background: #ffffff;' &&
+    '  display: inline-flex; align-items: center; justify-content: center; width: 17px; height: 17px;' &&
+    '  border-radius: 4px; box-sizing: border-box; cursor: pointer; text-decoration: none;' &&
+    '  vertical-align: middle; background: #ffffff; transition: all 0.15s ease;' &&
+    '  font-size: 11px; font-weight: 800; line-height: 1;' &&
     '}' &&
-    '.radio-unsel { border: 2px solid #94a3b8; }' &&
-    '.radio-sel { border: 2px solid #2563eb; }' &&
-    '.radio-dot { width: 8px; height: 8px; border-radius: 50%; background: #2563eb; display: block; }' &&
+    '.radio-unsel { border: 1.5px solid #94a3b8; background: #ffffff; }' &&
+    '.radio-unsel:hover { border-color: #2563eb; background: #eff6ff; }' &&
+    '.radio-sel { border: 1.5px solid #2563eb; background: #2563eb; color: #ffffff; }' &&
+    '.radio-dot { display: none; }' &&
+    '.quote-chk-btn {' &&
+    '  display: inline-flex; align-items: center; gap: 5px;' &&
+    '  padding: 2px 8px; border-radius: 5px; font-size: 10.5px; font-weight: 600;' &&
+    '  text-decoration: none; cursor: pointer; transition: all 0.18s cubic-bezier(0.16, 1, 0.3, 1);' &&
+    '  box-sizing: border-box; vertical-align: middle; user-select: none;' &&
+    '}' &&
+    '.quote-chk-btn .chk-sq {' &&
+    '  width: 13px; height: 13px; border-radius: 3px; border: 1.5px solid #94a3b8;' &&
+    '  background: #ffffff; display: inline-flex; align-items: center; justify-content: center;' &&
+    '  font-size: 10px; font-weight: 800; line-height: 1; transition: all 0.15s ease; flex-shrink: 0;' &&
+    '}' &&
+    '.quote-chk-btn.is-unsel {' &&
+    '  background: #ffffff; color: #334155; border: 1px solid #cbd5e1;' &&
+    '  box-shadow: 0 1px 2px rgba(0,0,0,0.03);' &&
+    '}' &&
+    '.quote-chk-btn.is-unsel:hover {' &&
+    '  border-color: #2563eb; background: #eff6ff; color: #1d4ed8;' &&
+    '  box-shadow: 0 2px 6px rgba(37,99,235,0.15); transform: translateY(-1px);' &&
+    '}' &&
+    '.quote-chk-btn.is-unsel:hover .chk-sq { border-color: #2563eb; }' &&
+    '.quote-chk-btn.is-sel {' &&
+    '  background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);' &&
+    '  color: #ffffff; border: 1px solid #1d4ed8; font-weight: 700;' &&
+    '  box-shadow: 0 2px 6px rgba(37,99,235,0.3);' &&
+    '}' &&
+    '.quote-chk-btn.is-sel:hover {' &&
+    '  background: linear-gradient(135deg, #1d4ed8 0%, #1e40af 100%);' &&
+    '  box-shadow: 0 3px 8px rgba(37,99,235,0.4); transform: translateY(-1px);' &&
+    '}' &&
+    '.quote-chk-btn.is-sel .chk-sq {' &&
+    '  background: #ffffff; border-color: #ffffff; color: #1d4ed8;' &&
+    '}' &&
+    '.quote-chk-btn.is-appr {' &&
+    '  background: linear-gradient(135deg, #16a34a 0%, #15803d 100%);' &&
+    '  color: #ffffff; border: 1px solid #15803d; font-weight: 700; cursor: default;' &&
+    '}' &&
+    '.quote-chk-btn.is-appr .chk-sq { background: #ffffff; border-color: #ffffff; color: #16a34a; }' &&
+    '.quote-chk-btn.is-rej {' &&
+    '  background: linear-gradient(135deg, #dc2626 0%, #b91c1c 100%);' &&
+    '  color: #ffffff; border: 1px solid #b91c1c; font-weight: 700; cursor: default;' &&
+    '}' &&
+    '.quote-chk-btn.is-rej .chk-sq { background: #ffffff; border-color: #ffffff; color: #dc2626; }' &&
+    '.quote-chk-btn.is-pend {' &&
+    '  background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);' &&
+    '  color: #ffffff; border: 1px solid #d97706; font-weight: 700; cursor: default;' &&
+    '}' &&
+    '.quote-chk-btn.is-pend .chk-sq { background: #ffffff; border-color: #ffffff; color: #d97706; }' &&
     '.table-wrapper {' &&
-    '  width: 100%; overflow-x: auto; border: 2px solid #475569; border-radius: 4px; background: #ffffff;' &&
+    '  width: 100%; overflow-x: auto; border: 1px solid #cbd5e1; border-radius: 8px;' &&
+    '  background: #ffffff; box-shadow: 0 4px 16px -4px rgba(15,23,42,0.06);' &&
     '}' &&
-    '.cmp-table { width: 100%; border-collapse: collapse; background: #ffffff; }' &&
+    '.cmp-table { width: 100%; border-collapse: collapse; background: #ffffff; font-variant-numeric: tabular-nums; }' &&
     '.cmp-table th {' &&
     '  padding: 6px 8px; font-size: 11px; font-weight: 700; color: #0f172a;' &&
     '  text-align: left; vertical-align: middle; border: 1px solid #94a3b8; background: #e2e8f0;' &&
@@ -2808,32 +3740,63 @@ FORM render_html.
     '}' &&
     '.cmp-table tbody tr:hover { background: #f8fafc; }' &&
     '.cmp-table tbody tr:nth-child(even) { background: #fafbfc; }' &&
+    '.quote-cell {' &&
+    '  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1); position: relative; vertical-align: top;' &&
+    '}' &&
+    '.quote-cell:hover {' &&
+    '  background: #f8fafc;' &&
+    '  box-shadow: inset 0 0 0 1px #94a3b8;' &&
+    '}' &&
+    '.quote-cell-sel {' &&
+    '  background: #eff6ff !important;' &&
+    '  border-left: 2px solid #2563eb !important; border-right: 2px solid #2563eb !important;' &&
+    '  box-shadow: inset 0 0 0 1px #93c5fd;' &&
+    '}' &&
+    '.quote-cell-l1 {' &&
+    '  background: #f0fdf4 !important;' &&
+    '  border-left: 2px solid #16a34a !important; border-right: 2px solid #16a34a !important;' &&
+    '}' &&
+    '.quote-cell-sel.quote-cell-l1 {' &&
+    '  background: #f0fdf4 !important;' &&
+    '  border-left: 2px solid #16a34a !important; border-right: 2px solid #16a34a !important;' &&
+    '  box-shadow: inset 0 0 0 1px #86efac;' &&
+    '}' &&
     '.v-hdr-title { font-size: 12px; font-weight: 700; color: #0f172a; line-height: 1.25; }' &&
     '.v-hdr-sub { font-size: 10px; font-weight: 500; color: #64748b; margin-top: 1px; }' &&
-    '.mat-code { font-size: 12px; font-weight: 700; color: #0f172a; }' &&
-    '.mat-desc { font-size: 12px; font-weight: 400; color: #334155; line-height: 1.3; }' &&
+    '.mat-code { font-size: 12px; font-weight: 700; color: #0f172a; font-family: monospace; }' &&
+    '.mat-desc { font-size: 12px; font-weight: 500; color: #334155; line-height: 1.3; }' &&
     '.mat-qty { font-size: 12px; font-weight: 700; color: #0f172a; }' &&
-    '.quote-amt { font-size: 13px; font-weight: 700; color: #0f172a; }' &&
-    '.quote-unit { font-size: 10px; color: #64748b; }' &&
+    '.quote-amt { font-size: 13.5px; font-weight: 800; color: #0f172a; letter-spacing: -0.2px; }' &&
+    '.quote-cell-sel .quote-amt { color: #1e40af; }' &&
+    '.quote-cell-l1 .quote-amt { color: #14532d; }' &&
+    '.quote-unit { font-size: 10px; color: #64748b; margin-top: 1px; }' &&
     '.rank-lowest {' &&
-    '  display: inline-block; background: #dcfce7; color: #15803d; font-size: 10px; font-weight: 700;' &&
-    '  padding: 1px 5px; border-radius: 8px; border: 1px solid #86efac;' &&
+    '  display: inline-flex; align-items: center; gap: 3px;' &&
+    '  background: linear-gradient(135deg, #dcfce7 0%, #bbf7d0 100%);' &&
+    '  color: #14532d; font-size: 9.5px; font-weight: 700;' &&
+    '  padding: 1.5px 6px; border-radius: 10px; border: 1px solid #86efac;' &&
+    '  box-shadow: 0 1px 2px rgba(22,163,74,0.12);' &&
+    '}' &&
+    '.rank-lowest::before {' &&
+    '  content: ""; width: 5px; height: 5px; border-radius: 50%; background: #16a34a; display: inline-block;' &&
     '}' &&
     '.rank-other {' &&
-    '  display: inline-block; background: #f1f5f9; color: #64748b; font-size: 10px; font-weight: 600;' &&
-    '  padding: 1px 5px; border-radius: 8px; border: 1px solid #cbd5e1;' &&
+    '  display: inline-block; background: #f1f5f9; color: #64748b; font-size: 9.5px; font-weight: 600;' &&
+    '  padding: 1.5px 6px; border-radius: 10px; border: 1px solid #cbd5e1;' &&
     '}' &&
-    '.btn-pill-sel {' &&
-    '  background: #2563eb; color: #ffffff; font-size: 10px; font-weight: 700;' &&
-    '  padding: 2px 8px; border-radius: 4px; border: 1px solid #1d4ed8; text-decoration: none;' &&
-    '  display: inline-block;' &&
+    '.frt-link-pill {' &&
+    '  display: inline-flex; align-items: center; gap: 3px;' &&
+    '  background: #fffbeb; color: #b45309; padding: 1.5px 5px;' &&
+    '  border-radius: 4px; border: 1px solid #fde68a;' &&
+    '  font-size: 10px; font-weight: 600; text-decoration: none;' &&
+    '  transition: all 0.15s ease;' &&
     '}' &&
-    '.btn-pill-unsel {' &&
-    '  background: #ffffff; color: #334155; font-size: 10px; font-weight: 600;' &&
-    '  padding: 2px 8px; border-radius: 4px; border: 1px solid #cbd5e1; text-decoration: none;' &&
-    '  display: inline-block;' &&
+    '.frt-link-pill:hover {' &&
+    '  background: #fef3c7; color: #78350f; border-color: #f59e0b;' &&
+    '  transform: translateY(-0.5px);' &&
     '}' &&
-    '.btn-pill-unsel:hover { background: #f8fafc; border-color: #94a3b8; }' &&
+    '.btn-pill-sel { background: #2563eb; color: #ffffff; font-size: 10px; font-weight: 700; padding: 2px 8px; border-radius: 4px; border: 1px solid #1d4ed8; text-decoration: none; display: inline-block; }' &&
+    '.btn-pill-unsel { background: #ffffff; color: #334155; font-size: 10px; font-weight: 600; padding: 2px 8px; border-radius: 4px; border: 1px solid #cbd5e1; text-decoration: none; display: inline-block; }' &&
     '.btn-po-link {' &&
     '  background: #059669; color: #ffffff; font-size: 10px; font-weight: 700;' &&
     '  padding: 2px 8px; border-radius: 4px; text-decoration: none; display: inline-block;' &&
@@ -2849,20 +3812,20 @@ FORM render_html.
     '  margin-top: 2px; font-weight: 600;' &&
     '}' &&
     '.tot-label {' &&
-    '  font-size: 11px; font-weight: 800; color: #0f172a; padding: 6px 8px;' &&
-    '  border: 1px solid #64748b; background: #e2e8f0; text-transform: uppercase;' &&
+    '  font-size: 11px; font-weight: 800; color: #0f172a; padding: 7px 10px;' &&
+    '  border: 1px solid #64748b; background: #e2e8f0; text-transform: uppercase; letter-spacing: 0.3px;' &&
     '}' &&
     '.tot-amt {' &&
-    '  font-size: 12px; font-weight: 800; color: #0f172a; padding: 6px 8px;' &&
+    '  font-size: 12.5px; font-weight: 800; color: #0f172a; padding: 7px 10px;' &&
     '  border: 1px solid #64748b; background: #f8fafc; text-align: right;' &&
     '}' &&
     '.tot-min {' &&
-    '  font-size: 12px; font-weight: 700; color: #059669; padding: 6px 8px;' &&
+    '  font-size: 12.5px; font-weight: 700; color: #059669; padding: 7px 10px;' &&
     '  border: 1px solid #64748b; background: #ecfdf5; text-align: right;' &&
     '}' &&
     '.comm-sec-hdr td {' &&
     '  background: #cbd5e1; font-size: 11px; font-weight: 800; color: #0f172a;' &&
-    '  padding: 6px 8px; text-transform: uppercase; letter-spacing: 0.3px; border: 1px solid #94a3b8;' &&
+    '  padding: 7px 10px; text-transform: uppercase; letter-spacing: 0.3px; border: 1px solid #94a3b8;' &&
     '}' &&
     '.comm-param-label {' &&
     '  font-size: 11px; font-weight: 600; color: #1e293b; padding: 5px 8px;' &&
@@ -2873,7 +3836,7 @@ FORM render_html.
     '}' &&
     '.comm-row-hl td { background: #fefce8; font-weight: 600; border: 1px solid #cbd5e1; }' &&
     '.comm-row-eval td {' &&
-    '  background: #dcfce7; font-weight: 800; font-size: 12px; color: #166534;' &&
+    '  background: linear-gradient(90deg, #dcfce7 0%, #bbf7d0 100%); font-weight: 800; font-size: 12px; color: #166534;' &&
     '  border-top: 2px solid #16a34a; border-bottom: 2px solid #16a34a; border-left: 1px solid #86efac; border-right: 1px solid #86efac;' &&
     '}' &&
     '</style>'.
@@ -2894,10 +3857,16 @@ FORM render_html.
         lv_appr_cnt = lv_appr_cnt + 1.
       ELSEIF ls_cnt_ir-appr_status = 'R'.
         lv_rej_cnt = lv_rej_cnt + 1.
-      ELSEIF ls_cnt_ir-user_pref = 'X'.
-        lv_pend_cnt = lv_pend_cnt + 1.
       ELSE.
-        lv_unsub_cnt = lv_unsub_cnt + 1.
+        IF gv_is_approver = abap_true.
+          lv_pend_cnt = lv_pend_cnt + 1.
+        ELSE.
+          IF ls_cnt_ir-user_pref = 'X'.
+            lv_pend_cnt = lv_pend_cnt + 1.
+          ELSE.
+            lv_unsub_cnt = lv_unsub_cnt + 1.
+          ENDIF.
+        ENDIF.
       ENDIF.
     ENDIF.
   ENDLOOP.
@@ -2907,7 +3876,7 @@ FORM render_html.
     lv_appr_badge =
       '<span class="badge-count" style="background:#4f46e5;color:#ffffff;' &&
       'border:1px solid #4338ca;font-weight:700;padding:3px 10px;font-size:11px;">' &&
-      |&#128737;&#65039; Approver Mode (HOD: { gv_hod_name })</span>|.
+      |&#128737;&#65039; Approver: { gv_hod_name } ({ gv_hod_user })</span>|.
     IF lv_pend_cnt > 0.
       lv_appr_badge = lv_appr_badge &&
         ' <span class="badge-count" style="background:#f59e0b;color:#ffffff;' &&
@@ -2920,16 +3889,28 @@ FORM render_html.
         'border:1px solid #15803d;font-weight:700;padding:3px 10px;font-size:11px;">' &&
         |&#10003; { lv_appr_cnt } Approved</span>|.
     ENDIF.
+    IF lv_rej_cnt > 0.
+      lv_appr_badge = lv_appr_badge &&
+        ' <span class="badge-count" style="background:#fee2e2;color:#991b1b;' &&
+        'border:1px solid #f87171;font-weight:700;padding:3px 10px;font-size:11px;">' &&
+        |&#10007; { lv_rej_cnt } Rejected</span>|.
+    ENDIF.
 
-    IF lv_pend_cnt > 0.
+    DATA(lv_act_tot_html) = lv_pend_cnt + lv_rej_cnt.
+    IF lv_act_tot_html > 0.
       lv_appr_actions =
         |<a href="sapevent:APPROVE" class="btn-po" style="background:#059669;"| &&
-        | title="Approve all pending items">&#10003; Approve All ({ lv_pend_cnt })</a>| &&
-        ' <a href="sapevent:REJECT" class="btn-reject" title="Reject all pending items">&#10007; Reject All</a>'.
+        | title="Approve pending items">&#10003; Approve All ({ lv_act_tot_html })</a>| &&
+        ' <a href="sapevent:REJECT" class="btn-reject" title="Reject comparison with compulsory remark">&#10007; Reject All</a>'.
+    ELSEIF lv_appr_cnt > 0.
+      lv_appr_actions =
+        ' <a href="sapevent:REJECT" class="btn-reject" title="Reject comparison with compulsory remark">&#10007; Reject All</a>'.
     ENDIF.
     IF lv_appr_cnt > 0.
-      lv_appr_actions = lv_appr_actions &&
-        | <a href="sapevent:CREATE_PO" class="btn-po">&#128722; Create PO ({ lv_appr_cnt } Approved)</a>|.
+      lv_appr_badge = lv_appr_badge &&
+        ' <span class="badge-count" style="background:#dcfce7;color:#15803d;' &&
+        'border:1px solid #86efac;font-weight:700;padding:3px 10px;font-size:11px;">' &&
+        |Sent to Creator for PO</span>|.
     ENDIF.
 
   ELSE.
@@ -2965,25 +3946,37 @@ FORM render_html.
     ENDIF.
 
     " Available Actions for Creator
-    IF lv_unsub_cnt > 0.
+    DATA(lv_ready_submit) = lv_unsub_cnt + lv_rej_cnt.
+    IF lv_ready_submit > 0.
       lv_appr_actions =
         |<a href="sapevent:SUBMIT_APPROVAL" class="btn-appr-submit"| &&
-        | title="Submit selected items to HOD for approval">&#128228; Send for Approval ({ lv_unsub_cnt })</a>|.
+        | title="Submit items to HOD for approval">&#128228; Send for Approval ({ lv_ready_submit })</a>|.
     ENDIF.
     IF lv_appr_cnt > 0.
       lv_appr_actions = lv_appr_actions &&
         | <a href="sapevent:CREATE_PO" class="btn-po">&#128722; Create PO ({ lv_appr_cnt } Approved)</a>|.
-    ELSEIF lv_unsub_cnt = 0 AND lv_pend_cnt > 0.
-      lv_appr_actions = lv_appr_actions &&
-        ' <span class="btn-po-disabled" title="Locked: Awaiting HOD Approval">&#128274; Create PO (Locked)</span>'.
-    ELSEIF lv_unsub_cnt = 0 AND lv_pend_cnt = 0 AND lv_po_done_cnt < lv_total_items_cnt.
-      lv_appr_actions = lv_appr_actions &&
-        ' <span class="btn-po-disabled">&#128274; Create PO</span>'.
     ENDIF.
-    IF lv_rej_cnt > 0.
-      lv_appr_actions = lv_appr_actions &&
-        ' <a href="sapevent:RESUBMIT" class="btn-refresh" title="Revise rejected items">&#8634; Revise Rejected</a>'.
-    ENDIF.
+  ENDIF.
+
+  DATA: lv_rej_banner TYPE string.
+  CLEAR lv_rej_banner.
+  IF lv_rej_cnt > 0.
+    DATA: lt_rej_banner_items TYPE STANDARD TABLE OF string WITH DEFAULT KEY.
+    CLEAR lt_rej_banner_items.
+    LOOP AT gt_item_ref INTO DATA(ls_r_item) WHERE appr_status = 'R'.
+      APPEND |Item { ls_r_item-ebelp }: "{ ls_r_item-appr_remark }"| TO lt_rej_banner_items.
+    ENDLOOP.
+    DATA(lv_rej_details) = concat_lines_of( table = lt_rej_banner_items sep = ' &middot; ' ).
+    lv_rej_banner =
+      '<div style="margin: 6px 0; padding: 8px 12px; background: #fef2f2; border: 1px solid #f87171;' &&
+      'border-radius: 6px; color: #991b1b; display: flex; align-items: center; justify-content: space-between; font-size: 11px;">' &&
+      '  <div style="display: flex; align-items: center; gap: 8px;">' &&
+      '    <span style="display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px;' &&
+      '          border-radius:50%;background:#fee2e2;color:#dc2626;font-size:12px;font-weight:800;">&#10007;</span>' &&
+      '    <span><strong>Rejected by Approver:</strong> ' && lv_rej_details && '</span>' &&
+      '  </div>' &&
+      '  <span style="font-weight: 600; font-size: 10px; color: #b91c1c;">Sent back to creator. Please review remarks and resubmit.</span>' &&
+      '</div>'.
   ENDIF.
 
   lv_html =
@@ -2992,7 +3985,7 @@ FORM render_html.
     '<meta charset="utf-8">' &&
     '<meta http-equiv="X-UA-Compatible" content="IE=edge">' &&
     '<meta name="viewport" content="width=device-width, initial-scale=1.0">' &&
-    '<title>Quotation Price Comparison Dashboard (ZPQC_NEW v3.1)</title>' &&
+    '<title>Quotation Price Comparison Dashboard (ZPQC_NEW v3.3)</title>' &&
     lv_css &&
     '</head><body>' &&
     '<div class="container">' &&
@@ -3004,10 +3997,10 @@ FORM render_html.
         'color:#15803d;background:#dcfce7;padding:3px 10px;border-radius:12px;border:1px solid #86efac;">' &&
         '&#10003; All Line Items PO Created</span>'
       ELSE
-        '<a href="sapevent:TOGGLE_ALL" class="select-all-btn">' &&
+        '<a href="sapevent:TOGGLE_ALL" class="select-all-btn" title="Toggle Select All items">' &&
         COND string(
           WHEN lv_all_sel = abap_true THEN
-            '<span class="radio-box radio-sel"><span class="radio-dot"></span></span>'
+            '<span class="radio-box radio-sel">&#10003;</span>'
           ELSE
             '<span class="radio-box radio-unsel"></span>'
         ) &&
@@ -3020,12 +4013,27 @@ FORM render_html.
         |    <span class="badge-count" style="background:#ecfdf5;color:#065f46;border:1px solid #a7f3d0;">{ lv_done_items_cnt } PO Done</span>|
       ELSE ''
     ) &&
-    '    <span class="badge-count" style="font-size:10px;background:#e2e8f0;color:#334155;">v3.1</span>' &&
+    '    <span class="badge-count" style="font-size:10px;background:#e2e8f0;color:#334155;">v3.3</span>' &&
     |    { lv_appr_badge }| &&
-    |    <span class="badge-count" style="font-size:10px;background:#f8fafc;color:#334155;border:1px solid #cbd5e1;">HOD: { gv_hod_name }</span>| &&
+    COND string(
+      WHEN gv_is_approver = abap_true THEN
+        '    <span class="badge-count" style="font-size:10px;' &&
+        'background:#ede9fe;color:#5b21b6;border:1px solid #c4b5fd;">' &&
+        |Approver: { gv_hod_name } ({ gv_hod_user })</span>|
+      ELSE
+        '    <span class="badge-count" style="font-size:10px;' &&
+        'background:#f8fafc;color:#334155;border:1px solid #cbd5e1;">' &&
+        |HOD Approver: { gv_hod_name } ({ gv_hod_user })</span>|
+    ) &&
     '  </div>' &&
     '  <div class="top-right">' &&
-    |    <span class="val-summary">Selected: &#8377;{ lv_fmt_sel_tot }</span>| &&
+    COND string(
+      WHEN lv_selected_frt_tot > 0 THEN
+        |    <span class="val-summary" title="Basic Total: ₹{ lv_fmt_sel_mat } + Delivery: ₹{ lv_fmt_sel_frt } = Landed ₹{ lv_fmt_sel_tot }">Selected: &#8377;{ lv_fmt_sel_mat }| &&
+        | <span style="font-size:11px;font-weight:600;color:#b45309;">(+&#8377;{ lv_fmt_sel_frt } Delivery = &#8377;{ lv_fmt_sel_tot })</span></span>|
+      ELSE
+        |    <span class="val-summary">Selected: &#8377;{ lv_fmt_sel_mat }</span>|
+    ) &&
     '    <div class="rate-box">' &&
     '      <span>Rate:</span>' &&
     |      <input type="number" id="inpRate" value="{ p_rate DECIMALS = 2 }" step="0.25" class="rate-input" />| &&
@@ -3039,6 +4047,7 @@ FORM render_html.
 
   " Table header
   lv_html = lv_html &&
+    lv_rej_banner &&
     '<div class="table-wrapper">' &&
     '<table class="cmp-table">' &&
     '  <thead><tr>' &&
@@ -3046,13 +4055,19 @@ FORM render_html.
     '    <th style="width: 48px; text-align: center;">Item</th>' &&
     '    <th style="width: 110px; white-space: nowrap;">Material</th>' &&
     '    <th style="min-width: 160px;">Material Description</th>' &&
-    '    <th style="width: 75px; text-align: right; white-space: nowrap;">Qty</th>'.
+    '    <th style="width: 75px; text-align: right; white-space: nowrap;">Qty</th>' &&
+    '    <th style="min-width: 140px; background: #f8fafc; color: #334155; border-left: 1px solid #cbd5e1;">' &&
+    '      <div class="v-hdr-title" style="color: #334155;">Last Purchase Price</div>' &&
+    '      <div class="v-hdr-sub" style="color: #64748b;">Previous PO Benchmark</div>' &&
+    '    </th>'.
 
   LOOP AT gt_hdr INTO wa_hdr.
     lv_html = lv_html &&
       '<th style="min-width: 155px;">' &&
       |  <div class="v-hdr-title">{ wa_hdr-name1 }</div>| &&
-      |  <div class="v-hdr-sub">Vendor { wa_hdr-lifnr } · RFQ #{ wa_hdr-ebeln }</div>| &&
+      |  <div class="v-hdr-sub">Vendor { wa_hdr-lifnr } · | &&
+      |    <a href="sapevent:ME47?ebeln={ wa_hdr-ebeln }" style="color:#2563eb;text-decoration:underline;"| &&
+      |       title="Maintain quotation dates and pricing in ME47">RFQ #{ wa_hdr-ebeln } &#9998;</a></div>| &&
       '</th>'.
   ENDLOOP.
 
@@ -3068,9 +4083,10 @@ FORM render_html.
     '  </tr></thead><tbody>'.
 
   TYPES: BEGIN OF ty_temp_rank,
-           lifnr  TYPE ekko-lifnr,
-           amount TYPE decfloat34,
-           rank   TYPE i,
+           lifnr    TYPE ekko-lifnr,
+           b_amount TYPE decfloat34,
+           landed   TYPE decfloat34,
+           rank     TYPE i,
          END OF ty_temp_rank.
   DATA: lt_tranks TYPE STANDARD TABLE OF ty_temp_rank WITH DEFAULT KEY,
         ls_trank  TYPE ty_temp_rank.
@@ -3093,9 +4109,10 @@ FORM render_html.
       IF ls_q-waers = 'USD' AND ls_q-wkurs > 0.
         lv_amt = lv_amt * CONV decfloat34( ls_q-wkurs ).
       ENDIF.
-      APPEND VALUE #( lifnr = ls_q-lifnr amount = lv_amt ) TO lt_tranks.
+      DATA(lv_lnd) = lv_amt + ls_q-freight.
+      APPEND VALUE #( lifnr = ls_q-lifnr b_amount = lv_amt landed = lv_lnd ) TO lt_tranks.
     ENDLOOP.
-    SORT lt_tranks BY amount ASCENDING.
+    SORT lt_tranks BY landed ASCENDING.
     DATA(lv_curr_rank) = 1.
     LOOP AT lt_tranks ASSIGNING FIELD-SYMBOL(<fs_tr>).
       <fs_tr>-rank = lv_curr_rank.
@@ -3106,8 +4123,8 @@ FORM render_html.
     CLEAR lv_fmt_min.
     IF lines( lt_tranks ) > 0.
       READ TABLE lt_tranks INTO ls_trank INDEX 1.
-      IF ls_trank-amount > 0.
-        PERFORM format_inr USING ls_trank-amount CHANGING lv_fmt_min.
+      IF ls_trank-b_amount > 0.
+        PERFORM format_inr USING ls_trank-b_amount CHANGING lv_fmt_min.
       ELSEIF ls_val_row-minimum IS NOT INITIAL AND ls_val_row-minimum NE 'No Price'.
         PERFORM format_inr USING ls_val_row-minimum CHANGING lv_fmt_min.
       ELSE.
@@ -3147,12 +4164,23 @@ FORM render_html.
         |  <td><div class="mat-code">{ ls_item-matnr }</div></td>| &&
         |  <td><div class="mat-desc">{ ls_item-txz01 }</div></td>| &&
         |  <td style="text-align: right;"><div class="mat-qty">{ lv_qty_str } { ls_item-meins }</div></td>|.
+    ELSEIF ls_item-appr_status = 'R'.
+      lv_html = lv_html &&
+        '<tr>' &&
+        '  <td style="text-align: center; vertical-align: middle;">' &&
+        '    <span class="radio-box radio-sel" style="background:#dc2626;border-color:#dc2626;cursor:not-allowed;"' &&
+        '          title="Item is Rejected &#183; Resend for Approval">&#10007;</span>' &&
+        '  </td>' &&
+        |  <td style="text-align: center; font-weight: 600; color: #64748b;">{ ls_item-ebelp }</td>| &&
+        |  <td><div class="mat-code">{ ls_item-matnr }</div></td>| &&
+        |  <td><div class="mat-desc">{ ls_item-txz01 }</div></td>| &&
+        |  <td style="text-align: right;"><div class="mat-qty">{ lv_qty_str } { ls_item-meins }</div></td>|.
     ELSEIF ls_item-user_pref = 'X'.
       lv_html = lv_html &&
         '<tr>' &&
         '  <td style="text-align: center; vertical-align: middle;">' &&
-        '    <span class="radio-box radio-sel" style="background:#f59e0b;border-color:#f59e0b;cursor:not-allowed;"' &&
-        '          title="Item is in Approval Process"><span class="radio-dot"></span></span>' &&
+        '    <span class="radio-box radio-sel" style="background:#f59e0b;border-color:#f59e0b;color:#ffffff;cursor:not-allowed;"' &&
+        '          title="Item is in Approval Process">&#9203;</span>' &&
         '  </td>' &&
         |  <td style="text-align: center; font-weight: 600; color: #64748b;">{ ls_item-ebelp }</td>| &&
         |  <td><div class="mat-code">{ ls_item-matnr }</div></td>| &&
@@ -3162,10 +4190,10 @@ FORM render_html.
       lv_html = lv_html &&
         '<tr>' &&
         '  <td style="text-align: center; vertical-align: middle;">' &&
-        |    <a href="sapevent:TOGGLE_ROW?item={ ls_item-ebelp }">| &&
+        |    <a href="sapevent:TOGGLE_ROW?item={ ls_item-ebelp }" title="Toggle item selection">| &&
         COND string(
           WHEN lv_row_sel = abap_true THEN
-            '<span class="radio-box radio-sel"><span class="radio-dot"></span></span>'
+            '<span class="radio-box radio-sel">&#10003;</span>'
           ELSE
             '<span class="radio-box radio-unsel"></span>'
         ) &&
@@ -3177,6 +4205,58 @@ FORM render_html.
         |  <td style="text-align: right;"><div class="mat-qty">{ lv_qty_str } { ls_item-meins }</div></td>|.
     ENDIF.
 
+    " Last Purchase Price (LPP) Benchmark Cell
+    DATA: lv_fmt_lpp    TYPE string,
+          lv_lpp_badge  TYPE string,
+          lv_disp_bedat TYPE string.
+    CLEAR: lv_fmt_lpp, lv_lpp_badge, lv_disp_bedat.
+
+    IF ls_item-lpp_upr_amt > 0.
+      PERFORM format_inr USING ls_item-lpp_upr_amt CHANGING lv_fmt_lpp.
+      IF ls_item-lpp_bedat IS NOT INITIAL.
+        lv_disp_bedat = |{ ls_item-lpp_bedat+6(2) }.{ ls_item-lpp_bedat+4(2) }.{ ls_item-lpp_bedat(4) }|.
+      ENDIF.
+
+      IF ls_item-l1_upr_amt > 0.
+        DATA(lv_lpp_diff_pct) = ( ( ls_item-l1_upr_amt - ls_item-lpp_upr_amt ) / ls_item-lpp_upr_amt ) * 100.
+        IF lv_lpp_diff_pct > 0.
+          lv_lpp_badge =
+            '<span style="display:inline-block;background:#fee2e2;color:#991b1b;font-size:9px;font-weight:700;' &&
+            'padding:1px 5px;border-radius:4px;border:1px solid #f87171;margin-top:2px;"' &&
+            | title="L1 rate is higher than last PO by { lv_lpp_diff_pct DECIMALS = 1 }%">| &&
+            |&#9650; +{ lv_lpp_diff_pct DECIMALS = 1 }% vs LPP</span>|.
+        ELSEIF lv_lpp_diff_pct < 0.
+          DATA(lv_lpp_abs_pct) = abs( lv_lpp_diff_pct ).
+          lv_lpp_badge =
+            '<span style="display:inline-block;background:#dcfce7;color:#15803d;font-size:9px;font-weight:700;' &&
+            'padding:1px 5px;border-radius:4px;border:1px solid #86efac;margin-top:2px;"' &&
+            | title="L1 rate is lower by { lv_lpp_abs_pct DECIMALS = 1 }% vs last PO (Cost Savings)">| &&
+            |&#9660; -{ lv_lpp_abs_pct DECIMALS = 1 }% Savings</span>|.
+        ELSE.
+          lv_lpp_badge =
+            '<span style="display:inline-block;background:#f1f5f9;color:#475569;font-size:9px;font-weight:600;' &&
+            'padding:1px 5px;border-radius:4px;border:1px solid #cbd5e1;margin-top:2px;">= Same Rate</span>'.
+        ENDIF.
+      ENDIF.
+
+      lv_html = lv_html &&
+        '<td style="background: #f8fafc; border-left: 1px solid #cbd5e1; border-right: 1px solid #cbd5e1; font-size: 11px;">' &&
+        |  <div style="font-weight: 700; color: #1e293b; font-size: 12px;">&#8377;{ lv_fmt_lpp } | &&
+        |    <span style="font-weight: 400; font-size: 10px; color: #64748b;">/ { ls_item-lpp_meins }</span></div>| &&
+        |  <div style="margin-top: 1px;"><a href="sapevent:ME23N?ebeln={ ls_item-lpp_ebeln }"| &&
+        |       style="color: #2563eb; text-decoration: underline; font-size: 10px; font-weight: 600;"| &&
+        |       title="View Last PO { ls_item-lpp_ebeln } in ME23N">PO #{ ls_item-lpp_ebeln } &#8599;</a></div>| &&
+        |  <div style="font-size: 10px; color: #64748b; line-height: 1.2;">{ lv_disp_bedat } &middot; { ls_item-lpp_name1(12) }</div>| &&
+        |  { lv_lpp_badge }| &&
+        '</td>'.
+    ELSE.
+      lv_html = lv_html &&
+        '<td style="background: #f8fafc; border-left: 1px solid #cbd5e1; border-right: 1px solid #cbd5e1; text-align: center; font-size: 11px;">' &&
+        '  <div style="color: #94a3b8; font-style: italic;">No PO History</div>' &&
+        '  <div style="font-size: 9px; color: #94a3b8;">New Material</div>' &&
+        '</td>'.
+    ENDIF.
+
     DATA(lv_cidx) = 1.
     LOOP AT gt_hdr INTO wa_hdr.
       DATA(lv_is_sel) = xsdbool( ls_item-sel_lifnr = wa_hdr-lifnr ).
@@ -3186,7 +4266,7 @@ FORM render_html.
       IF sy-subrc = 0 AND ls_qitem-netpr > 0.
         READ TABLE lt_tranks INTO ls_trank WITH KEY lifnr = wa_hdr-lifnr.
         DATA(lv_rk) = ls_trank-rank.
-        DATA(lv_item_total) = ls_trank-amount.
+        DATA(lv_item_total) = ls_trank-b_amount.
 
         IF lv_item_total <= 0.
           DATA(lv_v_qty) = COND ekpo-menge( WHEN ls_item-menge > 0 THEN ls_item-menge
@@ -3238,38 +4318,82 @@ FORM render_html.
         ELSEIF ls_item-appr_status = 'X'.
           IF lv_is_sel = abap_true.
             lv_pill_action =
-              '<span class="btn-pill-sel" style="background:#16a34a;color:#ffffff;cursor:default;">&#10003; Approved</span>'.
+              '<span class="quote-chk-btn is-appr" title="Quotation Approved"><span class="chk-sq">&#10003;</span><span>Approved</span></span>'.
           ELSE.
-            lv_pill_action = '<span style="font-size:10px;color:#94a3b8;font-style:italic;">Locked</span>'.
+            IF gv_is_approver = abap_true.
+              lv_pill_action =
+                |<a href="sapevent:SELECT?item={ ls_item-ebelp }&col=QUAT{ lv_cidx }" class="quote-chk-btn is-unsel" title="Select this quotation"><span class="chk-sq"></span><span>Select</span></a>|.
+            ELSE.
+              lv_pill_action = space.
+            ENDIF.
+          ENDIF.
+        ELSEIF ls_item-appr_status = 'R'.
+          IF lv_is_sel = abap_true.
+            lv_pill_action =
+              '<span class="quote-chk-btn is-rej" title="Quotation Rejected"><span class="chk-sq">&#10007;</span><span>Rejected</span></span>'.
+          ELSE.
+            lv_pill_action =
+              |<a href="sapevent:SELECT?item={ ls_item-ebelp }&col=QUAT{ lv_cidx }" class="quote-chk-btn is-unsel" title="Select this quotation"><span class="chk-sq"></span><span>Select</span></a>|.
           ENDIF.
         ELSEIF ls_item-user_pref = 'X'.
           IF lv_is_sel = abap_true.
             lv_pill_action =
-              '<span class="btn-pill-sel" style="background:#f59e0b;color:#ffffff;cursor:default;">&#9203; In Approval</span>'.
+              '<span class="quote-chk-btn is-pend" title="Quotation in Approval Process"><span class="chk-sq">&#9203;</span><span>In Approval</span></span>'.
           ELSE.
-            lv_pill_action = '<span style="font-size:10px;color:#94a3b8;font-style:italic;">Locked</span>'.
+            IF gv_is_approver = abap_true.
+              lv_pill_action =
+                |<a href="sapevent:SELECT?item={ ls_item-ebelp }&col=QUAT{ lv_cidx }" class="quote-chk-btn is-unsel" title="Select this quotation"><span class="chk-sq"></span><span>Select</span></a>|.
+            ELSE.
+              lv_pill_action = space.
+            ENDIF.
           ENDIF.
         ELSE.
           IF lv_is_sel = abap_true.
-            lv_pill_action = |<a href="sapevent:DESELECT?item={ ls_item-ebelp }" class="btn-pill-sel">&#10003; Selected</a>|.
+            lv_pill_action =
+              |<a href="sapevent:DESELECT?item={ ls_item-ebelp }" class="quote-chk-btn is-sel" title="Selected · Click to deselect"><span class="chk-sq">&#10003;</span><span>Selected</span></a>|.
           ELSE.
-            lv_pill_action = |<a href="sapevent:SELECT?item={ ls_item-ebelp }&col=QUAT{ lv_cidx }" class="btn-pill-unsel">Select</a>|.
+            lv_pill_action =
+              |<a href="sapevent:SELECT?item={ ls_item-ebelp }&col=QUAT{ lv_cidx }" class="quote-chk-btn is-unsel" title="Click to select this quotation"><span class="chk-sq"></span><span>Select</span></a>|.
           ENDIF.
         ENDIF.
 
-        DATA(lv_td_bg) = COND string(
-          WHEN lv_rk = 1
-          THEN ' style="background: #f0fdf4; border-left: 2px solid #16a34a; border-right: 2px solid #16a34a;"'
-          ELSE '' ).
+        DATA lv_td_cls TYPE string.
+        IF lv_is_sel = abap_true AND lv_rk = 1.
+          lv_td_cls = ' class="quote-cell quote-cell-sel quote-cell-l1"'.
+        ELSEIF lv_is_sel = abap_true.
+          lv_td_cls = ' class="quote-cell quote-cell-sel"'.
+        ELSEIF lv_rk = 1.
+          lv_td_cls = ' class="quote-cell quote-cell-l1"'.
+        ELSE.
+          lv_td_cls = ' class="quote-cell"'.
+        ENDIF.
+
+        DATA: lv_q_frt_html TYPE string,
+              lv_fmt_q_frt  TYPE string.
+        CLEAR: lv_q_frt_html, lv_fmt_q_frt.
+        IF ls_qitem-freight > 0.
+          PERFORM format_inr USING ls_qitem-freight CHANGING lv_fmt_q_frt.
+          DATA(lv_det_txt) = COND string( WHEN ls_qitem-frt_details IS NOT INITIAL THEN | ({ ls_qitem-frt_details })| ELSE '' ).
+          lv_q_frt_html =
+            |<div style="margin-top: 2px;">| &&
+            |  <a href="sapevent:SHOW_ITEM_FREIGHT?item={ ls_item-ebelp }" class="frt-link-pill"| &&
+            |     title="Click to view freight conditions breakdown for this item">+&#8377;{ lv_fmt_q_frt } Delivery{ lv_det_txt } &#128269;</a>| &&
+            |</div>|.
+        ELSE.
+          lv_q_frt_html =
+            '<div style="font-size: 10px; color: #94a3b8; font-style: italic; margin-top: 2px;"' &&
+            ' title="Delivery cost not maintained">Delivery: &#8212;</div>'.
+        ENDIF.
 
         lv_html = lv_html &&
-          |<td{ lv_td_bg }>| &&
+          |<td{ lv_td_cls }>| &&
           '  <div style="display: flex; justify-content: space-between; align-items: baseline; gap: 4px;">' &&
           |    <span class="quote-amt">&#8377;{ lv_fmt_tot }</span>| &&
           |    { lv_rank_pill }| &&
           '  </div>' &&
           |  <div class="quote-unit">Rate: &#8377;{ lv_fmt_upr } / { ls_item-meins }</div>| &&
-          |  <div style="margin-top: 3px;">{ lv_pill_action }</div>| &&
+          lv_q_frt_html &&
+          |  <div style="margin-top: 4px;">{ lv_pill_action }</div>| &&
           '</td>'.
 
       ELSEIF sy-subrc = 0.
@@ -3290,11 +4414,25 @@ FORM render_html.
     ENDLOOP.
 
     " Dedicated Column 1: System Suggested (L1)
-    DATA: lv_fmt_l1_upr TYPE string.
+    DATA: lv_fmt_l1_upr  TYPE string,
+          lv_fmt_l1_frt  TYPE string,
+          lv_l1_frt_html TYPE string.
+    CLEAR: lv_l1_frt_html, lv_fmt_l1_frt.
     IF ls_item-l1_upr_amt > 0.
       PERFORM format_inr USING ls_item-l1_upr_amt CHANGING lv_fmt_l1_upr.
     ELSE.
       lv_fmt_l1_upr = '—'.
+    ENDIF.
+    IF ls_item-l1_freight > 0.
+      PERFORM format_inr USING ls_item-l1_freight CHANGING lv_fmt_l1_frt.
+      DATA(lv_l1_det) = COND string( WHEN ls_item-l1_frt_details IS NOT INITIAL THEN | ({ ls_item-l1_frt_details })| ELSE '' ).
+      lv_l1_frt_html =
+        |<div style="font-size: 10px; color: #047857; font-weight: 600;">| &&
+        |  <a href="sapevent:SHOW_ITEM_FREIGHT?item={ ls_item-ebelp }" style="color: #047857; text-decoration: none;"| &&
+        |     title="Click to view freight conditions breakdown">+&#8377;{ lv_fmt_l1_frt } Delivery{ lv_l1_det } &#128269;</a>| &&
+        |</div>|.
+    ELSE.
+      lv_l1_frt_html = '<div style="font-size: 10px; color: #94a3b8; font-style: italic;">Delivery: &#8212;</div>'.
     ENDIF.
 
     lv_html = lv_html &&
@@ -3306,15 +4444,30 @@ FORM render_html.
       '    <span class="rank-lowest">L1 · Lowest</span>' &&
       '  </div>' &&
       |  <div class="quote-unit">Rate: &#8377;{ lv_fmt_l1_upr } / { ls_item-meins }</div>| &&
+      lv_l1_frt_html &&
       '</td>'.
 
     " Dedicated Column 2: User Suggested (Selected)
     IF ls_item-sel_lifnr IS NOT INITIAL.
-      DATA: lv_fmt_s_tot TYPE string,
-            lv_fmt_s_upr TYPE string,
-            lv_var_badge TYPE string.
+      DATA: lv_fmt_s_tot  TYPE string,
+            lv_fmt_s_upr  TYPE string,
+            lv_fmt_s_frt  TYPE string,
+            lv_var_badge  TYPE string,
+            lv_s_frt_html TYPE string.
+      CLEAR: lv_s_frt_html, lv_fmt_s_frt.
       PERFORM format_inr USING ls_item-sel_tot_amt CHANGING lv_fmt_s_tot.
       PERFORM format_inr USING ls_item-sel_upr_amt CHANGING lv_fmt_s_upr.
+      IF ls_item-sel_freight > 0.
+        PERFORM format_inr USING ls_item-sel_freight CHANGING lv_fmt_s_frt.
+        DATA(lv_s_det) = COND string( WHEN ls_item-sel_frt_details IS NOT INITIAL THEN | ({ ls_item-sel_frt_details })| ELSE '' ).
+        lv_s_frt_html =
+          |<div style="font-size: 10px; color: #1e40af; font-weight: 600;">| &&
+          |  <a href="sapevent:SHOW_ITEM_FREIGHT?item={ ls_item-ebelp }" style="color: #1e40af; text-decoration: none;"| &&
+          |     title="Click to view freight conditions breakdown">+&#8377;{ lv_fmt_s_frt } Delivery{ lv_s_det } &#128269;</a>| &&
+          |</div>|.
+      ELSE.
+        lv_s_frt_html = '<div style="font-size: 10px; color: #94a3b8; font-style: italic;">Delivery: &#8212;</div>'.
+      ENDIF.
 
       IF ls_item-sel_lifnr = ls_item-l1_lifnr.
         lv_var_badge =
@@ -3365,6 +4518,24 @@ FORM render_html.
         ENDIF.
       ENDIF.
 
+      " Rejection Remark Box (Prominently displayed in Red)
+      DATA: lv_appr_rem_html TYPE string.
+      CLEAR lv_appr_rem_html.
+      IF ls_item-appr_remark IS NOT INITIAL OR ls_item-appr_status = 'R'.
+        DATA(lv_disp_aremark) = ls_item-appr_remark.
+        IF lv_disp_aremark IS INITIAL.
+          lv_disp_aremark = 'Comparison rejected by Approver.'.
+        ENDIF.
+        lv_appr_rem_html =
+          '<div style="margin-top:3px;padding:4px 6px;background:#fef2f2;' &&
+          'border:1px solid #f87171;border-radius:3px;font-size:10px;line-height:1.2;">' &&
+          '  <div style="font-weight:700;color:#991b1b;display:flex;align-items:center;gap:3px;">' &&
+          |    <span>&#10007; Rejection Reason ({ gv_hod_name }):</span>| &&
+          '  </div>' &&
+          |  <div style="color:#7f1d1d;font-style:italic;margin-top:2px;word-break:break-word;">"{ lv_disp_aremark }"</div>| &&
+          '</div>'.
+      ENDIF.
+
       IF ls_item-appr_status = 'X'.
         " Approved with Green Background!
         lv_cell_bg = 'background: #f0fdf4; border-left: 3px solid #16a34a;'.
@@ -3377,49 +4548,89 @@ FORM render_html.
             |  <a href="sapevent:ME23N?ebeln={ ls_item-po_number }" class="btn-po-link">&#10003; PO { ls_item-po_number }</a>| &&
             '</div>'.
         ELSE.
-          lv_item_appr_html =
-            '<div style="display:flex;align-items:center;gap:6px;margin-top:4px;">' &&
-            '  <span style="background:#16a34a;color:#ffffff;padding:2px 8px;border-radius:3px;font-weight:700;font-size:10px;">' &&
-            '    &#10003; Approved' &&
-            '  </span>' &&
-            |  <a href="sapevent:CREATE_PO_SINGLE?item={ ls_item-ebelp }"| &&
-            ' class="btn-po" style="font-size:10px;padding:2px 8px;" title="Create PO">&#128722; Create PO</a>' &&
-            '</div>'.
+          IF gv_is_approver = abap_true.
+            lv_item_appr_html =
+              '<div style="display:flex;align-items:center;gap:6px;margin-top:4px;flex-wrap:wrap;">' &&
+              '  <span style="background:#16a34a;color:#ffffff;padding:2px 8px;border-radius:3px;font-weight:700;font-size:10px;">' &&
+              '    &#10003; Approved' &&
+              '  </span>' &&
+              '  <span style="font-size:10px;color:#15803d;font-weight:600;">(Sent to Creator for PO)</span>' &&
+              |  <a href="sapevent:REJECT_ITEM?item={ ls_item-ebelp }" class="btn-reject"| &&
+              ' style="font-size:10px;padding:2px 6px;" title="Reject this item with compulsory remark">&#10007; Reject</a>' &&
+              '</div>'.
+          ELSE.
+            lv_item_appr_html =
+              '<div style="display:flex;align-items:center;gap:6px;margin-top:4px;flex-wrap:wrap;">' &&
+              '  <span style="background:#16a34a;color:#ffffff;padding:2px 8px;border-radius:3px;font-weight:700;font-size:10px;">' &&
+              '    &#10003; Approved' &&
+              '  </span>' &&
+              |  <a href="sapevent:CREATE_PO_SINGLE?item={ ls_item-ebelp }"| &&
+              ' class="btn-po" style="font-size:10px;padding:2px 8px;" title="Create PO">&#128722; Create PO</a>' &&
+              '</div>'.
+          ENDIF.
         ENDIF.
 
       ELSEIF ls_item-appr_status = 'R'.
         lv_cell_bg = 'background: #fef2f2; border-left: 3px solid #dc2626;'.
         lv_item_appr_html =
-          '<div style="display:flex;align-items:center;gap:6px;margin-top:4px;">' &&
+          '<div style="display:flex;align-items:center;gap:6px;margin-top:4px;flex-wrap:wrap;">' &&
           '  <span style="background:#dc2626;color:#ffffff;padding:2px 8px;border-radius:3px;font-weight:700;font-size:10px;">' &&
           '    &#10007; Rejected' &&
           '  </span>' &&
-          '  <span class="btn-po-disabled" style="font-size:10px;padding:2px 6px;">&#128274; PO Blocked</span>' &&
+          COND string(
+            WHEN gv_is_approver = abap_true THEN
+              |  <a href="sapevent:APPROVE_ITEM?item={ ls_item-ebelp }" class="btn-pill-sel"| &&
+              ' style="font-size:10px;padding:2px 6px;background:#059669;color:#fff;"' &&
+              ' title="Approve this item">&#10003; Approve</a>'
+            ELSE
+              |  <a href="sapevent:ME47?ebeln={ ls_item-sel_ebeln }" class="btn-refresh"| &&
+              ' style="font-size:10px;padding:2px 6px;" title="Maintain dates/prices in ME47">&#9998; Edit ME47</a>' &&
+              |  <a href="sapevent:SUBMIT_SINGLE?item={ ls_item-ebelp }" class="btn-pill-sel"| &&
+              ' style="font-size:10px;padding:2px 6px;background:#f59e0b;color:#fff;"' &&
+              ' title="Resend this item to HOD for approval">&#128228; Resend for Approval</a>'
+          ) &&
           '</div>'.
+        IF ls_item-appr_remark IS NOT INITIAL.
+          lv_item_appr_html = lv_item_appr_html &&
+            |<div style="font-size:10px;color:#991b1b;margin-top:3px;line-height:1.2;">| &&
+            |  <strong>Rejection Remark:</strong> { ls_item-appr_remark }| &&
+            |</div>|.
+        ENDIF.
 
-      ELSEIF ls_item-user_pref = 'X'.
+      ELSEIF ls_item-sel_lifnr IS NOT INITIAL.
         lv_cell_bg = 'background: #fffbeb; border-left: 3px solid #f59e0b;'.
         IF gv_is_approver = abap_true.
           lv_item_appr_html =
             '<div style="display:flex;align-items:center;gap:4px;margin-top:4px;flex-wrap:wrap;">' &&
             '  <span style="background:#f59e0b;color:#ffffff;padding:2px 8px;border-radius:3px;font-weight:700;font-size:10px;">' &&
-            '    &#9203; Pending Review' &&
+            '    &#9203; Pending Approval' &&
             '  </span>' &&
             |  <a href="sapevent:APPROVE_ITEM?item={ ls_item-ebelp }"| &&
             ' class="btn-pill-sel" style="font-size:10px;padding:2px 6px;background:#059669;color:#fff;"' &&
-            ' title="Approve">&#10003; Approve</a>' &&
+            ' title="Approve this item">&#10003; Approve</a>' &&
             |  <a href="sapevent:REJECT_ITEM?item={ ls_item-ebelp }"| &&
-            ' class="btn-reject" style="font-size:10px;padding:2px 6px;" title="Reject">&#10007; Reject</a>' &&
+            ' class="btn-reject" style="font-size:10px;padding:2px 6px;"' &&
+            ' title="Reject this item with compulsory remark">&#10007; Reject</a>' &&
             '</div>'.
         ELSE.
-          lv_item_appr_html =
-            '<div style="display:flex;align-items:center;gap:4px;margin-top:4px;">' &&
-            '  <span style="background:#f59e0b;color:#ffffff;padding:2px 8px;border-radius:3px;font-weight:700;font-size:10px;">' &&
-            |    &#9203; Pending HOD ({ gv_hod_user })| &&
-            '  </span>' &&
-            '  <span class="btn-po-disabled" style="font-size:10px;padding:2px 6px;"' &&
-            ' title="Awaiting HOD approval">&#128274; PO Locked</span>' &&
-            '</div>'.
+          IF ls_item-user_pref = 'X'.
+            lv_item_appr_html =
+              '<div style="display:flex;align-items:center;gap:4px;margin-top:4px;">' &&
+              '  <span style="background:#f59e0b;color:#ffffff;padding:2px 8px;border-radius:3px;font-weight:700;font-size:10px;">' &&
+              |    &#9203; Pending HOD ({ gv_hod_user })| &&
+              '  </span>' &&
+              '</div>'.
+          ELSE.
+            lv_item_appr_html =
+              '<div style="display:flex;align-items:center;gap:6px;margin-top:4px;">' &&
+              '  <span style="background:#64748b;color:#ffffff;padding:2px 8px;border-radius:3px;font-weight:600;font-size:10px;">' &&
+              '    Draft' &&
+              '  </span>' &&
+              |  <a href="sapevent:SUBMIT_SINGLE?item={ ls_item-ebelp }" class="btn-pill-sel"| &&
+              ' style="font-size:10px;padding:2px 6px;background:#f59e0b;color:#fff;"' &&
+              ' title="Send this item for approval">&#128228; Submit</a>' &&
+              '</div>'.
+          ENDIF.
         ENDIF.
 
       ELSE.
@@ -3429,15 +4640,6 @@ FORM render_html.
           '  <span style="background:#64748b;color:#ffffff;padding:2px 8px;border-radius:3px;font-weight:600;font-size:10px;">' &&
           '    Draft' &&
           '  </span>' &&
-          COND string(
-            WHEN gv_is_approver = abap_false THEN
-              |  <a href="sapevent:SUBMIT_SINGLE?item={ ls_item-ebelp }" class="btn-pill-sel"| &&
-              ' style="font-size:10px;padding:2px 6px;background:#f59e0b;color:#fff;"' &&
-              ' title="Send this item for approval">&#128228; Submit</a>'
-            ELSE ''
-          ) &&
-          '  <span class="btn-po-disabled" style="font-size:10px;padding:2px 6px;"' &&
-          ' title="Send for approval first">&#128274; PO Locked</span>' &&
           '</div>'.
       ENDIF.
 
@@ -3450,7 +4652,9 @@ FORM render_html.
         |    { lv_var_badge }| &&
         '  </div>' &&
         |  <div class="quote-unit">Rate: &#8377;{ lv_fmt_s_upr } / { ls_item-meins }</div>| &&
+        lv_s_frt_html &&
         lv_remark_html &&
+        lv_appr_rem_html &&
         lv_item_appr_html &&
         '</td>'.
     ELSE.
@@ -3466,12 +4670,119 @@ FORM render_html.
 
   lv_html = lv_html && '</tbody>'.
 
-  " Total Quotation Amount row
+  " Total Rows
+  READ TABLE gt_final INTO DATA(ls_mat_tot) WITH KEY maktx = 'Total Item Amount' ##READ_WHERE_OK.
+  READ TABLE gt_final INTO DATA(ls_frt_tot) WITH KEY maktx = 'Total Delivery Cost' ##READ_WHERE_OK.
   READ TABLE gt_final INTO DATA(ls_tot) WITH KEY maktx = 'Total Quotation Amount' ##READ_WHERE_OK.
 
+  DATA: lv_l1_grand       TYPE decfloat34 VALUE 0,
+        lv_l1_mat_tot     TYPE decfloat34 VALUE 0,
+        lv_l1_frt_tot     TYPE decfloat34 VALUE 0,
+        lv_fmt_l1_grand   TYPE string,
+        lv_fmt_l1_mat     TYPE string,
+        lv_fmt_l1_frt_tot TYPE string.
+  LOOP AT gt_item_ref INTO DATA(ls_ir_g).
+    lv_l1_mat_tot = lv_l1_mat_tot + ls_ir_g-l1_tot_amt.
+    lv_l1_frt_tot = lv_l1_frt_tot + ls_ir_g-l1_freight.
+    lv_l1_grand   = lv_l1_grand + ( ls_ir_g-l1_tot_amt + ls_ir_g-l1_freight ).
+  ENDLOOP.
+  IF lv_l1_grand > 0.
+    PERFORM format_inr USING lv_l1_grand CHANGING lv_fmt_l1_grand.
+    PERFORM format_inr USING lv_l1_mat_tot CHANGING lv_fmt_l1_mat.
+    PERFORM format_inr USING lv_l1_frt_tot CHANGING lv_fmt_l1_frt_tot.
+  ELSE.
+    lv_fmt_l1_grand   = '—'.
+    lv_fmt_l1_mat     = '—'.
+    lv_fmt_l1_frt_tot = '—'.
+  ENDIF.
+
+  lv_html = lv_html && '<tfoot>'.
+
+  " 1. Total Item Amount Row (Excl. Delivery)
   lv_html = lv_html &&
-    '<tfoot><tr>' &&
-    '  <td colspan="5" class="tot-label">Total quotation amount</td>'.
+    '<tr style="background: #f8fafc;">' &&
+    '  <td colspan="6" class="tot-label" style="font-weight: 600; color: #475569;">Total Item Amount (Excl. Delivery)</td>'.
+
+  LOOP AT gt_hdr INTO wa_hdr.
+    DATA(lv_midx) = sy-tabix.
+    DATA: lv_vmat_raw TYPE string,
+          lv_fmt_vmat TYPE string.
+    CASE lv_midx.
+      WHEN 1. lv_vmat_raw = ls_mat_tot-quat1.
+      WHEN 2. lv_vmat_raw = ls_mat_tot-quat2.
+      WHEN 3. lv_vmat_raw = ls_mat_tot-quat3.
+      WHEN 4. lv_vmat_raw = ls_mat_tot-quat4.
+      WHEN 5. lv_vmat_raw = ls_mat_tot-quat5.
+      WHEN 6. lv_vmat_raw = ls_mat_tot-quat6.
+      WHEN 7. lv_vmat_raw = ls_mat_tot-quat7.
+    ENDCASE.
+    PERFORM format_inr USING lv_vmat_raw CHANGING lv_fmt_vmat.
+    IF lv_fmt_vmat = 'No Price'.
+      lv_html = lv_html && |<td class="tot-amt" style="color: #dc2626; font-weight: 600;">{ lv_fmt_vmat }</td>|.
+    ELSE.
+      lv_html = lv_html && |<td class="tot-amt" style="color: #334155; font-weight: 600;">&#8377;{ lv_fmt_vmat }</td>|.
+    ENDIF.
+  ENDLOOP.
+
+  lv_html = lv_html &&
+    |  <td class="tot-min" style="border-left: 2px solid #10b981; font-weight: 600; color: #047857;">&#8377;{ lv_fmt_l1_mat }</td>| &&
+    |  <td class="tot-amt" style="border-left: 2px solid #3b82f6; color: #1e40af; font-weight: 600;">&#8377;{ lv_fmt_sel_mat }</td>| &&
+    '</tr>'.
+
+  " 2. Total Delivery Cost Row (Individual row down side!)
+  lv_html = lv_html &&
+    '<tr style="background: #fffbeb;">' &&
+    '  <td colspan="6" class="tot-label" style="font-weight: 700; color: #b45309;">' &&
+    '    Total Delivery Cost / Freight' &&
+    '    <a href="sapevent:SHOW_FREIGHT" style="margin-left: 8px; font-size: 10px; font-weight: 600; color: #b45309; text-decoration: underline;"' &&
+    '       title="Click to view quotation & item-wise breakdown of all freight conditions">&#128269; View All Breakdown</a>' &&
+    '  </td>'.
+
+  LOOP AT gt_hdr INTO wa_hdr.
+    DATA(lv_fidx) = sy-tabix.
+    DATA: lv_vfrt_raw TYPE string,
+          lv_fmt_vfrt TYPE string.
+    CASE lv_fidx.
+      WHEN 1. lv_vfrt_raw = ls_frt_tot-quat1.
+      WHEN 2. lv_vfrt_raw = ls_frt_tot-quat2.
+      WHEN 3. lv_vfrt_raw = ls_frt_tot-quat3.
+      WHEN 4. lv_vfrt_raw = ls_frt_tot-quat4.
+      WHEN 5. lv_vfrt_raw = ls_frt_tot-quat5.
+      WHEN 6. lv_vfrt_raw = ls_frt_tot-quat6.
+      WHEN 7. lv_vfrt_raw = ls_frt_tot-quat7.
+    ENDCASE.
+    PERFORM format_inr USING lv_vfrt_raw CHANGING lv_fmt_vfrt.
+    IF lv_fmt_vfrt = 'No Price'.
+      lv_html = lv_html && |<td class="tot-amt" style="color: #dc2626;">{ lv_fmt_vfrt }</td>|.
+    ELSEIF lv_vfrt_raw IS NOT INITIAL AND CONV decfloat34( lv_vfrt_raw ) > 0.
+      lv_html = lv_html && |<td class="tot-amt" style="color: #b45309; font-weight: 700;">+&#8377;{ lv_fmt_vfrt }</td>|.
+    ELSE.
+      lv_html = lv_html && |<td class="tot-amt" style="color: #94a3b8; font-weight: 500;">&#8377;0.00</td>|.
+    ENDIF.
+  ENDLOOP.
+
+  DATA: lv_l1_frt_disp  TYPE string,
+        lv_sel_frt_disp TYPE string.
+  IF lv_l1_frt_tot > 0.
+    lv_l1_frt_disp = |+&#8377;{ lv_fmt_l1_frt_tot }|.
+  ELSE.
+    lv_l1_frt_disp = '&#8377;0.00'.
+  ENDIF.
+  IF lv_selected_frt_tot > 0.
+    lv_sel_frt_disp = |+&#8377;{ lv_fmt_sel_frt }|.
+  ELSE.
+    lv_sel_frt_disp = '&#8377;0.00'.
+  ENDIF.
+
+  lv_html = lv_html &&
+    |  <td class="tot-min" style="border-left: 2px solid #10b981; font-weight: 700; color: #047857;">{ lv_l1_frt_disp }</td>| &&
+    |  <td class="tot-amt" style="border-left: 2px solid #3b82f6; color: #1e40af; font-weight: 700;">{ lv_sel_frt_disp }</td>| &&
+    '</tr>'.
+
+  " 3. Total Quotation Amount Row (Landed Grand Total)
+  lv_html = lv_html &&
+    '<tr style="background: #f1f5f9; border-top: 2px solid #64748b; border-bottom: 2px solid #64748b;">' &&
+    '  <td colspan="6" class="tot-label" style="font-size: 12px; font-weight: 800; color: #0f172a;">Total Quotation Amount</td>'.
 
   LOOP AT gt_hdr INTO wa_hdr.
     DATA(lv_vidx) = sy-tabix.
@@ -3488,32 +4799,21 @@ FORM render_html.
     ENDCASE.
     PERFORM format_inr USING lv_vtot_raw CHANGING lv_fmt_vtot.
     IF lv_fmt_vtot = 'No Price'.
-      lv_html = lv_html && |<td class="tot-amt" style="color: #dc2626;">{ lv_fmt_vtot }</td>|.
+      lv_html = lv_html && |<td class="tot-amt" style="color: #dc2626; font-weight: 800; font-size: 13px;">{ lv_fmt_vtot }</td>|.
     ELSE.
-      lv_html = lv_html && |<td class="tot-amt">&#8377;{ lv_fmt_vtot }</td>|.
+      lv_html = lv_html && |<td class="tot-amt" style="font-weight: 800; font-size: 13px; color: #0f172a;">&#8377;{ lv_fmt_vtot }</td>|.
     ENDIF.
   ENDLOOP.
 
-  DATA: lv_l1_grand     TYPE decfloat34 VALUE 0,
-        lv_fmt_l1_grand TYPE string.
-  LOOP AT gt_item_ref INTO DATA(ls_ir_g).
-    lv_l1_grand = lv_l1_grand + ls_ir_g-l1_tot_amt.
-  ENDLOOP.
-  IF lv_l1_grand > 0.
-    PERFORM format_inr USING lv_l1_grand CHANGING lv_fmt_l1_grand.
-  ELSE.
-    lv_fmt_l1_grand = '—'.
-  ENDIF.
-
   lv_html = lv_html &&
-    |  <td class="tot-min" style="border-left: 2px solid #10b981;">&#8377;{ lv_fmt_l1_grand }</td>| &&
-    |  <td class="tot-amt" style="border-left: 2px solid #3b82f6; color: #2563eb;">&#8377;{ lv_fmt_sel_tot }</td>| &&
+    |  <td class="tot-min" style="border-left: 2px solid #10b981; font-weight: 800; font-size: 13px; color: #15803d;">&#8377;{ lv_fmt_l1_grand }</td>| &&
+    |  <td class="tot-amt" style="border-left: 2px solid #3b82f6; font-weight: 800; font-size: 13px; color: #2563eb;">&#8377;{ lv_fmt_sel_tot }</td>| &&
     '</tr>'.
 
   " Commercial Evaluation & Financing Section (Unified in single table)
   lv_html = lv_html &&
     '<tr class="comm-sec-hdr">' &&
-    |  <td colspan="5">Commercial Evaluation & Financing Analysis ({ p_rate DECIMALS = 2 }% Interest Rate)</td>|.
+    |  <td colspan="6">Commercial Evaluation & Financing Analysis ({ p_rate DECIMALS = 2 }% Interest Rate)</td>|.
 
   LOOP AT gt_hdr INTO wa_hdr.
     lv_html = lv_html &&
@@ -3526,7 +4826,7 @@ FORM render_html.
     '</tr>'.
 
   " Incoterms
-  lv_html = lv_html && '<tr><td colspan="5" class="comm-param-label">Incoterms</td>'.
+  lv_html = lv_html && '<tr><td colspan="6" class="comm-param-label">Incoterms</td>'.
   LOOP AT gt_hdr INTO wa_hdr.
     lv_html = lv_html && |<td class="comm-param-val">{ wa_hdr-inco1 }</td>|.
   ENDLOOP.
@@ -3536,7 +4836,7 @@ FORM render_html.
     '</tr>'.
 
   " Payment Terms
-  lv_html = lv_html && '<tr><td colspan="5" class="comm-param-label">Payment Terms</td>'.
+  lv_html = lv_html && '<tr><td colspan="6" class="comm-param-label">Payment Terms</td>'.
   LOOP AT gt_hdr INTO wa_hdr.
     lv_html = lv_html && |<td class="comm-param-val">{ wa_hdr-text1 }</td>|.
   ENDLOOP.
@@ -3546,7 +4846,7 @@ FORM render_html.
     '</tr>'.
 
   " Credit Days
-  lv_html = lv_html && '<tr><td colspan="5" class="comm-param-label">Credit Days</td>'.
+  lv_html = lv_html && '<tr><td colspan="6" class="comm-param-label">Credit Days</td>'.
   LOOP AT gt_hdr INTO wa_hdr.
     lv_html = lv_html && |<td class="comm-param-val">{ wa_hdr-ztag1 } Days</td>|.
   ENDLOOP.
@@ -3559,7 +4859,7 @@ FORM render_html.
   READ TABLE gt_final INTO DATA(ls_intr) WITH KEY maktx = 'Interest Amount' ##READ_WHERE_OK.
   lv_html = lv_html &&
     '<tr class="comm-row-hl">' &&
-    |  <td colspan="5" class="comm-param-label" style="font-weight: 700; color: #854d0e;">| &&
+    |  <td colspan="6" class="comm-param-label" style="font-weight: 700; color: #854d0e;">| &&
     |Financing / Interest Cost ({ p_rate DECIMALS = 2 }%)</td>|.
 
   LOOP AT gt_hdr INTO wa_hdr.
@@ -3640,7 +4940,7 @@ FORM render_html.
 
   lv_html = lv_html &&
     '<tr class="comm-row-eval">' &&
-    '  <td colspan="5" class="comm-param-label" style="font-weight: 800; font-size: 12px; color: #166534;">' &&
+    '  <td colspan="6" class="comm-param-label" style="font-weight: 800; font-size: 12px; color: #166534;">' &&
     '    Net Commercial Landed Evaluation' &&
     '  </td>'.
 
@@ -3734,6 +5034,17 @@ FORM handle_html_action USING pv_action  TYPE any
 
   CASE lv_action.
 
+    WHEN 'SHOW_FREIGHT'.
+      PERFORM show_item_freight_details USING space space.
+      RETURN.
+
+    WHEN 'SHOW_ITEM_FREIGHT'.
+      CLEAR: lv_item_str, lv_ebelp.
+      PERFORM parse_query_param USING lv_data 'item' CHANGING lv_item_str.
+      lv_ebelp = lv_item_str.
+      PERFORM show_item_freight_details USING lv_ebelp space.
+      RETURN.
+
     WHEN 'TOGGLE_ALL'.
       DATA: lv_any_unsel TYPE abap_bool VALUE abap_false.
       LOOP AT gt_item_ref INTO DATA(ls_ir_chk) WHERE po_number IS INITIAL.
@@ -3775,13 +5086,15 @@ FORM handle_html_action USING pv_action  TYPE any
         MESSAGE |PO { <fs_ref_tr>-po_number } is already created for Item { lv_ebelp }. Selection disabled.| TYPE 'W'.
         RETURN.
       ENDIF.
-      IF sy-subrc = 0 AND <fs_ref_tr>-appr_status = 'X'.
-        MESSAGE |Item { lv_ebelp } is approved. Selection locked; only Create PO is allowed.| TYPE 'W'.
-        RETURN.
-      ENDIF.
-      IF sy-subrc = 0 AND <fs_ref_tr>-user_pref = 'X'.
-        MESSAGE |Item { lv_ebelp } is in approval process. Selection locked.| TYPE 'W'.
-        RETURN.
+      IF sy-subrc = 0 AND gv_is_approver = abap_false.
+        IF <fs_ref_tr>-appr_status = 'X'.
+          MESSAGE |Item { lv_ebelp } is approved. Selection locked; only Create PO is allowed.| TYPE 'W'.
+          RETURN.
+        ENDIF.
+        IF <fs_ref_tr>-user_pref = 'X' AND <fs_ref_tr>-appr_status <> 'R'.
+          MESSAGE |Item { lv_ebelp } is in approval process. Selection locked.| TYPE 'W'.
+          RETURN.
+        ENDIF.
       ENDIF.
       READ TABLE gt_final ASSIGNING FIELD-SYMBOL(<fs_val>)
         WITH KEY ebelp = lv_ebelp quat = 'Val:'.
@@ -3811,13 +5124,15 @@ FORM handle_html_action USING pv_action  TYPE any
         MESSAGE |PO { <fs_ref_sel>-po_number } is already created for Item { lv_ebelp }. Supplier change disabled.| TYPE 'W'.
         RETURN.
       ENDIF.
-      IF sy-subrc = 0 AND <fs_ref_sel>-appr_status = 'X'.
-        MESSAGE |Item { lv_ebelp } is approved. Supplier change locked; only Create PO is allowed.| TYPE 'W'.
-        RETURN.
-      ENDIF.
-      IF sy-subrc = 0 AND <fs_ref_sel>-user_pref = 'X'.
-        MESSAGE |Item { lv_ebelp } is in approval process. Supplier change locked.| TYPE 'W'.
-        RETURN.
+      IF sy-subrc = 0 AND gv_is_approver = abap_false.
+        IF <fs_ref_sel>-appr_status = 'X'.
+          MESSAGE |Item { lv_ebelp } is approved. Supplier change locked; only Create PO is allowed.| TYPE 'W'.
+          RETURN.
+        ENDIF.
+        IF <fs_ref_sel>-user_pref = 'X' AND <fs_ref_sel>-appr_status <> 'R'.
+          MESSAGE |Item { lv_ebelp } is in approval process. Supplier change locked.| TYPE 'W'.
+          RETURN.
+        ENDIF.
       ENDIF.
       IF lv_ebelp IS NOT INITIAL AND lv_col IS NOT INITIAL.
         PERFORM select_supplier_for_item USING lv_ebelp lv_col.
@@ -3839,13 +5154,15 @@ FORM handle_html_action USING pv_action  TYPE any
         MESSAGE |PO { <fs_ref_des>-po_number } is already created for Item { lv_ebelp }. Selection disabled.| TYPE 'W'.
         RETURN.
       ENDIF.
-      IF sy-subrc = 0 AND <fs_ref_des>-appr_status = 'X'.
-        MESSAGE |Item { lv_ebelp } is approved. Modifications locked; only Create PO is allowed.| TYPE 'W'.
-        RETURN.
-      ENDIF.
-      IF sy-subrc = 0 AND <fs_ref_des>-user_pref = 'X'.
-        MESSAGE |Item { lv_ebelp } is in approval process. Modifications locked.| TYPE 'W'.
-        RETURN.
+      IF sy-subrc = 0 AND gv_is_approver = abap_false.
+        IF <fs_ref_des>-appr_status = 'X'.
+          MESSAGE |Item { lv_ebelp } is approved. Modifications locked; only Create PO is allowed.| TYPE 'W'.
+          RETURN.
+        ENDIF.
+        IF <fs_ref_des>-user_pref = 'X' AND <fs_ref_des>-appr_status <> 'R'.
+          MESSAGE |Item { lv_ebelp } is in approval process. Modifications locked.| TYPE 'W'.
+          RETURN.
+        ENDIF.
       ENDIF.
       IF lv_ebelp IS NOT INITIAL.
         PERFORM deselect_item USING lv_ebelp.
@@ -3884,6 +5201,25 @@ FORM handle_html_action USING pv_action  TYPE any
       DATA: lv_submitted_cnt TYPE i VALUE 0.
       LOOP AT gt_item_ref ASSIGNING FIELD-SYMBOL(<fs_sub_ir>) WHERE po_number IS INITIAL.
         IF <fs_sub_ir>-sel_lifnr IS NOT INITIAL.
+          DATA: lv_cur_np TYPE ekpo-netpr,
+                lv_cur_pe TYPE ekpo-peinh.
+          SELECT SINGLE netpr, peinh FROM ekpo
+            WHERE ebeln = @<fs_sub_ir>-sel_ebeln AND ebelp = @<fs_sub_ir>-sel_ebelp
+            INTO ( @lv_cur_np, @lv_cur_pe ).
+          IF sy-subrc = 0 AND lv_cur_np > 0.
+            <fs_sub_ir>-sel_netpr = lv_cur_np.
+            <fs_sub_ir>-sel_peinh = COND #( WHEN lv_cur_pe > 0 THEN lv_cur_pe ELSE 1 ).
+            DATA(lv_sub_q) = COND ekpo-menge( WHEN <fs_sub_ir>-menge > 0 THEN <fs_sub_ir>-menge ELSE 1 ).
+            <fs_sub_ir>-sel_upr_amt = CONV decfloat34( <fs_sub_ir>-sel_netpr ) / CONV decfloat34( <fs_sub_ir>-sel_peinh ).
+            <fs_sub_ir>-sel_tot_amt = CONV decfloat34( lv_sub_q ) * <fs_sub_ir>-sel_upr_amt.
+          ENDIF.
+
+          UPDATE zmm_t_021
+            SET userpref = ' ', zapprover1 = ' '
+            WHERE zcollectno = @<fs_sub_ir>-submi
+              AND zqitem     = @<fs_sub_ir>-ebelp
+              AND zquotation <> @<fs_sub_ir>-sel_ebeln.
+
           DATA: ls_db21 TYPE zmm_t_021.
           CLEAR ls_db21.
           SELECT SINGLE * FROM zmm_t_021
@@ -3893,6 +5229,7 @@ FORM handle_html_action USING pv_action  TYPE any
           IF sy-subrc = 0.
             ls_db21-userpref   = 'X'.
             ls_db21-zapprover1 = space.
+            ls_db21-zaremark   = space.
             ls_db21-zuser      = sy-uname.
             ls_db21-znetpr     = <fs_sub_ir>-sel_netpr.
             ls_db21-zremark    = <fs_sub_ir>-user_remark.
@@ -3912,11 +5249,14 @@ FORM handle_html_action USING pv_action  TYPE any
             ls_db21-znetpr     = <fs_sub_ir>-sel_netpr.
             ls_db21-userpref   = 'X'.
             ls_db21-zapprover1 = space.
+            ls_db21-zaremark   = space.
             ls_db21-zuser      = sy-uname.
             ls_db21-zremark    = <fs_sub_ir>-user_remark.
             MODIFY zmm_t_021 FROM ls_db21.
           ENDIF.
-          <fs_sub_ir>-user_pref = 'X'.
+          <fs_sub_ir>-user_pref   = 'X'.
+          <fs_sub_ir>-appr_status = space.
+          <fs_sub_ir>-appr_remark = space.
           lv_submitted_cnt = lv_submitted_cnt + 1.
         ENDIF.
       ENDLOOP.
@@ -3951,6 +5291,25 @@ FORM handle_html_action USING pv_action  TYPE any
           ENDIF.
         ENDIF.
 
+        DATA: lv_cur_np_s TYPE ekpo-netpr,
+              lv_cur_pe_s TYPE ekpo-peinh.
+        SELECT SINGLE netpr, peinh FROM ekpo
+          WHERE ebeln = @<fs_sgl_ir>-sel_ebeln AND ebelp = @<fs_sgl_ir>-sel_ebelp
+          INTO ( @lv_cur_np_s, @lv_cur_pe_s ).
+        IF sy-subrc = 0 AND lv_cur_np_s > 0.
+          <fs_sgl_ir>-sel_netpr = lv_cur_np_s.
+          <fs_sgl_ir>-sel_peinh = COND #( WHEN lv_cur_pe_s > 0 THEN lv_cur_pe_s ELSE 1 ).
+          DATA(lv_sgl_q) = COND ekpo-menge( WHEN <fs_sgl_ir>-menge > 0 THEN <fs_sgl_ir>-menge ELSE 1 ).
+          <fs_sgl_ir>-sel_upr_amt = CONV decfloat34( <fs_sgl_ir>-sel_netpr ) / CONV decfloat34( <fs_sgl_ir>-sel_peinh ).
+          <fs_sgl_ir>-sel_tot_amt = CONV decfloat34( lv_sgl_q ) * <fs_sgl_ir>-sel_upr_amt.
+        ENDIF.
+
+        UPDATE zmm_t_021
+          SET userpref = ' ', zapprover1 = ' '
+          WHERE zcollectno = @<fs_sgl_ir>-submi
+            AND zqitem     = @<fs_sgl_ir>-ebelp
+            AND zquotation <> @<fs_sgl_ir>-sel_ebeln.
+
         DATA: ls_db21_s TYPE zmm_t_021.
         CLEAR ls_db21_s.
         SELECT SINGLE * FROM zmm_t_021 INTO @ls_db21_s
@@ -3958,6 +5317,7 @@ FORM handle_html_action USING pv_action  TYPE any
         IF sy-subrc = 0.
           ls_db21_s-userpref   = 'X'.
           ls_db21_s-zapprover1 = space.
+          ls_db21_s-zaremark   = space.
           ls_db21_s-zuser      = sy-uname.
           ls_db21_s-znetpr     = <fs_sgl_ir>-sel_netpr.
           ls_db21_s-zremark    = <fs_sgl_ir>-user_remark.
@@ -3977,12 +5337,15 @@ FORM handle_html_action USING pv_action  TYPE any
           ls_db21_s-znetpr     = <fs_sgl_ir>-sel_netpr.
           ls_db21_s-userpref   = 'X'.
           ls_db21_s-zapprover1 = space.
+          ls_db21_s-zaremark   = space.
           ls_db21_s-zuser      = sy-uname.
           ls_db21_s-zremark    = <fs_sgl_ir>-user_remark.
           MODIFY zmm_t_021 FROM ls_db21_s.
         ENDIF.
         COMMIT WORK.
-        <fs_sgl_ir>-user_pref = 'X'.
+        <fs_sgl_ir>-user_pref   = 'X'.
+        <fs_sgl_ir>-appr_status = space.
+        <fs_sgl_ir>-appr_remark = space.
 
         PERFORM send_approval_notification USING gv_submi.
         PERFORM init_approval_status.
@@ -4004,7 +5367,8 @@ FORM handle_html_action USING pv_action  TYPE any
           MESSAGE |Item { lv_ebelp } is approved. Remark modifications locked.| TYPE 'W'.
           RETURN.
         ENDIF.
-        IF <fs_rem_ir>-user_pref = 'X' AND gv_is_approver = abap_false.
+        IF <fs_rem_ir>-user_pref = 'X' AND <fs_rem_ir>-appr_status <> 'R'
+           AND gv_is_approver = abap_false.
           MESSAGE |Item { lv_ebelp } is in approval process. Remark modifications locked.| TYPE 'W'.
           RETURN.
         ENDIF.
@@ -4033,16 +5397,49 @@ FORM handle_html_action USING pv_action  TYPE any
       LOOP AT gt_item_ref ASSIGNING FIELD-SYMBOL(<fs_app_ir>) WHERE po_number IS INITIAL.
         IF <fs_app_ir>-sel_lifnr IS NOT INITIAL.
           UPDATE zmm_t_021
-            SET zapprover1 = 'X',
-                zaremark   = 'Approved by HOD'
+            SET userpref = ' ', zapprover1 = ' '
+            WHERE zcollectno = @<fs_app_ir>-submi
+              AND zqitem     = @<fs_app_ir>-ebelp
+              AND zquotation <> @<fs_app_ir>-sel_ebeln.
+
+          DATA: ls_db21_app TYPE zmm_t_021.
+          CLEAR ls_db21_app.
+          SELECT SINGLE * FROM zmm_t_021
+            INTO @ls_db21_app
             WHERE zquotation = @<fs_app_ir>-sel_ebeln
               AND zqitem     = @<fs_app_ir>-sel_ebelp.
+          IF sy-subrc = 0.
+            ls_db21_app-userpref   = 'X'.
+            ls_db21_app-zapprover1 = 'X'.
+            ls_db21_app-zaremark   = 'Approved by HOD'.
+            UPDATE zmm_t_021 FROM @ls_db21_app.
+          ELSE.
+            ls_db21_app-mandt      = sy-mandt.
+            ls_db21_app-zquotation = <fs_app_ir>-sel_ebeln.
+            ls_db21_app-zqitem     = <fs_app_ir>-sel_ebelp.
+            ls_db21_app-zdshcount  = '0001'.
+            ls_db21_app-zcollectno = <fs_app_ir>-submi.
+            ls_db21_app-zsupplier  = <fs_app_ir>-sel_lifnr.
+            ls_db21_app-zsupname   = <fs_app_ir>-sel_name1.
+            ls_db21_app-zmat       = <fs_app_ir>-matnr.
+            ls_db21_app-zdesc      = <fs_app_ir>-txz01.
+            ls_db21_app-zqty       = <fs_app_ir>-menge.
+            ls_db21_app-zuom       = <fs_app_ir>-meins.
+            ls_db21_app-znetpr     = <fs_app_ir>-sel_netpr.
+            ls_db21_app-userpref   = 'X'.
+            ls_db21_app-zapprover1 = 'X'.
+            ls_db21_app-zaremark   = 'Approved by HOD'.
+            INSERT zmm_t_021 FROM @ls_db21_app.
+          ENDIF.
+          <fs_app_ir>-user_pref   = 'X'.
           <fs_app_ir>-appr_status = 'X'.
+          <fs_app_ir>-appr_remark = 'Approved by HOD'.
         ENDIF.
       ENDLOOP.
       COMMIT WORK.
+      PERFORM send_decision_notification USING gv_submi 'X' 'Approved by HOD'.
       PERFORM init_approval_status.
-      MESSAGE |Quotation comparison approved by HOD ({ gv_hod_name }). PO creation unlocked for approved items!| TYPE 'S'.
+      MESSAGE |Quotation comparison approved by HOD ({ gv_hod_name }). Sent back to creator for PO creation.| TYPE 'S'.
       PERFORM render_html.
 
     WHEN 'APPROVE_ITEM'.
@@ -4056,14 +5453,47 @@ FORM handle_html_action USING pv_action  TYPE any
       READ TABLE gt_item_ref ASSIGNING FIELD-SYMBOL(<fs_it_app>) WITH KEY ebelp = lv_ebelp.
       IF sy-subrc = 0 AND <fs_it_app>-sel_lifnr IS NOT INITIAL.
         UPDATE zmm_t_021
-          SET zapprover1 = 'X',
-              zaremark   = 'Approved by HOD'
+          SET userpref = ' ', zapprover1 = ' '
+          WHERE zcollectno = @<fs_it_app>-submi
+            AND zqitem     = @<fs_it_app>-ebelp
+            AND zquotation <> @<fs_it_app>-sel_ebeln.
+
+        DATA: ls_db21_it_app TYPE zmm_t_021.
+        CLEAR ls_db21_it_app.
+        SELECT SINGLE * FROM zmm_t_021
+          INTO @ls_db21_it_app
           WHERE zquotation = @<fs_it_app>-sel_ebeln
             AND zqitem     = @<fs_it_app>-sel_ebelp.
+        IF sy-subrc = 0.
+          ls_db21_it_app-userpref   = 'X'.
+          ls_db21_it_app-zapprover1 = 'X'.
+          ls_db21_it_app-zaremark   = 'Approved by HOD'.
+          UPDATE zmm_t_021 FROM @ls_db21_it_app.
+        ELSE.
+          ls_db21_it_app-mandt      = sy-mandt.
+          ls_db21_it_app-zquotation = <fs_it_app>-sel_ebeln.
+          ls_db21_it_app-zqitem     = <fs_it_app>-sel_ebelp.
+          ls_db21_it_app-zdshcount  = '0001'.
+          ls_db21_it_app-zcollectno = <fs_it_app>-submi.
+          ls_db21_it_app-zsupplier  = <fs_it_app>-sel_lifnr.
+          ls_db21_it_app-zsupname   = <fs_it_app>-sel_name1.
+          ls_db21_it_app-zmat       = <fs_it_app>-matnr.
+          ls_db21_it_app-zdesc      = <fs_it_app>-txz01.
+          ls_db21_it_app-zqty       = <fs_it_app>-menge.
+          ls_db21_it_app-zuom       = <fs_it_app>-meins.
+          ls_db21_it_app-znetpr     = <fs_it_app>-sel_netpr.
+          ls_db21_it_app-userpref   = 'X'.
+          ls_db21_it_app-zapprover1 = 'X'.
+          ls_db21_it_app-zaremark   = 'Approved by HOD'.
+          INSERT zmm_t_021 FROM @ls_db21_it_app.
+        ENDIF.
+        <fs_it_app>-user_pref   = 'X'.
         <fs_it_app>-appr_status = 'X'.
+        <fs_it_app>-appr_remark = 'Approved by HOD'.
         COMMIT WORK.
+        PERFORM send_decision_notification USING gv_submi 'X' 'Approved by HOD'.
         PERFORM init_approval_status.
-        MESSAGE |Item { lv_ebelp } approved by HOD ({ gv_hod_name }). PO creation unlocked for this item.| TYPE 'S'.
+        MESSAGE |Item { lv_ebelp } approved by HOD ({ gv_hod_name }). Sent back to creator for PO creation.| TYPE 'S'.
         PERFORM render_html.
       ENDIF.
 
@@ -4072,19 +5502,74 @@ FORM handle_html_action USING pv_action  TYPE any
         MESSAGE 'Authorization error: Only HOD approver can reject quotation comparison.' TYPE 'E'.
         RETURN.
       ENDIF.
+      DATA: lv_rej_all_remark TYPE zmm_de_aremark,
+            lv_rej_all_cancel TYPE abap_bool,
+            lv_rej_all_ebelp  TYPE ekpo-ebelp.
+      PERFORM prompt_rejection_remark USING lv_rej_all_ebelp
+                                   CHANGING lv_rej_all_remark
+                                            lv_rej_all_cancel.
+      IF lv_rej_all_cancel = abap_true OR lv_rej_all_remark IS INITIAL.
+        MESSAGE 'Rejection cancelled. Rejection remark is compulsory.' TYPE 'S' DISPLAY LIKE 'E'.
+        RETURN.
+      ENDIF.
+
+      DATA: lt_rej_items TYPE STANDARD TABLE OF string WITH DEFAULT KEY.
+      CLEAR lt_rej_items.
+
       LOOP AT gt_item_ref ASSIGNING FIELD-SYMBOL(<fs_rej_ir>) WHERE po_number IS INITIAL.
         IF <fs_rej_ir>-sel_lifnr IS NOT INITIAL.
+          APPEND |{ <fs_rej_ir>-ebelp }| TO lt_rej_items.
           UPDATE zmm_t_021
-            SET zapprover1 = 'R',
-                zaremark   = 'Rejected by HOD'
+            SET userpref = ' ', zapprover1 = ' '
+            WHERE zcollectno = @<fs_rej_ir>-submi
+              AND zqitem     = @<fs_rej_ir>-ebelp
+              AND zquotation <> @<fs_rej_ir>-sel_ebeln.
+
+          DATA: ls_db21_rej TYPE zmm_t_021.
+          CLEAR ls_db21_rej.
+          SELECT SINGLE * FROM zmm_t_021
+            INTO @ls_db21_rej
             WHERE zquotation = @<fs_rej_ir>-sel_ebeln
               AND zqitem     = @<fs_rej_ir>-sel_ebelp.
+          IF sy-subrc = 0.
+            ls_db21_rej-userpref   = 'X'.
+            ls_db21_rej-zapprover1 = 'R'.
+            ls_db21_rej-zaremark   = lv_rej_all_remark.
+            UPDATE zmm_t_021 FROM @ls_db21_rej.
+          ELSE.
+            ls_db21_rej-mandt      = sy-mandt.
+            ls_db21_rej-zquotation = <fs_rej_ir>-sel_ebeln.
+            ls_db21_rej-zqitem     = <fs_rej_ir>-sel_ebelp.
+            ls_db21_rej-zdshcount  = '0001'.
+            ls_db21_rej-zcollectno = <fs_rej_ir>-submi.
+            ls_db21_rej-zsupplier  = <fs_rej_ir>-sel_lifnr.
+            ls_db21_rej-zsupname   = <fs_rej_ir>-sel_name1.
+            ls_db21_rej-zmat       = <fs_rej_ir>-matnr.
+            ls_db21_rej-zdesc      = <fs_rej_ir>-txz01.
+            ls_db21_rej-zqty       = <fs_rej_ir>-menge.
+            ls_db21_rej-zuom       = <fs_rej_ir>-meins.
+            ls_db21_rej-znetpr     = <fs_rej_ir>-sel_netpr.
+            ls_db21_rej-userpref   = 'X'.
+            ls_db21_rej-zapprover1 = 'R'.
+            ls_db21_rej-zaremark   = lv_rej_all_remark.
+            INSERT zmm_t_021 FROM @ls_db21_rej.
+          ENDIF.
+          <fs_rej_ir>-user_pref   = 'X'.
           <fs_rej_ir>-appr_status = 'R'.
+          <fs_rej_ir>-appr_remark = lv_rej_all_remark.
         ENDIF.
       ENDLOOP.
       COMMIT WORK.
+      PERFORM send_decision_notification USING gv_submi 'R' lv_rej_all_remark.
       PERFORM init_approval_status.
-      MESSAGE 'Quotation comparison rejected by HOD.' TYPE 'W'.
+      DATA(lv_items_str) = concat_lines_of( table = lt_rej_items sep = ', ' ).
+      IF lines( lt_rej_items ) = 1.
+        MESSAGE |Item { lv_items_str } rejected with remark: { lv_rej_all_remark }. Sent back to creator.| TYPE 'S' DISPLAY LIKE 'E'.
+      ELSEIF lines( lt_rej_items ) > 1.
+        MESSAGE |Items { lv_items_str } rejected with remark: { lv_rej_all_remark }. Sent back to creator.| TYPE 'S' DISPLAY LIKE 'E'.
+      ELSE.
+        MESSAGE |Quotation comparison rejected with remark: { lv_rej_all_remark }. Sent back to creator.| TYPE 'S' DISPLAY LIKE 'E'.
+      ENDIF.
       PERFORM render_html.
 
     WHEN 'REJECT_ITEM'.
@@ -4097,15 +5582,58 @@ FORM handle_html_action USING pv_action  TYPE any
       lv_ebelp = lv_item_str.
       READ TABLE gt_item_ref ASSIGNING FIELD-SYMBOL(<fs_it_rej>) WITH KEY ebelp = lv_ebelp.
       IF sy-subrc = 0 AND <fs_it_rej>-sel_lifnr IS NOT INITIAL.
+        DATA: lv_rej_sgl_remark TYPE zmm_de_aremark,
+              lv_rej_sgl_cancel TYPE abap_bool.
+        PERFORM prompt_rejection_remark USING lv_ebelp
+                                     CHANGING lv_rej_sgl_remark
+                                              lv_rej_sgl_cancel.
+        IF lv_rej_sgl_cancel = abap_true OR lv_rej_sgl_remark IS INITIAL.
+          MESSAGE |Rejection of Item { lv_ebelp } cancelled. Rejection remark is compulsory.| TYPE 'S' DISPLAY LIKE 'E'.
+          RETURN.
+        ENDIF.
+
         UPDATE zmm_t_021
-          SET zapprover1 = 'R',
-              zaremark   = 'Rejected by HOD'
+          SET userpref = ' ', zapprover1 = ' '
+          WHERE zcollectno = @<fs_it_rej>-submi
+            AND zqitem     = @<fs_it_rej>-ebelp
+            AND zquotation <> @<fs_it_rej>-sel_ebeln.
+
+        DATA: ls_db21_it_rej TYPE zmm_t_021.
+        CLEAR ls_db21_it_rej.
+        SELECT SINGLE * FROM zmm_t_021
+          INTO @ls_db21_it_rej
           WHERE zquotation = @<fs_it_rej>-sel_ebeln
             AND zqitem     = @<fs_it_rej>-sel_ebelp.
+        IF sy-subrc = 0.
+          ls_db21_it_rej-userpref   = 'X'.
+          ls_db21_it_rej-zapprover1 = 'R'.
+          ls_db21_it_rej-zaremark   = lv_rej_sgl_remark.
+          UPDATE zmm_t_021 FROM @ls_db21_it_rej.
+        ELSE.
+          ls_db21_it_rej-mandt      = sy-mandt.
+          ls_db21_it_rej-zquotation = <fs_it_rej>-sel_ebeln.
+          ls_db21_it_rej-zqitem     = <fs_it_rej>-sel_ebelp.
+          ls_db21_it_rej-zdshcount  = '0001'.
+          ls_db21_it_rej-zcollectno = <fs_it_rej>-submi.
+          ls_db21_it_rej-zsupplier  = <fs_it_rej>-sel_lifnr.
+          ls_db21_it_rej-zsupname   = <fs_it_rej>-sel_name1.
+          ls_db21_it_rej-zmat       = <fs_it_rej>-matnr.
+          ls_db21_it_rej-zdesc      = <fs_it_rej>-txz01.
+          ls_db21_it_rej-zqty       = <fs_it_rej>-menge.
+          ls_db21_it_rej-zuom       = <fs_it_rej>-meins.
+          ls_db21_it_rej-znetpr     = <fs_it_rej>-sel_netpr.
+          ls_db21_it_rej-userpref   = 'X'.
+          ls_db21_it_rej-zapprover1 = 'R'.
+          ls_db21_it_rej-zaremark   = lv_rej_sgl_remark.
+          INSERT zmm_t_021 FROM @ls_db21_it_rej.
+        ENDIF.
+        <fs_it_rej>-user_pref   = 'X'.
         <fs_it_rej>-appr_status = 'R'.
+        <fs_it_rej>-appr_remark = lv_rej_sgl_remark.
         COMMIT WORK.
+        PERFORM send_decision_notification USING gv_submi 'R' lv_rej_sgl_remark.
         PERFORM init_approval_status.
-        MESSAGE |Item { lv_ebelp } rejected by HOD ({ gv_hod_name }).| TYPE 'W'.
+        MESSAGE |Item { lv_ebelp } rejected with remark: { lv_rej_sgl_remark }. Sent back to creator.| TYPE 'S' DISPLAY LIKE 'E'.
         PERFORM render_html.
       ENDIF.
 
@@ -4125,10 +5653,18 @@ FORM handle_html_action USING pv_action  TYPE any
       PERFORM render_html.
 
     WHEN 'CREATE_PO'.
+      IF gv_is_approver = abap_true.
+        MESSAGE 'Approval completed. Only creator/requester can create Purchase Orders.' TYPE 'I'.
+        RETURN.
+      ENDIF.
       PERFORM create_po_for_selected USING 0.
       PERFORM render_html.
 
     WHEN 'CREATE_SINGLE_PO' OR 'CREATE_PO_SINGLE'.
+      IF gv_is_approver = abap_true.
+        MESSAGE 'Approval completed. Only creator/requester can create Purchase Orders.' TYPE 'I'.
+        RETURN.
+      ENDIF.
       CLEAR: lv_item_str, lv_ebelp.
       PERFORM parse_query_param USING lv_data 'item' CHANGING lv_item_str.
       lv_ebelp = lv_item_str.
@@ -4207,13 +5743,15 @@ FORM deselect_item USING pv_ebelp TYPE ekpo-ebelp.
     IF <fs_ref>-po_number IS NOT INITIAL.
       RETURN.
     ENDIF.
-    IF <fs_ref>-appr_status = 'X'.
-      MESSAGE |Item { pv_ebelp } is approved. Modifications locked.| TYPE 'W'.
-      RETURN.
-    ENDIF.
-    IF <fs_ref>-user_pref = 'X'.
-      MESSAGE |Item { pv_ebelp } is in approval process. Modifications locked.| TYPE 'W'.
-      RETURN.
+    IF gv_is_approver = abap_false.
+      IF <fs_ref>-appr_status = 'X'.
+        MESSAGE |Item { pv_ebelp } is approved. Modifications locked.| TYPE 'W'.
+        RETURN.
+      ENDIF.
+      IF <fs_ref>-user_pref = 'X' AND <fs_ref>-appr_status <> 'R'.
+        MESSAGE |Item { pv_ebelp } is in approval process. Modifications locked.| TYPE 'W'.
+        RETURN.
+      ENDIF.
     ENDIF.
     CLEAR: <fs_ref>-sel_col, <fs_ref>-sel_ebeln, <fs_ref>-sel_ebelp,
            <fs_ref>-sel_lifnr, <fs_ref>-sel_name1, <fs_ref>-sel_netpr,
@@ -4347,16 +5885,45 @@ ENDFORM.
 *&---------------------------------------------------------------------*
 FORM init_approval_status.
 
-  " 1. Determine HOD from master table ZMM_T_023
+  " 1. Determine if current logged-in user is an Approver in ZMM_T_023
   CLEAR: gv_hod_user, gv_hod_name.
-  SELECT SINGLE zuser FROM zmm_t_023
-    INTO @gv_hod_user
-    WHERE zcreator  = @sy-uname
-      AND zapprover = '1'.
-  IF sy-subrc <> 0 OR gv_hod_user IS INITIAL.
+  DATA: lv_is_appr_mstr TYPE abap_bool VALUE abap_false.
+
+  SELECT COUNT(*) FROM zmm_t_023 WHERE zuser = @sy-uname.
+  IF sy-subrc = 0 AND sy-dbcnt > 0.
+    lv_is_appr_mstr = abap_true.
+  ENDIF.
+
+  IF lv_is_appr_mstr = abap_true OR p_apprv = abap_true.
+    " Current user IS an Approver!
+    gv_is_approver = abap_true.
+    gv_hod_user    = sy-uname.
+  ELSE.
+    " Current user is a Creator / Requester
+    gv_is_approver = abap_false.
+    " Look up assigned HOD for this creator
     SELECT SINGLE zuser FROM zmm_t_023
       INTO @gv_hod_user
-      WHERE zapprover = '1'.
+      WHERE zcreator  = @sy-uname
+        AND zapprover = '1'.
+    IF sy-subrc <> 0 OR gv_hod_user IS INITIAL.
+      " If not mapped directly to sy-uname, check creator of the current RFQs
+      IF gt_hdr IS NOT INITIAL.
+        READ TABLE gt_hdr ASSIGNING FIELD-SYMBOL(<ls_first_hdr>) INDEX 1.
+        IF sy-subrc = 0.
+          DATA: lv_hdr_ernam TYPE ekko-ernam.
+          SELECT SINGLE ernam FROM ekko
+            WHERE ebeln = @<ls_first_hdr>-ebeln
+            INTO @lv_hdr_ernam.
+          IF sy-subrc = 0 AND lv_hdr_ernam IS NOT INITIAL.
+            SELECT SINGLE zuser FROM zmm_t_023
+              INTO @gv_hod_user
+              WHERE zcreator  = @lv_hdr_ernam
+                AND zapprover = '1'.
+          ENDIF.
+        ENDIF.
+      ENDIF.
+    ENDIF.
   ENDIF.
 
   IF gv_hod_user IS NOT INITIAL.
@@ -4380,13 +5947,6 @@ FORM init_approval_status.
     gv_hod_name = 'Head of Department'.
   ENDIF.
 
-  " Determine if current logged-in user is HOD Approver
-  IF sy-uname = gv_hod_user OR p_apprv = abap_true.
-    gv_is_approver = abap_true.
-  ELSE.
-    gv_is_approver = abap_false.
-  ENDIF.
-
   " 2. Read existing approval entries from ZMM_T_021
   DATA: lt_t021 TYPE STANDARD TABLE OF zmm_t_021 WITH DEFAULT KEY.
   CLEAR lt_t021.
@@ -4402,72 +5962,119 @@ FORM init_approval_status.
         lv_sel_cnt  TYPE i VALUE 0.
 
   LOOP AT gt_item_ref ASSIGNING FIELD-SYMBOL(<fs_iref>).
+    " 1. Strict hierarchy: Approved ('X') -> Rejected ('R') -> User Preferred ('X')
     READ TABLE lt_t021 INTO DATA(ls_p21)
-      WITH KEY zqitem = <fs_iref>-ebelp userpref = 'X'.
+      WITH KEY zqitem = <fs_iref>-ebelp zapprover1 = 'X'.
+    IF sy-subrc <> 0.
+      READ TABLE lt_t021 INTO ls_p21
+        WITH KEY zqitem = <fs_iref>-ebelp zapprover1 = 'R'.
+    ENDIF.
+    IF sy-subrc <> 0.
+      READ TABLE lt_t021 INTO ls_p21
+        WITH KEY zqitem = <fs_iref>-ebelp userpref = 'X'.
+    ENDIF.
     IF sy-subrc = 0.
-      lv_any_pref           = abap_true.
-      <fs_iref>-user_pref   = 'X'.
-      <fs_iref>-appr_status = ls_p21-zapprover1.
+      IF ls_p21-zapprover1 = 'X'.
+        <fs_iref>-appr_status = 'X'.
+        <fs_iref>-user_pref   = 'X'.
+        lv_any_pref           = abap_true.
+      ELSEIF ls_p21-zapprover1 = 'R'.
+        <fs_iref>-appr_status = 'R'.
+        <fs_iref>-user_pref   = 'X'.
+        lv_any_pref           = abap_true.
+      ELSEIF ls_p21-userpref = 'X'.
+        <fs_iref>-appr_status = space.
+        <fs_iref>-user_pref   = 'X'.
+        lv_any_pref           = abap_true.
+      ELSE.
+        <fs_iref>-appr_status = ls_p21-zapprover1.
+        <fs_iref>-user_pref   = ls_p21-userpref.
+      ENDIF.
       <fs_iref>-user_remark = ls_p21-zremark.
       <fs_iref>-appr_remark = ls_p21-zaremark.
       IF <fs_iref>-po_number IS INITIAL.
-        IF <fs_iref>-sel_lifnr IS INITIAL.
-          <fs_iref>-sel_lifnr = ls_p21-zsupplier.
-          <fs_iref>-sel_ebeln = ls_p21-zquotation.
-          <fs_iref>-sel_ebelp = ls_p21-zqitem.
-          READ TABLE gt_hdr INTO DATA(ls_h_m) WITH KEY ebeln = ls_p21-zquotation.
+        <fs_iref>-sel_lifnr = ls_p21-zsupplier.
+        <fs_iref>-sel_ebeln = ls_p21-zquotation.
+        <fs_iref>-sel_ebelp = ls_p21-zqitem.
+        READ TABLE gt_hdr INTO DATA(ls_h_m) WITH KEY ebeln = ls_p21-zquotation.
+        IF sy-subrc = 0.
+          <fs_iref>-sel_name1 = ls_h_m-name1.
+        ELSE.
+          READ TABLE gt_hdr INTO ls_h_m WITH KEY lifnr = ls_p21-zsupplier.
           IF sy-subrc = 0.
             <fs_iref>-sel_name1 = ls_h_m-name1.
-          ELSE.
-            READ TABLE gt_hdr INTO ls_h_m WITH KEY lifnr = ls_p21-zsupplier.
-            IF sy-subrc = 0.
-              <fs_iref>-sel_name1 = ls_h_m-name1.
-            ENDIF.
           ENDIF.
         ENDIF.
 
         " Ensure complete price and quotation details are populated
-        IF <fs_iref>-sel_netpr <= 0 AND <fs_iref>-sel_lifnr IS NOT INITIAL.
-          READ TABLE gt_rfq_items INTO DATA(ls_rfq_rst)
+        CLEAR: <fs_iref>-sel_netpr, <fs_iref>-sel_peinh.
+        READ TABLE gt_rfq_items INTO DATA(ls_rfq_rst)
+          WITH KEY ebeln = <fs_iref>-sel_ebeln ebelp = <fs_iref>-sel_ebelp.
+        IF sy-subrc <> 0 AND <fs_iref>-sel_lifnr IS NOT INITIAL.
+          READ TABLE gt_rfq_items INTO ls_rfq_rst
             WITH KEY ebelp = <fs_iref>-ebelp lifnr = <fs_iref>-sel_lifnr.
-          IF sy-subrc <> 0 AND <fs_iref>-sel_ebeln IS NOT INITIAL.
-            READ TABLE gt_rfq_items INTO ls_rfq_rst
-              WITH KEY ebeln = <fs_iref>-sel_ebeln ebelp = <fs_iref>-sel_ebelp.
-          ENDIF.
-
-          IF sy-subrc = 0 AND ls_rfq_rst-netpr > 0.
-            <fs_iref>-sel_netpr = ls_rfq_rst-netpr.
-            <fs_iref>-sel_peinh = COND #( WHEN ls_rfq_rst-peinh > 0 THEN ls_rfq_rst-peinh ELSE 1 ).
-            <fs_iref>-sel_waers = ls_rfq_rst-waers.
-            <fs_iref>-sel_zterm = ls_rfq_rst-zterm.
-            <fs_iref>-sel_inco1 = ls_rfq_rst-inco1.
-            IF ls_rfq_rst-bukrs IS NOT INITIAL. <fs_iref>-bukrs = ls_rfq_rst-bukrs. ENDIF.
-            IF ls_rfq_rst-ekorg IS NOT INITIAL. <fs_iref>-ekorg = ls_rfq_rst-ekorg. ENDIF.
-            IF ls_rfq_rst-ekgrp IS NOT INITIAL. <fs_iref>-ekgrp = ls_rfq_rst-ekgrp. ENDIF.
-          ELSE.
-            DATA: lv_db_pe_r TYPE ekpo-peinh,
-                  lv_db_me_r TYPE ekpo-meins.
-            SELECT SINGLE netpr, peinh, meins FROM ekpo
-              WHERE ebeln = @<fs_iref>-sel_ebeln AND ebelp = @<fs_iref>-sel_ebelp
-              INTO (@<fs_iref>-sel_netpr, @lv_db_pe_r, @lv_db_me_r).
-            IF sy-subrc = 0.
-              <fs_iref>-sel_peinh = COND #( WHEN lv_db_pe_r > 0 THEN lv_db_pe_r ELSE 1 ).
-            ELSEIF ls_p21-znetpr > 0.
-              <fs_iref>-sel_netpr = ls_p21-znetpr.
-              <fs_iref>-sel_peinh = 1.
-            ENDIF.
-          ENDIF.
-
-          DATA(lv_rst_q) = COND ekpo-menge( WHEN <fs_iref>-menge > 0 THEN <fs_iref>-menge ELSE 1 ).
-          DATA(lv_rst_p) = COND ekpo-peinh( WHEN <fs_iref>-sel_peinh > 0 THEN <fs_iref>-sel_peinh ELSE 1 ).
-          <fs_iref>-sel_upr_amt = CONV decfloat34( <fs_iref>-sel_netpr ) / CONV decfloat34( lv_rst_p ).
-          <fs_iref>-sel_tot_amt = CONV decfloat34( lv_rst_q ) * <fs_iref>-sel_upr_amt.
         ENDIF.
+
+        IF sy-subrc = 0 AND ls_rfq_rst-netpr > 0.
+          <fs_iref>-sel_netpr   = ls_rfq_rst-netpr.
+          <fs_iref>-sel_peinh   = COND #( WHEN ls_rfq_rst-peinh > 0 THEN ls_rfq_rst-peinh ELSE 1 ).
+          <fs_iref>-sel_waers   = ls_rfq_rst-waers.
+          <fs_iref>-sel_zterm   = ls_rfq_rst-zterm.
+          <fs_iref>-sel_inco1       = ls_rfq_rst-inco1.
+          <fs_iref>-sel_freight     = ls_rfq_rst-freight.
+          <fs_iref>-sel_frt_details = ls_rfq_rst-frt_details.
+          IF ls_rfq_rst-bukrs IS NOT INITIAL. <fs_iref>-bukrs = ls_rfq_rst-bukrs. ENDIF.
+          IF ls_rfq_rst-ekorg IS NOT INITIAL. <fs_iref>-ekorg = ls_rfq_rst-ekorg. ENDIF.
+          IF ls_rfq_rst-ekgrp IS NOT INITIAL. <fs_iref>-ekgrp = ls_rfq_rst-ekgrp. ENDIF.
+        ELSE.
+          DATA: lv_db_pe_r TYPE ekpo-peinh,
+                lv_db_me_r TYPE ekpo-meins.
+          SELECT SINGLE netpr, peinh, meins FROM ekpo
+            WHERE ebeln = @<fs_iref>-sel_ebeln AND ebelp = @<fs_iref>-sel_ebelp
+            INTO (@<fs_iref>-sel_netpr, @lv_db_pe_r, @lv_db_me_r).
+          IF sy-subrc = 0.
+            <fs_iref>-sel_peinh = COND #( WHEN lv_db_pe_r > 0 THEN lv_db_pe_r ELSE 1 ).
+          ELSEIF ls_p21-znetpr > 0.
+            <fs_iref>-sel_netpr = ls_p21-znetpr.
+            <fs_iref>-sel_peinh = 1.
+          ENDIF.
+        ENDIF.
+
+        DATA(lv_rst_q) = COND ekpo-menge( WHEN <fs_iref>-menge > 0 THEN <fs_iref>-menge ELSE 1 ).
+        DATA(lv_rst_p) = COND ekpo-peinh( WHEN <fs_iref>-sel_peinh > 0 THEN <fs_iref>-sel_peinh ELSE 1 ).
+        DATA(lv_b_upr_rst) = CONV decfloat34( <fs_iref>-sel_netpr ) / CONV decfloat34( lv_rst_p ).
+        IF <fs_iref>-sel_waers = 'USD' AND ls_rfq_rst-wkurs > 0.
+          lv_b_upr_rst = lv_b_upr_rst * CONV decfloat34( ls_rfq_rst-wkurs ).
+        ENDIF.
+        <fs_iref>-sel_tot_amt = CONV decfloat34( lv_rst_q ) * lv_b_upr_rst.
+        <fs_iref>-sel_upr_amt = lv_b_upr_rst.
+      ENDIF.
+    ELSE.
+      " No saved preference in ZMM_T_021: Default to System Suggested L1 winner if unselected!
+      IF <fs_iref>-po_number IS INITIAL AND <fs_iref>-sel_lifnr IS INITIAL.
+        <fs_iref>-sel_col         = <fs_iref>-l1_sel_col.
+        <fs_iref>-sel_ebeln       = <fs_iref>-l1_ebeln.
+        <fs_iref>-sel_ebelp       = <fs_iref>-l1_ebelp.
+        <fs_iref>-sel_lifnr       = <fs_iref>-l1_lifnr.
+        <fs_iref>-sel_name1       = <fs_iref>-l1_name1.
+        <fs_iref>-sel_netpr       = <fs_iref>-l1_netpr.
+        <fs_iref>-sel_peinh       = <fs_iref>-l1_peinh.
+        <fs_iref>-sel_waers       = <fs_iref>-l1_waers.
+        <fs_iref>-sel_zterm       = <fs_iref>-l1_zterm.
+        <fs_iref>-sel_inco1       = <fs_iref>-l1_inco1.
+        <fs_iref>-sel_freight     = <fs_iref>-l1_freight.
+        <fs_iref>-sel_frt_details = <fs_iref>-l1_frt_details.
+        <fs_iref>-sel_tot_amt     = <fs_iref>-l1_tot_amt.
+        <fs_iref>-sel_upr_amt     = <fs_iref>-l1_upr_amt.
+        <fs_iref>-appr_status = space.
+        <fs_iref>-user_pref   = space.
+        CLEAR: <fs_iref>-user_remark, <fs_iref>-appr_remark.
       ENDIF.
     ENDIF.
 
     " Determine column name QUAT1..QUAT7 for visual highlight in ALV
-    IF <fs_iref>-sel_lifnr IS NOT INITIAL AND <fs_iref>-sel_col IS INITIAL.
+    IF <fs_iref>-sel_lifnr IS NOT INITIAL.
+      CLEAR <fs_iref>-sel_col.
       DATA: lv_h_idx TYPE i VALUE 0.
       LOOP AT gt_hdr INTO DATA(ls_h_c).
         lv_h_idx = lv_h_idx + 1.
@@ -4487,23 +6094,30 @@ FORM init_approval_status.
         <fs_val_sync>-po_action = |@0V@ PO { <fs_iref>-po_number }|.
       ELSEIF <fs_iref>-appr_status = 'X'.
         <fs_val_sync>-sel       = '@01@ [X]'.
-        <fs_val_sync>-po_action = '@15@ Create PO'.
-      ELSEIF <fs_iref>-user_pref = 'X'.
-        <fs_val_sync>-sel       = '@09@ [X]'.
         IF gv_is_approver = abap_true.
-          <fs_val_sync>-po_action = '@0V@ Approve Item'.
+          <fs_val_sync>-po_action = '@0V@ Approved'.
         ELSE.
-          <fs_val_sync>-po_action = '@09@ In Approval'.
+          <fs_val_sync>-po_action = '@15@ Create PO'.
         ENDIF.
       ELSEIF <fs_iref>-appr_status = 'R'.
         <fs_val_sync>-sel       = '@02@ [R]'.
-        <fs_val_sync>-po_action = '@02@ Rejected'.
-      ELSEIF <fs_iref>-sel_lifnr IS NOT INITIAL.
-        <fs_val_sync>-sel       = '@01@ [X]'.
-        IF gv_is_approver = abap_false.
-          <fs_val_sync>-po_action = '@2L@ Send to HOD'.
+        IF <fs_iref>-appr_remark IS NOT INITIAL.
+          <fs_val_sync>-po_action = |@0W@ Rej: { <fs_iref>-appr_remark(15) }|.
         ELSE.
-          <fs_val_sync>-po_action = '@0Y@ Draft'.
+          <fs_val_sync>-po_action = '@0W@ Rejected'.
+        ENDIF.
+      ELSEIF <fs_iref>-sel_lifnr IS NOT INITIAL.
+        IF gv_is_approver = abap_true.
+          <fs_val_sync>-sel       = '@09@ [X]'.
+          <fs_val_sync>-po_action = '@0V@ Approve Item'.
+        ELSE.
+          IF <fs_iref>-user_pref = 'X'.
+            <fs_val_sync>-sel       = '@09@ [X]'.
+            <fs_val_sync>-po_action = '@09@ In Approval'.
+          ELSE.
+            <fs_val_sync>-sel       = '@01@ [X]'.
+            <fs_val_sync>-po_action = '@2L@ Send to HOD'.
+          ENDIF.
         ENDIF.
       ELSE.
         <fs_val_sync>-sel       = '@R7@ [ ]'.
@@ -4535,13 +6149,13 @@ FORM init_approval_status.
             <fs_app_c> = '[Approved]'.
             APPEND VALUE #( fieldname = <fs_iref>-sel_col color = VALUE #( col = 5 int = 1 ) )
               TO <fs_app_sync>-cell_colors.
-          ELSEIF <fs_iref>-user_pref = 'X'.
-            <fs_app_c> = '[In Appr]'.
-            APPEND VALUE #( fieldname = <fs_iref>-sel_col color = VALUE #( col = 3 int = 1 ) )
-              TO <fs_app_sync>-cell_colors.
           ELSEIF <fs_iref>-appr_status = 'R'.
             <fs_app_c> = '[Rejected]'.
             APPEND VALUE #( fieldname = <fs_iref>-sel_col color = VALUE #( col = 6 int = 1 ) )
+              TO <fs_app_sync>-cell_colors.
+          ELSEIF <fs_iref>-user_pref = 'X'.
+            <fs_app_c> = '[In Appr]'.
+            APPEND VALUE #( fieldname = <fs_iref>-sel_col color = VALUE #( col = 3 int = 1 ) )
               TO <fs_app_sync>-cell_colors.
           ELSE.
             <fs_app_c> = '[Selected]'.
@@ -4558,7 +6172,7 @@ FORM init_approval_status.
         gv_appr_items_cnt = gv_appr_items_cnt + 1.
       ELSEIF <fs_iref>-appr_status = 'R'.
         gv_rej_items_cnt  = gv_rej_items_cnt + 1.
-      ELSEIF <fs_iref>-user_pref = 'X'.
+      ELSEIF <fs_iref>-user_pref = 'X' OR gv_is_approver = abap_true.
         gv_pend_items_cnt = gv_pend_items_cnt + 1.
       ENDIF.
     ENDIF.
@@ -4574,24 +6188,33 @@ FORM init_approval_status.
 
   READ TABLE gt_final ASSIGNING FIELD-SYMBOL(<fs_top1>) INDEX 1.
   IF sy-subrc = 0.
-    IF gv_appr_items_cnt > 0.
-      <fs_top1>-po_action = |@15@ Create PO ({ gv_appr_items_cnt })|.
+    IF gv_is_approver = abap_true.
+      <fs_top1>-po_action = COND #( WHEN gv_appr_items_cnt > 0
+                                    THEN |@0V@ Sent to Creator ({ gv_appr_items_cnt })|
+                                    ELSE '@0Y@ Approver View' ).
     ELSE.
-      <fs_top1>-po_action = '@0Y@ Create PO'.
+      IF gv_appr_items_cnt > 0.
+        <fs_top1>-po_action = |@15@ Create PO ({ gv_appr_items_cnt })|.
+      ELSE.
+        <fs_top1>-po_action = '@0Y@ Create PO'.
+      ENDIF.
     ENDIF.
   ENDIF.
 
   READ TABLE gt_final ASSIGNING FIELD-SYMBOL(<fs_top2>) INDEX 2.
   IF sy-subrc = 0.
     IF gv_is_approver = abap_true.
-      IF gv_pend_items_cnt > 0.
-        <fs_top2>-po_action = |@0V@ Approve All ({ gv_pend_items_cnt })|.
+      DATA(lv_act_top_tot) = gv_pend_items_cnt + gv_rej_items_cnt.
+      IF lv_act_top_tot > 0.
+        <fs_top2>-po_action = |@0V@ Approve All ({ lv_act_top_tot })|.
       ELSE.
         <fs_top2>-po_action = '@0V@ Approved'.
       ENDIF.
     ELSE.
       IF lv_unsub_top > 0.
         <fs_top2>-po_action = |@2L@ Send to HOD ({ lv_unsub_top })|.
+      ELSEIF gv_rej_items_cnt > 0.
+        <fs_top2>-po_action = |@2L@ Resend to HOD ({ gv_rej_items_cnt })|.
       ELSEIF gv_pend_items_cnt > 0.
         <fs_top2>-po_action = |@09@ In Appr ({ gv_pend_items_cnt })|.
       ELSE.
@@ -4602,7 +6225,7 @@ FORM init_approval_status.
 
   READ TABLE gt_final ASSIGNING FIELD-SYMBOL(<fs_top4>) INDEX 4.
   IF sy-subrc = 0.
-    IF gv_is_approver = abap_true AND gv_pend_items_cnt > 0.
+    IF gv_is_approver = abap_true AND ( gv_pend_items_cnt > 0 OR gv_appr_items_cnt > 0 ).
       <fs_top4>-po_action = '@0W@ Reject All'.
     ELSE.
       <fs_top4>-po_action = space.
@@ -4669,6 +6292,313 @@ FORM prompt_user_remark USING    pv_ebelp     TYPE ekpo-ebelp
     ENDIF.
   ELSE.
     cv_cancelled = abap_true.
+  ENDIF.
+
+ENDFORM.
+
+*&---------------------------------------------------------------------*
+*& Form prompt_rejection_remark
+*&---------------------------------------------------------------------*
+FORM prompt_rejection_remark USING    pv_ebelp     TYPE any
+                             CHANGING cv_remark    TYPE zmm_de_aremark
+                                      cv_cancelled TYPE abap_bool.
+
+  DATA: lt_fields TYPE STANDARD TABLE OF sval,
+        ls_field  TYPE sval,
+        lv_return TYPE c,
+        lv_title  TYPE c LENGTH 80.
+
+  cv_cancelled = abap_false.
+  CLEAR: lt_fields, ls_field.
+
+  ls_field-tabname   = 'ZMM_T_021'.
+  ls_field-fieldname = 'ZAREMARK'.
+  IF pv_ebelp IS NOT INITIAL.
+    ls_field-fieldtext = |Reject Item { pv_ebelp }|.
+    lv_title           = |Mandatory Rejection Remark - Item { pv_ebelp }|.
+  ELSE.
+    ls_field-fieldtext = 'Rejection Reason'.
+    lv_title           = 'Mandatory Rejection Remark (All Pending Items)'.
+  ENDIF.
+  ls_field-value     = cv_remark.
+  ls_field-field_obl = 'X'.
+  APPEND ls_field TO lt_fields.
+
+  CALL FUNCTION 'POPUP_GET_VALUES'
+    EXPORTING
+      popup_title     = lv_title
+    IMPORTING
+      returncode      = lv_return
+    TABLES
+      fields          = lt_fields
+    EXCEPTIONS
+      error_in_fields = 1
+      OTHERS          = 2.
+
+  IF sy-subrc <> 0 OR lv_return = 'A'.
+    cv_cancelled = abap_true.
+    RETURN.
+  ENDIF.
+
+  READ TABLE lt_fields INTO ls_field INDEX 1.
+  IF sy-subrc = 0.
+    cv_remark = ls_field-value.
+    CONDENSE cv_remark.
+    IF cv_remark IS INITIAL.
+      cv_cancelled = abap_true.
+    ENDIF.
+  ELSE.
+    cv_cancelled = abap_true.
+  ENDIF.
+
+ENDFORM.
+
+*&---------------------------------------------------------------------*
+*& Form get_default_open_collective
+*&---------------------------------------------------------------------*
+FORM get_default_open_collective USING    pv_user  TYPE sy-uname
+                                CHANGING cv_submi TYPE ekko-submi.
+
+  CLEAR cv_submi.
+
+  DATA: lt_creators TYPE STANDARD TABLE OF zmm_t_023-zcreator.
+  SELECT zcreator FROM zmm_t_023 INTO TABLE @lt_creators WHERE zuser = @pv_user.
+  IF lt_creators IS INITIAL.
+    APPEND pv_user TO lt_creators.
+  ENDIF.
+
+  TYPES: BEGIN OF ty_sub_date,
+           submi TYPE ekko-submi,
+           aedat TYPE ekko-aedat,
+         END OF ty_sub_date.
+  DATA: lt_submis TYPE STANDARD TABLE OF ty_sub_date.
+
+  SELECT DISTINCT submi, aedat
+    FROM ekko
+    FOR ALL ENTRIES IN @lt_creators
+    WHERE bstyp = 'A'
+      AND submi <> @space
+      AND ernam = @lt_creators-table_line
+    INTO TABLE @lt_submis.
+
+  IF lt_submis IS INITIAL.
+    SELECT DISTINCT submi, aedat
+      FROM ekko
+      WHERE bstyp = 'A'
+        AND submi <> @space
+      INTO TABLE @lt_submis.
+  ENDIF.
+
+  IF lt_submis IS INITIAL.
+    RETURN.
+  ENDIF.
+
+  SORT lt_submis BY aedat DESCENDING submi DESCENDING.
+  DELETE ADJACENT DUPLICATES FROM lt_submis COMPARING submi.
+
+  SELECT zcollectno, zpo
+    FROM zmm_t_021
+    FOR ALL ENTRIES IN @lt_submis
+    WHERE zcollectno = @lt_submis-submi
+    INTO TABLE @DATA(lt_chk_t021).
+
+  LOOP AT lt_submis INTO DATA(ls_sd).
+    DATA: lv_tot TYPE i VALUE 0,
+          lv_pos TYPE i VALUE 0.
+    CLEAR: lv_tot, lv_pos.
+    LOOP AT lt_chk_t021 INTO DATA(ls_c) WHERE zcollectno = ls_sd-submi.
+      lv_tot = lv_tot + 1.
+      IF ls_c-zpo IS NOT INITIAL.
+        lv_pos = lv_pos + 1.
+      ENDIF.
+    ENDLOOP.
+    IF lv_tot = 0 OR lv_pos < lv_tot.
+      cv_submi = ls_sd-submi.
+      EXIT.
+    ENDIF.
+  ENDLOOP.
+
+  IF cv_submi IS INITIAL AND lt_submis IS NOT INITIAL.
+    cv_submi = lt_submis[ 1 ]-submi.
+  ENDIF.
+
+ENDFORM.
+
+*&---------------------------------------------------------------------*
+*& Form f4_collective_number
+*&---------------------------------------------------------------------*
+FORM f4_collective_number.
+
+  DATA: lv_is_appr_f4 TYPE abap_bool VALUE abap_false.
+  SELECT COUNT(*) FROM zmm_t_023 WHERE zuser = @sy-uname.
+  IF ( sy-subrc = 0 AND sy-dbcnt > 0 ) OR p_apprv = abap_true.
+    lv_is_appr_f4 = abap_true.
+  ENDIF.
+
+  TYPES: BEGIN OF ty_f4_submi,
+           submi      TYPE ekko-submi,
+           ernam      TYPE ekko-ernam,
+           aedat      TYPE ekko-aedat,
+           status     TYPE c LENGTH 25,
+           open_items TYPE c LENGTH 15,
+         END OF ty_f4_submi.
+
+  DATA: lt_f4_submi TYPE STANDARD TABLE OF ty_f4_submi,
+        ls_f4_submi TYPE ty_f4_submi.
+
+  DATA: lt_my_creators TYPE STANDARD TABLE OF zmm_t_023-zcreator.
+  IF lv_is_appr_f4 = abap_true.
+    SELECT zcreator FROM zmm_t_023
+      INTO TABLE @lt_my_creators
+      WHERE zuser = @sy-uname.
+    IF lt_my_creators IS INITIAL AND p_apprv = abap_true.
+      SELECT DISTINCT zcreator FROM zmm_t_023 INTO TABLE @lt_my_creators.
+    ENDIF.
+  ELSE.
+    APPEND sy-uname TO lt_my_creators.
+  ENDIF.
+
+  IF lt_my_creators IS INITIAL.
+    MESSAGE 'No assigned creators found for approval routing.' TYPE 'S' DISPLAY LIKE 'W'.
+    RETURN.
+  ENDIF.
+
+  TYPES: BEGIN OF ty_ekko_sub,
+           submi TYPE ekko-submi,
+           ernam TYPE ekko-ernam,
+           aedat TYPE ekko-aedat,
+         END OF ty_ekko_sub.
+  DATA: lt_rfqs TYPE STANDARD TABLE OF ty_ekko_sub.
+
+  SELECT DISTINCT submi, ernam, aedat
+    FROM ekko
+    FOR ALL ENTRIES IN @lt_my_creators
+    WHERE bstyp = 'A'
+      AND submi <> @space
+      AND ernam = @lt_my_creators-table_line
+    INTO TABLE @lt_rfqs.
+
+  IF lt_rfqs IS INITIAL.
+    SELECT DISTINCT submi, ernam, aedat
+      FROM ekko
+      WHERE bstyp = 'A'
+        AND submi <> @space
+      INTO TABLE @lt_rfqs.
+  ENDIF.
+
+  IF lt_rfqs IS INITIAL.
+    MESSAGE 'No collective RFQs found.' TYPE 'S' DISPLAY LIKE 'I'.
+    RETURN.
+  ENDIF.
+
+  SORT lt_rfqs BY aedat DESCENDING submi DESCENDING.
+  DELETE ADJACENT DUPLICATES FROM lt_rfqs COMPARING submi.
+
+  SELECT zcollectno, zquotation, zqitem, zapprover1, zpo
+    FROM zmm_t_021
+    FOR ALL ENTRIES IN @lt_rfqs
+    WHERE zcollectno = @lt_rfqs-submi
+    INTO TABLE @DATA(lt_t021_all).
+
+  LOOP AT lt_rfqs INTO DATA(ls_rfq).
+    DATA: lv_tot_lines  TYPE i VALUE 0,
+          lv_po_lines   TYPE i VALUE 0,
+          lv_pend_lines TYPE i VALUE 0,
+          lv_appr_lines TYPE i VALUE 0,
+          lv_rej_lines  TYPE i VALUE 0.
+
+    CLEAR: lv_tot_lines, lv_po_lines, lv_pend_lines, lv_appr_lines, lv_rej_lines.
+
+    LOOP AT lt_t021_all INTO DATA(ls_t21) WHERE zcollectno = ls_rfq-submi.
+      lv_tot_lines = lv_tot_lines + 1.
+      IF ls_t21-zpo IS NOT INITIAL.
+        lv_po_lines = lv_po_lines + 1.
+      ELSE.
+        IF ls_t21-zapprover1 = 'X'.
+          lv_appr_lines = lv_appr_lines + 1.
+        ELSEIF ls_t21-zapprover1 = 'R'.
+          lv_rej_lines = lv_rej_lines + 1.
+        ELSE.
+          lv_pend_lines = lv_pend_lines + 1.
+        ENDIF.
+      ENDIF.
+    ENDLOOP.
+
+    " Open only requirement: If all items have PO created, skip!
+    IF lv_tot_lines > 0 AND lv_po_lines >= lv_tot_lines.
+      CONTINUE.
+    ENDIF.
+
+    CLEAR ls_f4_submi.
+    ls_f4_submi-submi = ls_rfq-submi.
+    ls_f4_submi-ernam = ls_rfq-ernam.
+    ls_f4_submi-aedat = ls_rfq-aedat.
+
+    DATA(lv_open_cnt) = lv_tot_lines - lv_po_lines.
+    IF lv_tot_lines = 0.
+      ls_f4_submi-status     = 'New / Uncompared'.
+      ls_f4_submi-open_items = 'RFQ Open'.
+    ELSEIF lv_pend_lines > 0.
+      ls_f4_submi-status     = 'Pending Approval'.
+      ls_f4_submi-open_items = |{ lv_pend_lines } Pending|.
+    ELSEIF lv_appr_lines > 0.
+      ls_f4_submi-status     = 'Approved (PO Pend)'.
+      ls_f4_submi-open_items = |{ lv_appr_lines } Approved|.
+    ELSEIF lv_rej_lines > 0.
+      ls_f4_submi-status     = 'Rejected by HOD'.
+      ls_f4_submi-open_items = |{ lv_rej_lines } Rejected|.
+    ELSE.
+      ls_f4_submi-status     = 'Draft / In Progress'.
+      ls_f4_submi-open_items = |{ lv_open_cnt } Open|.
+    ENDIF.
+
+    APPEND ls_f4_submi TO lt_f4_submi.
+  ENDLOOP.
+
+  IF lt_f4_submi IS INITIAL.
+    MESSAGE 'No OPEN collective numbers pending for your approval.' TYPE 'S' DISPLAY LIKE 'I'.
+    RETURN.
+  ENDIF.
+
+  DATA: lt_return TYPE STANDARD TABLE OF ddshretval.
+  CALL FUNCTION 'F4IF_INT_TABLE_VALUE_REQUEST'
+    EXPORTING
+      retfield        = 'SUBMI'
+      dynpprog        = sy-repid
+      dynpnr          = sy-dynnr
+      dynprofield     = 'S_SUBMI-LOW'
+      value_org       = 'S'
+    TABLES
+      value_tab       = lt_f4_submi
+      return_tab      = lt_return
+    EXCEPTIONS
+      parameter_error = 1
+      no_values_found = 2
+      OTHERS          = 3.
+
+  IF sy-subrc = 0.
+    READ TABLE lt_return INTO DATA(ls_ret) INDEX 1.
+    IF sy-subrc = 0.
+      s_submi-low    = ls_ret-fieldval.
+      s_submi-sign   = 'I'.
+      s_submi-option = 'EQ'.
+      CLEAR s_submi[].
+      APPEND s_submi.
+
+      DATA: lt_dynpread TYPE STANDARD TABLE OF dynpread,
+            ls_dynpread TYPE dynpread.
+      ls_dynpread-fieldname  = 'S_SUBMI-LOW'.
+      ls_dynpread-fieldvalue = ls_ret-fieldval.
+      APPEND ls_dynpread TO lt_dynpread.
+      CALL FUNCTION 'DYNP_VALUES_UPDATE'
+        EXPORTING
+          dyname     = sy-repid
+          dynumb     = sy-dynnr
+        TABLES
+          dynpfields = lt_dynpread
+        EXCEPTIONS
+          OTHERS     = 0.
+    ENDIF.
   ENDIF.
 
 ENDFORM.
@@ -4784,6 +6714,131 @@ FORM send_approval_notification USING pv_submi TYPE any.
     CLEAR ls_receiver.
     ls_receiver-receiver = lv_hod_email.
     ls_receiver-rec_type = 'U'.  " Internet email
+    APPEND ls_receiver TO lt_receivers.
+  ENDIF.
+
+  CALL FUNCTION 'SO_NEW_DOCUMENT_SEND_API1'
+    EXPORTING
+      document_data              = ls_doc_data
+      document_type              = 'RAW'
+      put_in_outbox              = 'X'
+      commit_work                = 'X'
+    TABLES
+      object_content             = lt_objtxt
+      receivers                  = lt_receivers
+    EXCEPTIONS
+      OTHERS                     = 1.
+
+ENDFORM.
+
+*&---------------------------------------------------------------------*
+*& Form send_decision_notification
+*&---------------------------------------------------------------------*
+FORM send_decision_notification USING pv_submi  TYPE any
+                                     pv_status TYPE c
+                                     pv_remark TYPE any.
+
+  DATA: lv_creator_user  TYPE sy-uname,
+        lv_creator_email TYPE adr6-smtp_addr,
+        lv_msg           TYPE char128.
+
+  " 1. Determine creator user: check ZMM_T_021 (zuser) or EKKO (ernam)
+  SELECT SINGLE zuser FROM zmm_t_021
+    WHERE zcollectno = @pv_submi
+      AND zuser      IS NOT INITIAL
+    INTO @lv_creator_user.
+  IF sy-subrc <> 0 OR lv_creator_user IS INITIAL.
+    IF gt_hdr IS NOT INITIAL.
+      READ TABLE gt_hdr ASSIGNING FIELD-SYMBOL(<ls_h_c>) INDEX 1.
+      IF sy-subrc = 0.
+        SELECT SINGLE ernam FROM ekko
+          WHERE ebeln = @<ls_h_c>-ebeln
+          INTO @lv_creator_user.
+      ENDIF.
+    ENDIF.
+  ENDIF.
+
+  IF lv_creator_user IS INITIAL.
+    RETURN.
+  ENDIF.
+
+  " 2. Send screen popup to Creator if logged in
+  IF pv_status = 'X'.
+    lv_msg = |Collective RFQ { pv_submi } has been APPROVED by { gv_hod_name }. Please create Purchase Orders.|.
+  ELSE.
+    lv_msg = |Collective RFQ { pv_submi } has been REJECTED by { gv_hod_name }. Reason: { pv_remark }.|.
+  ENDIF.
+
+  CALL FUNCTION 'TH_POPUP'
+    EXPORTING
+      client  = sy-mandt
+      user    = lv_creator_user
+      message = lv_msg
+    EXCEPTIONS
+      OTHERS  = 1.
+
+  " 3. Get Creator Email from ADR6 / USR21
+  DATA: lv_persno TYPE usr21-persnumber,
+        lv_addrno TYPE usr21-addrnumber.
+  SELECT SINGLE persnumber, addrnumber FROM usr21
+    WHERE bname = @lv_creator_user
+    INTO ( @lv_persno, @lv_addrno ).
+  IF sy-subrc = 0.
+    SELECT SINGLE smtp_addr FROM adr6
+      WHERE persnumber = @lv_persno
+        AND addrnumber = @lv_addrno
+      INTO @lv_creator_email.
+    IF sy-subrc <> 0 OR lv_creator_email IS INITIAL.
+      SELECT SINGLE smtp_addr FROM adr6
+        WHERE persnumber = @lv_persno
+        INTO @lv_creator_email.
+    ENDIF.
+  ENDIF.
+
+  " 4. Send SAP Office Mail to Creator
+  DATA: ls_doc_data  TYPE sodocchgi1,
+        lt_objtxt    TYPE STANDARD TABLE OF solisti1,
+        ls_objtxt    TYPE solisti1,
+        lt_receivers TYPE STANDARD TABLE OF somlreci1,
+        ls_receiver  TYPE somlreci1.
+
+  ls_doc_data-obj_name  = 'PRICE_DEC'.
+  IF pv_status = 'X'.
+    ls_doc_data-obj_descr = |Quotation Approval: Collective RFQ { pv_submi } APPROVED|.
+  ELSE.
+    ls_doc_data-obj_descr = |Quotation Approval: Collective RFQ { pv_submi } REJECTED|.
+  ENDIF.
+  ls_doc_data-obj_langu = sy-langu.
+
+  ls_objtxt-line = |Dear { lv_creator_user },|.
+  APPEND ls_objtxt TO lt_objtxt.
+  ls_objtxt-line = space.
+  APPEND ls_objtxt TO lt_objtxt.
+
+  IF pv_status = 'X'.
+    ls_objtxt-line = |Price comparison for Collective RFQ { pv_submi } has been APPROVED by { gv_hod_name }.|.
+    APPEND ls_objtxt TO lt_objtxt.
+    ls_objtxt-line = 'You can now proceed with Purchase Order (PO) creation for approved items.'.
+    APPEND ls_objtxt TO lt_objtxt.
+  ELSE.
+    ls_objtxt-line = |Price comparison for Collective RFQ { pv_submi } has been REJECTED by { gv_hod_name }.|.
+    APPEND ls_objtxt TO lt_objtxt.
+    ls_objtxt-line = |Rejection Reason: { pv_remark }|.
+    APPEND ls_objtxt TO lt_objtxt.
+    ls_objtxt-line = 'Please update quotation data or dates in ME47 and resend for approval.'.
+    APPEND ls_objtxt TO lt_objtxt.
+  ENDIF.
+
+  " Send to SAP user inbox
+  ls_receiver-receiver = lv_creator_user.
+  ls_receiver-rec_type = 'B'. " SAP user
+  ls_receiver-express  = 'X'.
+  APPEND ls_receiver TO lt_receivers.
+
+  IF lv_creator_email IS NOT INITIAL.
+    CLEAR ls_receiver.
+    ls_receiver-receiver = lv_creator_email.
+    ls_receiver-rec_type = 'U'. " Internet address
     APPEND ls_receiver TO lt_receivers.
   ENDIF.
 
