@@ -3487,7 +3487,37 @@ ENDFORM.
 *----------------------------------------------------------------------*
 CLASS lcl_html_handler IMPLEMENTATION.
   METHOD on_sapevent.
-    PERFORM handle_html_action USING action getdata.
+    DATA: lv_act     TYPE string,
+          lv_getdata TYPE string.
+    lv_act     = action.
+    lv_getdata = getdata.
+    IF lv_act CS '?'.
+      DATA: lv_act_part TYPE string,
+            lv_qry_part TYPE string.
+      SPLIT lv_act AT '?' INTO lv_act_part lv_qry_part.
+      lv_act = lv_act_part.
+      IF lv_qry_part IS NOT INITIAL.
+        IF lv_getdata IS INITIAL.
+          lv_getdata = lv_qry_part.
+        ELSE.
+          lv_getdata = |{ lv_getdata }&{ lv_qry_part }|.
+        ENDIF.
+      ENDIF.
+    ENDIF.
+    TRANSLATE lv_act TO UPPER CASE.
+    IF lv_act CS 'SAPEVENT:'.
+      DATA: lv_dummy_pre TYPE string.
+      SPLIT lv_act AT 'SAPEVENT:' INTO lv_dummy_pre lv_act.
+    ENDIF.
+    WHILE lv_act CP '/*'.
+      SHIFT lv_act BY 1 PLACES.
+    ENDWHILE.
+    WHILE strlen( lv_act ) > 0 AND lv_act+strlen( lv_act )-1(1) = '/'.
+      DATA(lv_last_idx) = strlen( lv_act ) - 1.
+      lv_act = lv_act(lv_last_idx).
+    ENDWHILE.
+    CONDENSE lv_act NO-GAPS.
+    PERFORM handle_html_action USING lv_act lv_getdata.
   ENDMETHOD.
 ENDCLASS.
 
@@ -3510,10 +3540,29 @@ CLASS lcl_browser_handler IMPLEMENTATION.
             lv_qry_part TYPE string.
       SPLIT lv_act AT '?' INTO lv_act_part lv_qry_part.
       lv_act = lv_act_part.
-      IF lv_getdata IS INITIAL.
-        lv_getdata = lv_qry_part.
+      IF lv_qry_part IS NOT INITIAL.
+        IF lv_getdata IS INITIAL.
+          lv_getdata = lv_qry_part.
+        ELSE.
+          lv_getdata = |{ lv_getdata }&{ lv_qry_part }|.
+        ENDIF.
       ENDIF.
     ENDIF.
+
+    " Normalize action for WebGUI / ITS compatibility: strip 'SAPEVENT:' protocol prefix if present
+    TRANSLATE lv_act TO UPPER CASE.
+    IF lv_act CS 'SAPEVENT:'.
+      DATA: lv_dummy_pre TYPE string.
+      SPLIT lv_act AT 'SAPEVENT:' INTO lv_dummy_pre lv_act.
+    ENDIF.
+    WHILE lv_act CP '/*'.
+      SHIFT lv_act BY 1 PLACES.
+    ENDWHILE.
+    WHILE strlen( lv_act ) > 0 AND lv_act+strlen( lv_act )-1(1) = '/'.
+      DATA(lv_last_idx) = strlen( lv_act ) - 1.
+      lv_act = lv_act(lv_last_idx).
+    ENDWHILE.
+    CONDENSE lv_act NO-GAPS.
 
     PERFORM handle_html_action USING lv_act lv_getdata.
   ENDMETHOD.
@@ -3524,6 +3573,7 @@ ENDCLASS.
 *&---------------------------------------------------------------------*
 FORM display_html.
   SET HANDLER lcl_browser_handler=>on_sapevent.
+  SET HANDLER lcl_html_handler=>on_sapevent FOR ALL INSTANCES.
   PERFORM render_html.
 ENDFORM.
 
@@ -3901,12 +3951,12 @@ FORM render_html.
     DATA(lv_act_tot_html) = lv_pend_cnt + lv_rej_cnt.
     IF lv_act_tot_html > 0.
       lv_appr_actions =
-        |<a href="sapevent:APPROVE" class="btn-po" style="background:#059669;"| &&
+        |<a href="SAPEVENT:APPROVE" onclick="return confirmApproveAll();" class="btn-po" style="background:#059669;"| &&
         | title="Approve pending items">&#10003; Approve All ({ lv_act_tot_html })</a>| &&
-        ' <a href="sapevent:REJECT" class="btn-reject" title="Reject comparison with compulsory remark">&#10007; Reject All</a>'.
+        ' <a href="SAPEVENT:REJECT" onclick="return promptRejectAll();" class="btn-reject" title="Reject comparison with compulsory remark">&#10007; Reject All</a>'.
     ELSEIF lv_appr_cnt > 0.
       lv_appr_actions =
-        ' <a href="sapevent:REJECT" class="btn-reject" title="Reject comparison with compulsory remark">&#10007; Reject All</a>'.
+        ' <a href="SAPEVENT:REJECT" onclick="return promptRejectAll();" class="btn-reject" title="Reject comparison with compulsory remark">&#10007; Reject All</a>'.
     ENDIF.
     IF lv_appr_cnt > 0.
       lv_appr_badge = lv_appr_badge &&
@@ -3951,12 +4001,12 @@ FORM render_html.
     DATA(lv_ready_submit) = lv_unsub_cnt + lv_rej_cnt.
     IF lv_ready_submit > 0.
       lv_appr_actions =
-        |<a href="sapevent:SUBMIT_APPROVAL" class="btn-appr-submit"| &&
+        |<a href="SAPEVENT:SUBMIT_APPROVAL" onclick="if (!confirm('Submit items to HOD for approval?')) return false;" class="btn-appr-submit"| &&
         | title="Submit items to HOD for approval">&#128228; Send for Approval ({ lv_ready_submit })</a>|.
     ENDIF.
     IF lv_appr_cnt > 0.
       lv_appr_actions = lv_appr_actions &&
-        | <a href="sapevent:CREATE_PO" class="btn-po">&#128722; Create PO ({ lv_appr_cnt } Approved)</a>|.
+        | <a href="SAPEVENT:CREATE_PO" onclick="if (!confirm('Proceed to create Purchase Orders for approved items?')) return false;" class="btn-po">&#128722; Create PO ({ lv_appr_cnt } Approved)</a>|.
     ENDIF.
   ENDIF.
 
@@ -3999,7 +4049,7 @@ FORM render_html.
         'color:#15803d;background:#dcfce7;padding:3px 10px;border-radius:12px;border:1px solid #86efac;">' &&
         '&#10003; All Line Items PO Created</span>'
       ELSE
-        '<a href="sapevent:TOGGLE_ALL" class="select-all-btn" title="Toggle Select All items">' &&
+        '<a href="SAPEVENT:TOGGLE_ALL" class="select-all-btn" title="Toggle Select All items">' &&
         COND string(
           WHEN lv_all_sel = abap_true THEN
             '<span class="radio-box radio-sel">&#10003;</span>'
@@ -4042,7 +4092,7 @@ FORM render_html.
     '      <span>%</span>' &&
     '      <button onclick="applyRate()" class="btn-apply">Apply</button>' &&
     '    </div>' &&
-    '    <a href="sapevent:REFRESH" class="btn-refresh">&#128260; Refresh</a>' &&
+    '    <a href="SAPEVENT:REFRESH" class="btn-refresh">&#128260; Refresh</a>' &&
     lv_appr_actions &&
     '  </div>' &&
     '</div>'.
@@ -4068,7 +4118,7 @@ FORM render_html.
       '<th style="min-width: 155px;">' &&
       |  <div class="v-hdr-title">{ wa_hdr-name1 }</div>| &&
       |  <div class="v-hdr-sub">Vendor { wa_hdr-lifnr } · | &&
-      |    <a href="sapevent:ME47?ebeln={ wa_hdr-ebeln }" style="color:#2563eb;text-decoration:underline;"| &&
+      |    <a href="SAPEVENT:ME47?ebeln={ wa_hdr-ebeln }" style="color:#2563eb;text-decoration:underline;"| &&
       |       title="Maintain quotation dates and pricing in ME47">RFQ #{ wa_hdr-ebeln } &#9998;</a></div>| &&
       '</th>'.
   ENDLOOP.
@@ -4146,7 +4196,7 @@ FORM render_html.
       lv_html = lv_html &&
         '<tr>' &&
         '  <td style="text-align: center; vertical-align: middle;">' &&
-        |    <a href="sapevent:ME23N?ebeln={ ls_item-po_number }" title="PO { ls_item-po_number } Created" style="text-decoration:none;">| &&
+        |    <a href="SAPEVENT:ME23N?ebeln={ ls_item-po_number }" title="PO { ls_item-po_number } Created" style="text-decoration:none;">| &&
         '      <span style="display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;' &&
         '            border-radius:50%;background:#dcfce7;color:#166534;font-size:11px;font-weight:800;">&#10003;</span>' &&
         '    </a>' &&
@@ -4192,7 +4242,7 @@ FORM render_html.
       lv_html = lv_html &&
         '<tr>' &&
         '  <td style="text-align: center; vertical-align: middle;">' &&
-        |    <a href="sapevent:TOGGLE_ROW?item={ ls_item-ebelp }" title="Toggle item selection">| &&
+        |    <a href="SAPEVENT:TOGGLE_ROW?item={ ls_item-ebelp }" title="Toggle item selection">| &&
         COND string(
           WHEN lv_row_sel = abap_true THEN
             '<span class="radio-box radio-sel">&#10003;</span>'
@@ -4245,7 +4295,7 @@ FORM render_html.
         '<td style="background: #f8fafc; border-left: 1px solid #cbd5e1; border-right: 1px solid #cbd5e1; font-size: 11px;">' &&
         |  <div style="font-weight: 700; color: #1e293b; font-size: 12px;">&#8377;{ lv_fmt_lpp } | &&
         |    <span style="font-weight: 400; font-size: 10px; color: #64748b;">/ { ls_item-lpp_meins }</span></div>| &&
-        |  <div style="margin-top: 1px;"><a href="sapevent:ME23N?ebeln={ ls_item-lpp_ebeln }"| &&
+        |  <div style="margin-top: 1px;"><a href="SAPEVENT:ME23N?ebeln={ ls_item-lpp_ebeln }"| &&
         |       style="color: #2563eb; text-decoration: underline; font-size: 10px; font-weight: 600;"| &&
         |       title="View Last PO { ls_item-lpp_ebeln } in ME23N">PO #{ ls_item-lpp_ebeln } &#8599;</a></div>| &&
         |  <div style="font-size: 10px; color: #64748b; line-height: 1.2;">{ lv_disp_bedat } &middot; { ls_item-lpp_name1(12) }</div>| &&
@@ -4313,7 +4363,7 @@ FORM render_html.
         IF ls_item-po_number IS NOT INITIAL.
           IF ls_item-sel_lifnr = wa_hdr-lifnr.
             lv_pill_action =
-              |<a href="sapevent:ME23N?ebeln={ ls_item-po_number }" class="btn-po-link">&#10003; PO { ls_item-po_number }</a>|.
+              |<a href="SAPEVENT:ME23N?ebeln={ ls_item-po_number }" class="btn-po-link">&#10003; PO { ls_item-po_number }</a>|.
           ELSE.
             lv_pill_action = '<span class="quote-po-done">PO Done</span>'.
           ENDIF.
@@ -4324,7 +4374,7 @@ FORM render_html.
           ELSE.
             IF gv_is_approver = abap_true.
               lv_pill_action =
-                |<a href="sapevent:SELECT?item={ ls_item-ebelp }&col=QUAT{ lv_cidx }" class="quote-chk-btn is-unsel" title="Select this quotation"><span class="chk-sq"></span><span>Select</span></a>|.
+                |<a href="SAPEVENT:SELECT?item={ ls_item-ebelp }&col=QUAT{ lv_cidx }" class="quote-chk-btn is-unsel" title="Select this quotation"><span class="chk-sq"></span><span>Select</span></a>|.
             ELSE.
               lv_pill_action = space.
             ENDIF.
@@ -4335,7 +4385,7 @@ FORM render_html.
               '<span class="quote-chk-btn is-rej" title="Quotation Rejected"><span class="chk-sq">&#10007;</span><span>Rejected</span></span>'.
           ELSE.
             lv_pill_action =
-              |<a href="sapevent:SELECT?item={ ls_item-ebelp }&col=QUAT{ lv_cidx }" class="quote-chk-btn is-unsel" title="Select this quotation"><span class="chk-sq"></span><span>Select</span></a>|.
+              |<a href="SAPEVENT:SELECT?item={ ls_item-ebelp }&col=QUAT{ lv_cidx }" class="quote-chk-btn is-unsel" title="Select this quotation"><span class="chk-sq"></span><span>Select</span></a>|.
           ENDIF.
         ELSEIF ls_item-user_pref = 'X'.
           IF lv_is_sel = abap_true.
@@ -4344,7 +4394,7 @@ FORM render_html.
           ELSE.
             IF gv_is_approver = abap_true.
               lv_pill_action =
-                |<a href="sapevent:SELECT?item={ ls_item-ebelp }&col=QUAT{ lv_cidx }" class="quote-chk-btn is-unsel" title="Select this quotation"><span class="chk-sq"></span><span>Select</span></a>|.
+                |<a href="SAPEVENT:SELECT?item={ ls_item-ebelp }&col=QUAT{ lv_cidx }" class="quote-chk-btn is-unsel" title="Select this quotation"><span class="chk-sq"></span><span>Select</span></a>|.
             ELSE.
               lv_pill_action = space.
             ENDIF.
@@ -4352,10 +4402,10 @@ FORM render_html.
         ELSE.
           IF lv_is_sel = abap_true.
             lv_pill_action =
-              |<a href="sapevent:DESELECT?item={ ls_item-ebelp }" class="quote-chk-btn is-sel" title="Selected · Click to deselect"><span class="chk-sq">&#10003;</span><span>Selected</span></a>|.
+              |<a href="SAPEVENT:DESELECT?item={ ls_item-ebelp }" class="quote-chk-btn is-sel" title="Selected · Click to deselect"><span class="chk-sq">&#10003;</span><span>Selected</span></a>|.
           ELSE.
             lv_pill_action =
-              |<a href="sapevent:SELECT?item={ ls_item-ebelp }&col=QUAT{ lv_cidx }" class="quote-chk-btn is-unsel" title="Click to select this quotation"><span class="chk-sq"></span><span>Select</span></a>|.
+              |<a href="SAPEVENT:SELECT?item={ ls_item-ebelp }&col=QUAT{ lv_cidx }" class="quote-chk-btn is-unsel" title="Click to select this quotation"><span class="chk-sq"></span><span>Select</span></a>|.
           ENDIF.
         ENDIF.
 
@@ -4378,7 +4428,7 @@ FORM render_html.
           DATA(lv_det_txt) = COND string( WHEN ls_qitem-frt_details IS NOT INITIAL THEN | ({ ls_qitem-frt_details })| ELSE '' ).
           lv_q_frt_html =
             |<div style="margin-top: 2px;">| &&
-            |  <a href="sapevent:SHOW_ITEM_FREIGHT?item={ ls_item-ebelp }" class="frt-link-pill"| &&
+            |  <a href="SAPEVENT:SHOW_ITEM_FREIGHT?item={ ls_item-ebelp }" class="frt-link-pill"| &&
             |     title="Click to view freight conditions breakdown for this item">+&#8377;{ lv_fmt_q_frt } Delivery{ lv_det_txt } &#128269;</a>| &&
             |</div>|.
         ELSE.
@@ -4403,7 +4453,7 @@ FORM render_html.
           '<td style="background: #fff1f2; text-align: center;">' &&
           '  <div class="no-price-badge">No Price</div>' &&
           '  <div class="no-price-sub">Price not maintained</div>' &&
-          |  <a href="sapevent:ME47?ebeln={ ls_qitem-ebeln }" class="no-price-link">&#9998; Maintain ME47</a>| &&
+          |  <a href="SAPEVENT:ME47?ebeln={ ls_qitem-ebeln }" class="no-price-link">&#9998; Maintain ME47</a>| &&
           '</td>'.
       ELSE.
         lv_html = lv_html &&
@@ -4430,7 +4480,7 @@ FORM render_html.
       DATA(lv_l1_det) = COND string( WHEN ls_item-l1_frt_details IS NOT INITIAL THEN | ({ ls_item-l1_frt_details })| ELSE '' ).
       lv_l1_frt_html =
         |<div style="font-size: 10px; color: #047857; font-weight: 600;">| &&
-        |  <a href="sapevent:SHOW_ITEM_FREIGHT?item={ ls_item-ebelp }" style="color: #047857; text-decoration: none;"| &&
+        |  <a href="SAPEVENT:SHOW_ITEM_FREIGHT?item={ ls_item-ebelp }" style="color: #047857; text-decoration: none;"| &&
         |     title="Click to view freight conditions breakdown">+&#8377;{ lv_fmt_l1_frt } Delivery{ lv_l1_det } &#128269;</a>| &&
         |</div>|.
     ELSE.
@@ -4464,7 +4514,7 @@ FORM render_html.
         DATA(lv_s_det) = COND string( WHEN ls_item-sel_frt_details IS NOT INITIAL THEN | ({ ls_item-sel_frt_details })| ELSE '' ).
         lv_s_frt_html =
           |<div style="font-size: 10px; color: #1e40af; font-weight: 600;">| &&
-          |  <a href="sapevent:SHOW_ITEM_FREIGHT?item={ ls_item-ebelp }" style="color: #1e40af; text-decoration: none;"| &&
+          |  <a href="SAPEVENT:SHOW_ITEM_FREIGHT?item={ ls_item-ebelp }" style="color: #1e40af; text-decoration: none;"| &&
           |     title="Click to view freight conditions breakdown">+&#8377;{ lv_fmt_s_frt } Delivery{ lv_s_det } &#128269;</a>| &&
           |</div>|.
       ELSE.
@@ -4498,7 +4548,7 @@ FORM render_html.
             COND string(
               WHEN gv_is_approver = abap_false AND ls_item-po_number IS INITIAL
                    AND ls_item-appr_status IS INITIAL AND ls_item-user_pref IS INITIAL THEN
-                |  <a href="sapevent:EDIT_REMARK?item={ ls_item-ebelp }"| &&
+                |  <a href="SAPEVENT:EDIT_REMARK?item={ ls_item-ebelp }" onclick="return promptEditRemark('{ ls_item-ebelp }', '{ ls_item-user_remark }');"| &&
                 ' style="font-size:9px;color:#2563eb;text-decoration:underline;">[Edit Reason]</a>'
               ELSE ''
             ) &&
@@ -4511,7 +4561,7 @@ FORM render_html.
             COND string(
               WHEN gv_is_approver = abap_false
                    AND ls_item-appr_status IS INITIAL AND ls_item-user_pref IS INITIAL THEN
-                |  <a href="sapevent:EDIT_REMARK?item={ ls_item-ebelp }" class="btn-refresh"| &&
+                |  <a href="SAPEVENT:EDIT_REMARK?item={ ls_item-ebelp }" onclick="return promptEditRemark('{ ls_item-ebelp }', '');" class="btn-refresh"| &&
                 ' style="font-size:9px;padding:1px 4px;margin-left:4px;">&#9998; Enter Reason</a>'
               ELSE
                 '  <span style="color:#b91c1c;font-size:9px;">(No reason entered)</span>'
@@ -4547,7 +4597,7 @@ FORM render_html.
             '  <span style="background:#16a34a;color:#ffffff;padding:2px 8px;border-radius:3px;font-weight:700;font-size:10px;">' &&
             '    &#10003; Approved' &&
             '  </span>' &&
-            |  <a href="sapevent:ME23N?ebeln={ ls_item-po_number }" class="btn-po-link">&#10003; PO { ls_item-po_number }</a>| &&
+            |  <a href="SAPEVENT:ME23N?ebeln={ ls_item-po_number }" class="btn-po-link">&#10003; PO { ls_item-po_number }</a>| &&
             '</div>'.
         ELSE.
           IF gv_is_approver = abap_true.
@@ -4557,7 +4607,7 @@ FORM render_html.
               '    &#10003; Approved' &&
               '  </span>' &&
               '  <span style="font-size:10px;color:#15803d;font-weight:600;">(Sent to Creator for PO)</span>' &&
-              |  <a href="sapevent:REJECT_ITEM?item={ ls_item-ebelp }" class="btn-reject"| &&
+              |  <a href="SAPEVENT:REJECT_ITEM?item={ ls_item-ebelp }" onclick="return promptRejectItem('{ ls_item-ebelp }');" class="btn-reject"| &&
               ' style="font-size:10px;padding:2px 6px;" title="Reject this item with compulsory remark">&#10007; Reject</a>' &&
               '</div>'.
           ELSE.
@@ -4566,7 +4616,7 @@ FORM render_html.
               '  <span style="background:#16a34a;color:#ffffff;padding:2px 8px;border-radius:3px;font-weight:700;font-size:10px;">' &&
               '    &#10003; Approved' &&
               '  </span>' &&
-              |  <a href="sapevent:CREATE_PO_SINGLE?item={ ls_item-ebelp }"| &&
+              |  <a href="SAPEVENT:CREATE_PO_SINGLE?item={ ls_item-ebelp }" onclick="if (!confirm('Create PO for Item { ls_item-ebelp }?')) return false;"| &&
               ' class="btn-po" style="font-size:10px;padding:2px 8px;" title="Create PO">&#128722; Create PO</a>' &&
               '</div>'.
           ENDIF.
@@ -4581,13 +4631,13 @@ FORM render_html.
           '  </span>' &&
           COND string(
             WHEN gv_is_approver = abap_true THEN
-              |  <a href="sapevent:APPROVE_ITEM?item={ ls_item-ebelp }" class="btn-pill-sel"| &&
+              |  <a href="SAPEVENT:APPROVE_ITEM?item={ ls_item-ebelp }" onclick="return confirmApproveItem('{ ls_item-ebelp }');" class="btn-pill-sel"| &&
               ' style="font-size:10px;padding:2px 6px;background:#059669;color:#fff;"' &&
               ' title="Approve this item">&#10003; Approve</a>'
             ELSE
-              |  <a href="sapevent:ME47?ebeln={ ls_item-sel_ebeln }" class="btn-refresh"| &&
+              |  <a href="SAPEVENT:ME47?ebeln={ ls_item-sel_ebeln }" class="btn-refresh"| &&
               ' style="font-size:10px;padding:2px 6px;" title="Maintain dates/prices in ME47">&#9998; Edit ME47</a>' &&
-              |  <a href="sapevent:SUBMIT_SINGLE?item={ ls_item-ebelp }" class="btn-pill-sel"| &&
+              |  <a href="SAPEVENT:SUBMIT_SINGLE?item={ ls_item-ebelp }" onclick="if (!confirm('Resend Item { ls_item-ebelp } for approval?')) return false;" class="btn-pill-sel"| &&
               ' style="font-size:10px;padding:2px 6px;background:#f59e0b;color:#fff;"' &&
               ' title="Resend this item to HOD for approval">&#128228; Resend for Approval</a>'
           ) &&
@@ -4607,10 +4657,12 @@ FORM render_html.
             '  <span style="background:#f59e0b;color:#ffffff;padding:2px 8px;border-radius:3px;font-weight:700;font-size:10px;">' &&
             '    &#9203; Pending Approval' &&
             '  </span>' &&
-            |  <a href="sapevent:APPROVE_ITEM?item={ ls_item-ebelp }"| &&
+            |  <a href="SAPEVENT:APPROVE_ITEM?item={ ls_item-ebelp }"| &&
+            | onclick="return confirmApproveItem('{ ls_item-ebelp }');"| &&
             ' class="btn-pill-sel" style="font-size:10px;padding:2px 6px;background:#059669;color:#fff;"' &&
             ' title="Approve this item">&#10003; Approve</a>' &&
-            |  <a href="sapevent:REJECT_ITEM?item={ ls_item-ebelp }"| &&
+            |  <a href="SAPEVENT:REJECT_ITEM?item={ ls_item-ebelp }"| &&
+            | onclick="return promptRejectItem('{ ls_item-ebelp }');"| &&
             ' class="btn-reject" style="font-size:10px;padding:2px 6px;"' &&
             ' title="Reject this item with compulsory remark">&#10007; Reject</a>' &&
             '</div>'.
@@ -4628,7 +4680,7 @@ FORM render_html.
               '  <span style="background:#64748b;color:#ffffff;padding:2px 8px;border-radius:3px;font-weight:600;font-size:10px;">' &&
               '    Draft' &&
               '  </span>' &&
-              |  <a href="sapevent:SUBMIT_SINGLE?item={ ls_item-ebelp }" class="btn-pill-sel"| &&
+              |  <a href="SAPEVENT:SUBMIT_SINGLE?item={ ls_item-ebelp }" onclick="if (!confirm('Submit Item { ls_item-ebelp } for approval?')) return false;" class="btn-pill-sel"| &&
               ' style="font-size:10px;padding:2px 6px;background:#f59e0b;color:#fff;"' &&
               ' title="Send this item for approval">&#128228; Submit</a>' &&
               '</div>'.
@@ -4736,7 +4788,7 @@ FORM render_html.
     '<tr style="background: #fffbeb;">' &&
     '  <td colspan="6" class="tot-label" style="font-weight: 700; color: #b45309;">' &&
     '    Total Delivery Cost / Freight' &&
-    '    <a href="sapevent:SHOW_FREIGHT" style="margin-left: 8px; font-size: 10px; font-weight: 600; color: #b45309; text-decoration: underline;"' &&
+    '    <a href="SAPEVENT:SHOW_FREIGHT" style="margin-left: 8px; font-size: 10px; font-weight: 600; color: #b45309; text-decoration: underline;"' &&
     '       title="Click to view quotation & item-wise breakdown of all freight conditions">&#128269; View All Breakdown</a>' &&
     '  </td>'.
 
@@ -4966,8 +5018,49 @@ FORM render_html.
     'function applyRate() {' &&
     '  var val = document.getElementById("inpRate").value;' &&
     '  if (val && !isNaN(val)) {' &&
-    '    window.location.href = "sapevent:SET_RATE?rate=" + encodeURIComponent(val);' &&
+    '    window.location.href = "SAPEVENT:SET_RATE?rate=" + encodeURIComponent(val);' &&
     '  }' &&
+    '}' &&
+    'function confirmApproveAll() {' &&
+    '  if (confirm("Are you sure you want to approve all pending quotation items?")) {' &&
+    '    window.location.href = "SAPEVENT:APPROVE";' &&
+    '  }' &&
+    '  return false;' &&
+    '}' &&
+    'function confirmApproveItem(item) {' &&
+    '  if (confirm("Approve quotation selection for Item " + item + "?")) {' &&
+    '    window.location.href = "SAPEVENT:APPROVE_ITEM?item=" + encodeURIComponent(item);' &&
+    '  }' &&
+    '  return false;' &&
+    '}' &&
+    'function promptRejectAll() {' &&
+    '  var rem = prompt("Enter mandatory rejection reason for all quotation items:", "");' &&
+    '  if (rem === null) return false;' &&
+    '  rem = rem.trim();' &&
+    '  if (!rem) {' &&
+    '    alert("Rejection reason cannot be empty!");' &&
+    '    return false;' &&
+    '  }' &&
+    '  window.location.href = "SAPEVENT:REJECT?remark=" + encodeURIComponent(rem);' &&
+    '  return false;' &&
+    '}' &&
+    'function promptRejectItem(item) {' &&
+    '  var rem = prompt("Enter mandatory rejection reason for Item " + item + ":", "");' &&
+    '  if (rem === null) return false;' &&
+    '  rem = rem.trim();' &&
+    '  if (!rem) {' &&
+    '    alert("Rejection reason cannot be empty!");' &&
+    '    return false;' &&
+    '  }' &&
+    '  window.location.href = "SAPEVENT:REJECT_ITEM?item=" + encodeURIComponent(item) + "&remark=" + encodeURIComponent(rem);' &&
+    '  return false;' &&
+    '}' &&
+    'function promptEditRemark(item, curVal) {' &&
+    '  var rem = prompt("Enter justification / reason for selecting non-L1 quotation for Item " + item + ":", curVal || "");' &&
+    '  if (rem === null) return false;' &&
+    '  rem = rem.trim();' &&
+    '  window.location.href = "SAPEVENT:EDIT_REMARK?item=" + encodeURIComponent(item) + "&remark=" + encodeURIComponent(rem);' &&
+    '  return false;' &&
     '}' &&
     '</script>' &&
     '</body></html>'.
@@ -5347,20 +5440,29 @@ FORM handle_html_action USING pv_action  TYPE any
           MESSAGE |Item { lv_ebelp } is in approval process. Remark modifications locked.| TYPE 'W'.
           RETURN.
         ENDIF.
-        DATA: lv_rem_cancel TYPE abap_bool.
-        PERFORM prompt_user_remark USING lv_ebelp
-                                 CHANGING <fs_rem_ir>-user_remark
-                                          lv_rem_cancel.
-        IF lv_rem_cancel = abap_false.
-          IF <fs_rem_ir>-sel_ebeln IS NOT INITIAL AND <fs_rem_ir>-sel_ebelp IS NOT INITIAL.
-            UPDATE zmm_t_021
-              SET zremark = @<fs_rem_ir>-user_remark
-              WHERE zquotation = @<fs_rem_ir>-sel_ebeln
-                AND zqitem     = @<fs_rem_ir>-sel_ebelp.
-            COMMIT WORK.
+        DATA: lv_rem_cancel     TYPE abap_bool,
+              lv_edit_rem_param TYPE string.
+        CLEAR: lv_edit_rem_param, lv_rem_cancel.
+        PERFORM parse_query_param USING lv_data 'remark' CHANGING lv_edit_rem_param.
+        IF lv_edit_rem_param IS NOT INITIAL.
+          <fs_rem_ir>-user_remark = lv_edit_rem_param.
+          CONDENSE <fs_rem_ir>-user_remark.
+        ELSE.
+          PERFORM prompt_user_remark USING lv_ebelp
+                                   CHANGING <fs_rem_ir>-user_remark
+                                            lv_rem_cancel.
+          IF lv_rem_cancel = abap_true.
+            RETURN.
           ENDIF.
-          MESSAGE |Justification remark updated for Item { lv_ebelp }.| TYPE 'S'.
         ENDIF.
+        IF <fs_rem_ir>-sel_ebeln IS NOT INITIAL AND <fs_rem_ir>-sel_ebelp IS NOT INITIAL.
+          UPDATE zmm_t_021
+            SET zremark = @<fs_rem_ir>-user_remark
+            WHERE zquotation = @<fs_rem_ir>-sel_ebeln
+              AND zqitem     = @<fs_rem_ir>-sel_ebelp.
+          COMMIT WORK.
+        ENDIF.
+        MESSAGE |Justification remark updated for Item { lv_ebelp }.| TYPE 'S'.
         PERFORM render_html.
       ENDIF.
 
@@ -5479,13 +5581,21 @@ FORM handle_html_action USING pv_action  TYPE any
       ENDIF.
       DATA: lv_rej_all_remark TYPE zmm_de_aremark,
             lv_rej_all_cancel TYPE abap_bool,
-            lv_rej_all_ebelp  TYPE ekpo-ebelp.
-      PERFORM prompt_rejection_remark USING lv_rej_all_ebelp
-                                   CHANGING lv_rej_all_remark
-                                            lv_rej_all_cancel.
-      IF lv_rej_all_cancel = abap_true OR lv_rej_all_remark IS INITIAL.
-        MESSAGE 'Rejection cancelled. Rejection remark is compulsory.' TYPE 'S' DISPLAY LIKE 'E'.
-        RETURN.
+            lv_rej_all_ebelp  TYPE ekpo-ebelp,
+            lv_rem_param      TYPE string.
+      CLEAR: lv_rem_param, lv_rej_all_remark, lv_rej_all_cancel.
+      PERFORM parse_query_param USING lv_data 'remark' CHANGING lv_rem_param.
+      IF lv_rem_param IS NOT INITIAL.
+        lv_rej_all_remark = lv_rem_param.
+        CONDENSE lv_rej_all_remark.
+      ELSE.
+        PERFORM prompt_rejection_remark USING lv_rej_all_ebelp
+                                     CHANGING lv_rej_all_remark
+                                              lv_rej_all_cancel.
+        IF lv_rej_all_cancel = abap_true OR lv_rej_all_remark IS INITIAL.
+          MESSAGE 'Rejection cancelled. Rejection remark is compulsory.' TYPE 'S' DISPLAY LIKE 'E'.
+          RETURN.
+        ENDIF.
       ENDIF.
 
       DATA: lt_rej_items TYPE STANDARD TABLE OF string WITH DEFAULT KEY.
@@ -5558,13 +5668,21 @@ FORM handle_html_action USING pv_action  TYPE any
       READ TABLE gt_item_ref ASSIGNING FIELD-SYMBOL(<fs_it_rej>) WITH KEY ebelp = lv_ebelp.
       IF sy-subrc = 0 AND <fs_it_rej>-sel_lifnr IS NOT INITIAL.
         DATA: lv_rej_sgl_remark TYPE zmm_de_aremark,
-              lv_rej_sgl_cancel TYPE abap_bool.
-        PERFORM prompt_rejection_remark USING lv_ebelp
-                                     CHANGING lv_rej_sgl_remark
-                                              lv_rej_sgl_cancel.
-        IF lv_rej_sgl_cancel = abap_true OR lv_rej_sgl_remark IS INITIAL.
-          MESSAGE |Rejection of Item { lv_ebelp } cancelled. Rejection remark is compulsory.| TYPE 'S' DISPLAY LIKE 'E'.
-          RETURN.
+              lv_rej_sgl_cancel TYPE abap_bool,
+              lv_sgl_rem_param  TYPE string.
+        CLEAR: lv_sgl_rem_param, lv_rej_sgl_remark, lv_rej_sgl_cancel.
+        PERFORM parse_query_param USING lv_data 'remark' CHANGING lv_sgl_rem_param.
+        IF lv_sgl_rem_param IS NOT INITIAL.
+          lv_rej_sgl_remark = lv_sgl_rem_param.
+          CONDENSE lv_rej_sgl_remark.
+        ELSE.
+          PERFORM prompt_rejection_remark USING lv_ebelp
+                                       CHANGING lv_rej_sgl_remark
+                                                lv_rej_sgl_cancel.
+          IF lv_rej_sgl_cancel = abap_true OR lv_rej_sgl_remark IS INITIAL.
+            MESSAGE |Rejection of Item { lv_ebelp } cancelled. Rejection remark is compulsory.| TYPE 'S' DISPLAY LIKE 'E'.
+            RETURN.
+          ENDIF.
         ENDIF.
 
         UPDATE zmm_t_021
