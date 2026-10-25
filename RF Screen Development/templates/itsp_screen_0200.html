@@ -1,0 +1,87 @@
+`include(~service="itsmobile", ~theme="99", ~name="styles.template");`
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <title>Scan HU & Transfer</title>
+  <style>
+    body { font-family: monospace, Courier, sans-serif; font-size: 13px; background: #000000; color: #00ff66; margin: 0; padding: 4px; }
+    .rf-box { width: 100%; max-width: 320px; margin: 0 auto; }
+    .rf-header { font-weight: bold; background: #003300; padding: 4px; color: #ffffff; display: flex; justify-content: space-between; border: 1px solid #00aa33; }
+    .rf-card { border: 1px solid #333333; padding: 4px; margin-top: 4px; background: #111111; }
+    .rf-row { margin-top: 4px; display: flex; justify-content: space-between; align-items: center; }
+    .rf-highlight { color: #ffff00; font-weight: bold; }
+    .rf-cyan { color: #00ffff; font-weight: bold; }
+    .rf-scan-block { margin-top: 6px; background: #002200; border: 2px solid #00ff66; padding: 6px; border-radius: 4px; }
+    .rf-input-scan { font-size: 16px; font-weight: bold; background: #000000; color: #ffffff; border: 2px solid #ffff00; padding: 6px; width: 100%; box-sizing: border-box; }
+    .rf-msg { color: #ff5555; font-weight: bold; margin-top: 6px; font-size: 12px; min-height: 28px; line-height: 1.2; }
+    .rf-msg.success { color: #00ff66; }
+    .rf-btn-grid { margin-top: 8px; display: grid; grid-template-columns: 1fr 1fr; gap: 4px; }
+    .rf-btn { padding: 8px 4px; font-size: 13px; font-weight: bold; background: #006622; color: #ffffff; border: 1px solid #00ff66; cursor: pointer; text-align: center; }
+    .rf-btn-post { background: #008800; font-size: 15px; border: 2px solid #00ff66; grid-column: span 2; }
+    .rf-btn-sec { background: #333333; border-color: #666666; }
+  </style>
+</head>
+<body onload="document.getElementById('EXIDV_SCAN').focus();">
+  <form method="post" action="`wgateUrl()`" name="rfForm">
+    <input type="hidden" name="~OkCode" id="OkCode" value="">
+    <div class="rf-box">
+      <div class="rf-header">
+        <span>`G_SCR0200-DOC_TYPE` #`G_SCR0200-DOC_NUM`</span>
+        <span>Itm: `G_SCR0200-ITEM_CURR`/`G_SCR0200-ITEM_TOTAL`</span>
+      </div>
+
+      <div class="rf-card">
+        <div><strong>Mat:</strong> <span class="rf-highlight">`G_SCR0200-MATNR`</span></div>
+        <div style="font-size: 11px; color: #aaaaaa;">`G_SCR0200-MAKTX`</div>
+        <div class="rf-row">
+          <span>Plt/SL: `G_SCR0200-WERKS`/`G_SCR0200-LGORT`</span>
+          <span>Mvt: `G_SCR0200-BWART`</span>
+        </div>
+        <div class="rf-row">
+          <span>Target: `G_SCR0200-TARGET_QTY` `G_SCR0200-MEINS`</span>
+          <span class="rf-cyan">Open: `G_SCR0200-OPEN_QTY`</span>
+        </div>
+      </div>
+
+      <div class="rf-scan-block">
+        <label for="EXIDV_SCAN" style="font-weight: bold; color: #ffff00;">SCAN HU BARCODE:</label>
+        <input type="text" id="EXIDV_SCAN" name="G_SCR0200-EXIDV_SCAN" value="`G_SCR0200-EXIDV_SCAN`" class="rf-input-scan" autocomplete="off" onchange="submitRF('ENTR');">
+      </div>
+
+      <div class="rf-card" style="margin-top: 4px;">
+        <div class="rf-row">
+          <span>Batch: <span class="rf-highlight">`G_SCR0200-CHARG_DISP`</span></span>
+          <span>Serials: <span class="rf-cyan">`G_SCR0200-SER_COUNT`</span></span>
+        </div>
+        <div class="rf-row">
+          <span>Src Bin: `G_SCR0200-VLTYP_DISP`/`G_SCR0200-VLPLA_DISP`</span>
+          <span>SU: `G_SCR0200-LENUM_DISP`</span>
+        </div>
+        <div class="rf-row">
+          <span>Post Qty:</span>
+          <input type="text" name="G_SCR0200-POST_QTY" value="`G_SCR0200-POST_QTY`" style="width: 80px; text-align: right; background: #222; color: #fff; border: 1px solid #00ff66;">
+        </div>
+      </div>
+
+      <div class="rf-msg" id="msgBar">`G_SCR0200-STATUS_MSG`</div>
+
+      <div class="rf-btn-grid">
+        <button type="button" class="rf-btn rf-btn-post" onclick="submitRF('POST');">F1: EXECUTE POST (IM+WM)</button>
+        <button type="button" class="rf-btn" onclick="submitRF('NEXT');">F2: Next Item</button>
+        <button type="button" class="rf-btn" onclick="submitRF('CLEA');">F4: Clear Scan</button>
+        <button type="button" class="rf-btn rf-btn-sec" onclick="submitRF('SERN');">F6: View Serials</button>
+        <button type="button" class="rf-btn rf-btn-sec" onclick="submitRF('BINS');">F7: Avail Bins</button>
+        <button type="button" class="rf-btn rf-btn-sec" onclick="submitRF('BACK');" style="grid-column: span 2;">F3: Back to Selection</button>
+      </div>
+    </div>
+  </form>
+  <script>
+    function submitRF(fcode) {
+      document.getElementById('OkCode').value = fcode;
+      document.rfForm.submit();
+    }
+  </script>
+</body>
+</html>

@@ -1,0 +1,45 @@
+*======================================================================*
+* DYNPRO SCREEN DEFINITION: 0100 (Selection Screen)
+* Program: SAPMZRF_RES_WM_TRANSFER / ZRF_RES_WM_TRANSFER
+* Screen Type: Normal (RF Terminal Layout 16 lines x 20/40 cols)
+* Maintenance Transaction: SE51 / ADT
+*======================================================================*
+
+----------------------------------------------------------------------
+1. FLOW LOGIC (Screen 0100)
+----------------------------------------------------------------------
+PROCESS BEFORE OUTPUT.
+  MODULE status_0100.
+
+PROCESS AFTER INPUT.
+  MODULE user_command_0100.
+
+----------------------------------------------------------------------
+2. SCREEN PF-STATUS & GUI TITLE DEFINITIONS
+----------------------------------------------------------------------
+GUI Status : STATUS_0100
+Titlebar   : TITLE_0100 ("RF Reservation -> WM Transfer")
+
+Function Keys / Pushbuttons:
+  ENTER (Fcode: ENTR) -> Validate & Enter
+  F3    (Fcode: BACK) -> Back / Exit
+  F4    (Fcode: CLEA) -> Clear Inputs
+  F12   (Fcode: CANC) -> Cancel
+
+----------------------------------------------------------------------
+3. SCREEN ELEMENTS (Layout Painter / 16 x 20 Character Layout)
+----------------------------------------------------------------------
+Line | Col | Type  | Field Name               | Length | Attributes / Text
+-----+-----+-------+--------------------------+--------+-----------------------------------
+ 01  | 01  | TEXT  | TXT_TITLE                | 20     | *** RF RES->WM ***
+ 02  | 01  | TEXT  | TXT_WH                   | 07     | Whse:
+ 02  | 08  | INPUT | G_SCR0100-LGNUM          | 03     | Char 3, Required, Uppercase
+ 04  | 01  | RADIO | G_SCR0100-RAD_RES        | 01     | Radiobutton Group G1, Default 'X'
+ 04  | 03  | TEXT  | TXT_RES                  | 15     | Reservation (RES)
+ 05  | 01  | RADIO | G_SCR0100-RAD_TR         | 01     | Radiobutton Group G1
+ 05  | 03  | TEXT  | TXT_TR                   | 15     | Transfer Req (TR)
+ 07  | 01  | TEXT  | TXT_DOC                  | 08     | Doc No:
+ 08  | 01  | INPUT | G_SCR0100-DOC_NUM        | 10     | Char 10, Required, Barcode Scannable
+ 10  | 01  | TEXT  | TXT_HINT                 | 20     | [ENTR] Proc [F4] Clr
+ 12  | 01  | OUTPT | G_SCR0100-MSG            | 40     | Char 40, Output Only, Red text on error
+----------------------------------------------------------------------

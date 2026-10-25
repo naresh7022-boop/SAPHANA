@@ -10,6 +10,13 @@
       "env": {
         "NODE_TLS_REJECT_UNAUTHORIZED": "0"
       }
+    },
+    "fiori-mcp": {
+      "type": "stdio",
+      "command": "node",
+      "args": [
+        "/Users/naresh/.gemini/antigravity-ide/scratch/fiori-mcp/node_modules/@sap-ux/fiori-mcp-server/dist/index.js"
+      ]
     }
   }
 }

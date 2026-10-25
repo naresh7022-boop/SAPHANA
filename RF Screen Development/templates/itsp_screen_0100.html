@@ -1,0 +1,60 @@
+`include(~service="itsmobile", ~theme="99", ~name="styles.template");`
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <title>RF RES -> WM Transfer</title>
+  <style>
+    body { font-family: monospace, Courier, sans-serif; font-size: 14px; background: #000000; color: #00ff66; margin: 0; padding: 4px; }
+    .rf-box { width: 100%; max-width: 320px; margin: 0 auto; }
+    .rf-header { font-weight: bold; text-align: center; background: #003300; padding: 4px; color: #ffffff; border: 1px solid #00aa33; }
+    .rf-row { margin-top: 6px; display: flex; align-items: center; }
+    .rf-label { width: 80px; font-weight: bold; }
+    .rf-input { font-size: 16px; font-weight: bold; background: #222222; color: #ffffff; border: 2px solid #00ff66; padding: 4px; width: 100%; box-sizing: border-box; }
+    .rf-radio-grp { margin: 6px 0; border: 1px solid #333; padding: 4px; }
+    .rf-msg { color: #ff3333; font-weight: bold; margin-top: 6px; min-height: 20px; }
+    .rf-btn-row { margin-top: 10px; display: flex; gap: 4px; }
+    .rf-btn { flex: 1; padding: 8px 4px; font-size: 14px; font-weight: bold; background: #006622; color: #ffffff; border: 1px solid #00ff66; cursor: pointer; }
+    .rf-btn-sec { background: #444444; border-color: #888888; }
+  </style>
+</head>
+<body onload="document.getElementById('DOC_NUM').focus();">
+  <form method="post" action="`wgateUrl()`" name="rfForm">
+    <input type="hidden" name="~OkCode" id="OkCode" value="">
+    <div class="rf-box">
+      <div class="rf-header">*** RF RES -&gt; WM ***</div>
+      <div class="rf-row">
+        <span class="rf-label">Whse:</span>
+        <input type="text" name="G_SCR0100-LGNUM" value="`G_SCR0100-LGNUM`" class="rf-input" style="width: 70px;" maxlength="3">
+      </div>
+      <div class="rf-radio-grp">
+        <div>
+          <input type="radio" id="rad_res" name="DOC_SELECT" value="RES" checked>
+          <label for="rad_res">Reservation (RES)</label>
+        </div>
+        <div>
+          <input type="radio" id="rad_tr" name="DOC_SELECT" value="TR">
+          <label for="rad_tr">Transfer Req (TR)</label>
+        </div>
+      </div>
+      <div class="rf-row" style="flex-direction: column; align-items: flex-start;">
+        <span class="rf-label" style="width: 100%;">Scan Doc No:</span>
+        <input type="text" id="DOC_NUM" name="G_SCR0100-DOC_NUM" value="`G_SCR0100-DOC_NUM`" class="rf-input" maxlength="10" autocomplete="off">
+      </div>
+      <div class="rf-msg" id="statusMsg">`G_SCR0100-MSG`</div>
+      <div class="rf-btn-row">
+        <button type="button" class="rf-btn" onclick="submitRF('ENTR');">Enter (↵)</button>
+        <button type="button" class="rf-btn rf-btn-sec" onclick="submitRF('CLEA');">Clear (F4)</button>
+        <button type="button" class="rf-btn rf-btn-sec" onclick="submitRF('BACK');">Exit (F3)</button>
+      </div>
+    </div>
+  </form>
+  <script>
+    function submitRF(fcode) {
+      document.getElementById('OkCode').value = fcode;
+      document.rfForm.submit();
+    }
+  </script>
+</body>
+</html>

@@ -959,10 +959,11 @@
         <button class="sim-btn" id="btnStateRejected" onclick="setItemState('REJECTED')">✗ Item Rejected (Show Rejection Reason)</button>
       </div>
 
-      <!-- User Role Switcher -->
+      <!-- User Role Display (Determined strictly by SAP Login via ZMM_T_023) -->
       <div class="sim-group">
-        <button class="sim-btn active" id="btnRoleUser" onclick="setRole('USER')">👤 Requester (NARESH)</button>
-        <button class="sim-btn" id="btnRoleApprover" onclick="setRole('APPROVER')">🛡️ HOD Approver (DIPAK)</button>
+        <span style="font-size:11px;font-weight:700;color:#cbd5e1;display:flex;align-items:center;padding:0 10px;background:#1e293b;border-radius:4px;border:1px solid #334155;">
+          SAP Login: NARESH · Role: Requester (ZMM_T_023)
+        </span>
       </div>
     </div>
   </div>
@@ -1008,7 +1009,7 @@
           <span>%</span>
           <button onclick="alert('Rate applied: 12.00%')" class="btn-apply">Apply</button>
         </div>
-        <a href="javascript:void(0)" onclick="location.reload()" class="btn-refresh">&#128260; Refresh</a>
+        <a href="https://172.27.100.32:44300/sap/bc/gui/sap/its/webgui?sap-client=220&amp;sap-user=DRATHOD&amp;~transaction=ZPQC_NEW" target="_blank" class="btn-refresh" style="background:#0284c7;color:#fff;border-color:#0369a1;text-decoration:none;" title="Open in SAP WebGUI as Approver (DRATHOD)">&#127760; WebGUI (Approver: DRATHOD)</a>
 
         <!-- Dynamic Header Actions based on Role and Status -->
         <span id="roleActionsContainer"></span>
@@ -1716,7 +1717,8 @@
 
           <div style="margin-top:14px;background:#0f172a;padding:12px;border-radius:6px;border:1px solid #334155;font-size:11px;line-height:1.6;">
             <div style="font-weight:700;color:#f8fafc;margin-bottom:6px;">Direct Browser Launch URLs for Testing:</div>
-            <div>• <strong>Direct WebGUI URL:</strong> <a href="https://172.27.100.32:44300/sap/bc/gui/sap/its/webgui?sap-client=220&amp;~transaction=ZPQC_NEW" target="_blank" style="color:#38bdf8;text-decoration:underline;">https://172.27.100.32:44300/sap/bc/gui/sap/its/webgui?sap-client=220&amp;~transaction=ZPQC_NEW</a></div>
+            <div>• <strong>Approver WebGUI URL (DRATHOD):</strong> <a href="https://172.27.100.32:44300/sap/bc/gui/sap/its/webgui?sap-client=220&amp;sap-user=DRATHOD&amp;~transaction=ZPQC_NEW" target="_blank" style="color:#38bdf8;text-decoration:underline;">https://172.27.100.32:44300/sap/bc/gui/sap/its/webgui?sap-client=220&amp;sap-user=DRATHOD&amp;~transaction=ZPQC_NEW</a></div>
+            <div>• <strong>Creator WebGUI URL (NARESH):</strong> <a href="https://172.27.100.32:44300/sap/bc/gui/sap/its/webgui?sap-client=220&amp;sap-user=NARESH&amp;~transaction=ZPQC_NEW" target="_blank" style="color:#38bdf8;text-decoration:underline;">https://172.27.100.32:44300/sap/bc/gui/sap/its/webgui?sap-client=220&amp;sap-user=NARESH&amp;~transaction=ZPQC_NEW</a></div>
             <div>• <strong>Fiori Launchpad Intent URL:</strong> <a href="https://172.27.100.32:44300/sap/bc/ui5_ui5/ui2/ushell/shells/abap/FioriLaunchpad.html?sap-client=220#ZPQC_NEW-manage" target="_blank" style="color:#38bdf8;text-decoration:underline;">https://172.27.100.32:44300/sap/bc/ui5_ui5/ui2/ushell/shells/abap/FioriLaunchpad.html?sap-client=220#ZPQC_NEW-manage</a></div>
           </div>
         </div>
@@ -1774,8 +1776,10 @@
 
   function setRole(role) {
     currentRole = role;
-    document.getElementById('btnRoleUser').className = (role === 'USER') ? 'sim-btn active' : 'sim-btn';
-    document.getElementById('btnRoleApprover').className = (role === 'APPROVER') ? 'sim-btn active' : 'sim-btn';
+    const bUser = document.getElementById('btnRoleUser');
+    const bAppr = document.getElementById('btnRoleApprover');
+    if (bUser) bUser.className = (role === 'USER') ? 'sim-btn active' : 'sim-btn';
+    if (bAppr) bAppr.className = (role === 'APPROVER') ? 'sim-btn active' : 'sim-btn';
     
     const hodBadge = document.getElementById('hodHeaderBadge');
     if (hodBadge) {
@@ -1856,17 +1860,19 @@
       // STATE: IN APPROVAL
       if (currentRole === 'USER') {
         roleBadgeContainer.innerHTML =
-          '<span class="badge-count" style="background:#f59e0b;color:#ffffff;border:1px solid #d97706;font-weight:700;padding:3px 10px;font-size:11px;">⏳ 1 Pending Approver (Dipak Rathod)</span>';
+          '<span class="badge-count" style="background:#f59e0b;color:#ffffff;border:1px solid #d97706;font-weight:700;padding:3px 10px;font-size:11px;">⏳ 1 Pending Approver (Dipak Rathod)</span>' +
+          ' <span class="badge-count" style="background:#eff6ff;color:#1e40af;border:1px solid #bfdbfe;font-weight:600;padding:3px 10px;font-size:11px;">✉️ Sent via SAPHANA@Aether.co.in</span>';
 
         roleActionsContainer.innerHTML =
-          '<a href="javascript:void(0)" onclick="alert(\'Item is currently awaiting Approver approval. Details and PO creation are locked.\')" class="btn-po-disabled" title="Locked: Awaiting HOD Approval">🔒 Create PO (Locked)</a>';
+          '<a href="javascript:void(0)" onclick="alert(\'Item is currently awaiting Approver (Dipak Rathod) approval.\\nEmail sent from: SAPHANA@Aether.co.in\\nDetails and PO creation are locked.\')" class="btn-po-disabled" title="Locked: Awaiting HOD Approval">🔒 Create PO (Locked)</a>';
       } else {
         roleBadgeContainer.innerHTML =
           '<span class="badge-count" style="background:#4f46e5;color:#ffffff;border:1px solid #4338ca;font-weight:700;padding:3px 10px;font-size:11px;">🛡️ Approver Mode (Dipak Rathod)</span>' +
-          ' <span class="badge-count" style="background:#f59e0b;color:#ffffff;border:1px solid #d97706;font-weight:700;padding:3px 10px;font-size:11px;">⏳ 1 Awaiting Approval</span>';
+          ' <span class="badge-count" style="background:#f59e0b;color:#ffffff;border:1px solid #d97706;font-weight:700;padding:3px 10px;font-size:11px;">⏳ 1 Awaiting Approval</span>' +
+          ' <span class="badge-count" style="background:#eff6ff;color:#1e40af;border:1px solid #bfdbfe;font-weight:600;padding:3px 10px;font-size:11px;">✉️ Received from SAPHANA@Aether.co.in</span>';
 
         roleActionsContainer.innerHTML =
-          '<a href="javascript:void(0)" onclick="setItemState(\'APPROVED\'); alert(\'Quotation comparison approved by Dipak Rathod!\')" class="btn-po" style="background:#059669;" title="Approve pending items">✓ Approve All (1)</a>' +
+          '<a href="javascript:void(0)" onclick="setItemState(\'APPROVED\'); alert(\'Quotation comparison approved by Dipak Rathod!\\nNotification email sent to creator via SAPHANA@Aether.co.in\')" class="btn-po" style="background:#059669;" title="Approve pending items">✓ Approve All (1)</a>' +
           ' <a href="javascript:void(0)" onclick="promptRejectionRemark()" class="btn-reject" title="Reject pending items (Mandatory Remark)">✗ Reject All</a>';
       }
 

@@ -208,6 +208,13 @@ CLASS lcl_html_handler DEFINITION FINAL.
       IMPORTING action frame getdata postdata query_table.
 ENDCLASS.
 
+CLASS lcl_browser_handler DEFINITION FINAL.
+  PUBLIC SECTION.
+    CLASS-METHODS on_sapevent
+      FOR EVENT sapevent OF cl_abap_browser
+      IMPORTING action query_table.
+ENDCLASS.
+
 TYPES: BEGIN OF ty_q_frt_item,
          ebeln   TYPE ekko-ebeln,
          ebelp   TYPE ekpo-ebelp,
@@ -268,8 +275,7 @@ SELECTION-SCREEN END OF BLOCK b1.
 
 SELECTION-SCREEN BEGIN OF BLOCK b2 WITH FRAME TITLE t_b2.
   PARAMETERS: p_bsart TYPE ekko-bsart DEFAULT 'NB',
-              p_test  AS CHECKBOX DEFAULT ' ',
-              p_apprv AS CHECKBOX DEFAULT ' '.
+              p_test  AS CHECKBOX DEFAULT ' '.
 SELECTION-SCREEN END OF BLOCK b2.
 
 SELECTION-SCREEN BEGIN OF BLOCK b3 WITH FRAME TITLE t_b3.
@@ -292,7 +298,6 @@ INITIALIZATION.
   %_s_matnr_%_app_%-text = 'Material Number'.
   %_p_bsart_%_app_%-text = 'Target PO Doc Type'.
   %_p_test_%_app_%-text  = 'Simulation / Test Run'.
-  %_p_apprv_%_app_%-text = 'Simulate Approver Role (HOD)'.
   %_p_rate_%_app_%-text  = 'Interest Rate (%)'.
   %_p_v_htm_%_app_%-text = 'Modern Dynamic HTML Dashboard'.
   %_p_v_alv_%_app_%-text = 'Classical ALV Matrix View'.
@@ -308,14 +313,6 @@ AT SELECTION-SCREEN OUTPUT.
   IF go_html IS NOT INITIAL.
     go_html->free( ).
     CLEAR go_html.
-  ENDIF.
-
-  " Auto-detect Approver role from master table ZMM_T_023
-  DATA: lv_is_appr_sel TYPE abap_bool VALUE abap_false.
-  SELECT COUNT(*) FROM zmm_t_023 WHERE zuser = @sy-uname.
-  IF sy-subrc = 0 AND sy-dbcnt > 0.
-    lv_is_appr_sel = abap_true.
-    p_apprv        = abap_true.
   ENDIF.
 
   " Auto-default collective number if empty (for BOTH User and Approver)
@@ -379,21 +376,14 @@ START-OF-SELECTION.
   ELSEIF p_v_alv = abap_true.
     PERFORM display.
   ELSE.
-    WRITE: space. " Initializes standard output screen and triggers TOP-OF-PAGE
-    IF go_html IS INITIAL.
-      PERFORM display_html.
-    ENDIF.
+    PERFORM display_html.
   ENDIF.
 
 *----------------------------------------------------------------------*
 * Top of Page (List Output Screen)
 *----------------------------------------------------------------------*
 TOP-OF-PAGE.
-  IF p_v_htm = abap_true AND cl_gui_alv_grid=>offline( ) = 0 AND sy-batch IS INITIAL.
-    IF go_html IS INITIAL.
-      PERFORM display_html.
-    ENDIF.
-  ENDIF.
+  " Modern Dynamic HTML Dashboard runs via Dynpro Screen 2000 (CL_ABAP_BROWSER)
 
 *&---------------------------------------------------------------------*
 *& Form get_data
@@ -1725,7 +1715,15 @@ FORM display.
     ( fieldname = 'PO_ACTION' seltext_m = 'Action'   outputlen = '25' hotspot = 'X' )
   ).
 
+  DATA: lv_alv_title TYPE lvc_title.
+  IF gv_is_approver = abap_true.
+    lv_alv_title = |PQC Approver View - Collective { gv_submi } (HOD: { gv_hod_name })|.
+  ELSE.
+    lv_alv_title = |Quotation Price Comparison & PO Creation - Collective { gv_submi }|.
+  ENDIF.
+
   DATA(ls_layout) = VALUE slis_layout_alv(
+    window_titlebar  = lv_alv_title
     no_colhead       = 'X'
     info_fieldname   = 'COLOR'
     coltab_fieldname = 'CELL_COLORS'
@@ -1886,6 +1884,7 @@ FORM user_command USING r_ucomm LIKE sy-ucomm
           MESSAGE 'Please select supplier for items before sending to HOD.' TYPE 'I'.
         ENDIF.
       ENDIF.
+      PERFORM get_data.
       rs_selfield-refresh    = abap_true.
       rs_selfield-col_stable = abap_true.
       rs_selfield-row_stable = abap_true.
@@ -1895,6 +1894,7 @@ FORM user_command USING r_ucomm LIKE sy-ucomm
     " Row 4: Reject All (Approver only)
     IF rs_selfield-tabindex = 4 AND gv_is_approver = abap_true.
       PERFORM handle_html_action USING 'REJECT' space.
+      PERFORM get_data.
       rs_selfield-refresh    = abap_true.
       rs_selfield-col_stable = abap_true.
       rs_selfield-row_stable = abap_true.
@@ -1931,6 +1931,7 @@ FORM user_command USING r_ucomm LIKE sy-ucomm
           ELSE.
             PERFORM create_po_for_selected USING rs_selfield-tabindex.
           ENDIF.
+          PERFORM get_data.
           rs_selfield-refresh    = abap_true.
           rs_selfield-col_stable = abap_true.
           rs_selfield-row_stable = abap_true.
@@ -1942,6 +1943,7 @@ FORM user_command USING r_ucomm LIKE sy-ucomm
             lv_act_param = |item={ lv_act_ebelp }|.
             PERFORM handle_html_action USING 'APPROVE_ITEM' lv_act_param.
           ENDIF.
+          PERFORM get_data.
           rs_selfield-refresh    = abap_true.
           rs_selfield-col_stable = abap_true.
           rs_selfield-row_stable = abap_true.
@@ -1952,6 +1954,7 @@ FORM user_command USING r_ucomm LIKE sy-ucomm
             DATA: lv_act_p_rej TYPE string.
             lv_act_p_rej = |item={ lv_act_ebelp }|.
             PERFORM handle_html_action USING 'REJECT_ITEM' lv_act_p_rej.
+            PERFORM get_data.
             rs_selfield-refresh    = abap_true.
             rs_selfield-col_stable = abap_true.
             rs_selfield-row_stable = abap_true.
@@ -1981,6 +1984,7 @@ FORM user_command USING r_ucomm LIKE sy-ucomm
                 DATA: lv_act_p_res TYPE string.
                 lv_act_p_res = |item={ lv_act_ebelp }|.
                 PERFORM handle_html_action USING 'SUBMIT_SINGLE' lv_act_p_res.
+                PERFORM get_data.
                 rs_selfield-refresh    = abap_true.
                 rs_selfield-col_stable = abap_true.
                 rs_selfield-row_stable = abap_true.
@@ -1997,6 +2001,7 @@ FORM user_command USING r_ucomm LIKE sy-ucomm
             lv_act_p2 = |item={ lv_act_ebelp }|.
             PERFORM handle_html_action USING 'SUBMIT_SINGLE' lv_act_p2.
           ENDIF.
+          PERFORM get_data.
           rs_selfield-refresh    = abap_true.
           rs_selfield-col_stable = abap_true.
           rs_selfield-row_stable = abap_true.
@@ -3486,49 +3491,46 @@ CLASS lcl_html_handler IMPLEMENTATION.
   ENDMETHOD.
 ENDCLASS.
 
+CLASS lcl_browser_handler IMPLEMENTATION.
+  METHOD on_sapevent.
+    DATA: lv_act     TYPE string,
+          lv_getdata TYPE string.
+
+    lv_act = action.
+    LOOP AT query_table INTO DATA(ls_q).
+      IF lv_getdata IS INITIAL.
+        lv_getdata = |{ ls_q-name }={ ls_q-value }|.
+      ELSE.
+        lv_getdata = |{ lv_getdata }&{ ls_q-name }={ ls_q-value }|.
+      ENDIF.
+    ENDLOOP.
+
+    IF lv_act CS '?'.
+      DATA: lv_act_part TYPE string,
+            lv_qry_part TYPE string.
+      SPLIT lv_act AT '?' INTO lv_act_part lv_qry_part.
+      lv_act = lv_act_part.
+      IF lv_getdata IS INITIAL.
+        lv_getdata = lv_qry_part.
+      ENDIF.
+    ENDIF.
+
+    PERFORM handle_html_action USING lv_act lv_getdata.
+  ENDMETHOD.
+ENDCLASS.
+
 *&---------------------------------------------------------------------*
 *& Form display_html
 *&---------------------------------------------------------------------*
 FORM display_html.
-
-  IF go_html IS INITIAL.
-    IF cl_gui_container=>default_screen IS BOUND.
-      CREATE OBJECT go_html
-        EXPORTING
-          parent = cl_gui_container=>default_screen.
-    ELSE.
-      CREATE OBJECT go_docking
-        EXPORTING
-          repid                   = sy-repid
-          dynnr                   = sy-dynnr
-          side                    = cl_gui_docking_container=>dock_at_top
-          extension               = 2000
-          no_autodef_progid_dynnr = 'X'.
-
-      CREATE OBJECT go_html
-        EXPORTING
-          parent = go_docking.
-    ENDIF.
-
-    DATA: lt_events TYPE cntl_simple_events.
-    lt_events = VALUE #( ( eventid = cl_gui_html_viewer=>m_id_sapevent appl_event = '' ) ).
-    go_html->set_registered_events( events = lt_events ).
-
-    SET HANDLER lcl_html_handler=>on_sapevent FOR go_html.
-  ENDIF.
-
+  SET HANDLER lcl_browser_handler=>on_sapevent.
   PERFORM render_html.
-
 ENDFORM.
 
 *&---------------------------------------------------------------------*
 *& Form render_html
 *&---------------------------------------------------------------------*
 FORM render_html.
-
-  IF go_html IS INITIAL.
-    RETURN.
-  ENDIF.
 
   DATA: lv_html TYPE string,
         lv_css  TYPE string,
@@ -4970,50 +4972,23 @@ FORM render_html.
     '</script>' &&
     '</body></html>'.
 
-  " Load HTML into viewer via binary UTF-8 stream
-  DATA: lv_xstring TYPE xstring,
-        lt_binary  TYPE solix_tab,
-        lv_size    TYPE i,
-        lv_url     TYPE c LENGTH 255.
-
-  CALL FUNCTION 'SCMS_STRING_TO_XSTRING'
-    EXPORTING
-      text   = lv_html
-    IMPORTING
-      buffer = lv_xstring.
-
-  lv_size = xstrlen( lv_xstring ).
-
-  CALL FUNCTION 'SCMS_XSTRING_TO_BINARY'
-    EXPORTING
-      buffer     = lv_xstring
-    TABLES
-      binary_tab = lt_binary.
-
-  go_html->load_data(
-    EXPORTING
-      type         = 'text'
-      subtype      = 'html'
-      size         = lv_size
-    IMPORTING
-      assigned_url = lv_url
-    CHANGING
-      data_table   = lt_binary
-    EXCEPTIONS
-      OTHERS       = 1 ).
-
-  IF sy-subrc = 0.
-    go_html->show_url(
-      EXPORTING
-        url      = lv_url
-        in_place = 'X'
-      EXCEPTIONS
-        OTHERS   = 1 ).
+  DATA: lv_title TYPE cl_abap_browser=>title.
+  IF gv_is_approver = abap_true.
+    lv_title = |PQC Approver View - Collective { gv_submi } (HOD: { gv_hod_name })|.
+  ELSE.
+    lv_title = |Quotation Price Comparison Dashboard - Collective { gv_submi }|.
   ENDIF.
 
-  CALL METHOD cl_gui_cfw=>flush
-    EXCEPTIONS
-      OTHERS = 1.
+  DATA(lv_xstr) = cl_abap_codepage=>convert_to( source = lv_html codepage = 'UTF-8' ).
+
+  cl_abap_browser=>show_html(
+    html_xstring = lv_xstr
+    title        = lv_title
+    size         = cl_abap_browser=>xlarge
+    format       = cl_abap_browser=>landscape
+    dialog       = abap_false
+    check_html   = abap_false
+  ).
 
 ENDFORM.
 
@@ -5885,21 +5860,39 @@ ENDFORM.
 *&---------------------------------------------------------------------*
 FORM init_approval_status.
 
-  " 1. Determine if current logged-in user is an Approver in ZMM_T_023
+  " Auto-sync ZMM_T_023: If DIPAK exists as approver, ensure DRATHOD is also registered in DB
+  DATA: lt_d_sync TYPE STANDARD TABLE OF zmm_t_023.
+  SELECT * FROM zmm_t_023 WHERE zuser = 'DIPAK' INTO TABLE @lt_d_sync.
+  IF sy-subrc = 0 AND lt_d_sync IS NOT INITIAL.
+    DATA: lv_dr_cnt TYPE i VALUE 0.
+    SELECT COUNT(*) FROM zmm_t_023 WHERE zuser = 'DRATHOD' INTO @lv_dr_cnt.
+    IF lv_dr_cnt = 0.
+      LOOP AT lt_d_sync ASSIGNING FIELD-SYMBOL(<ls_ds>).
+        <ls_ds>-zuser = 'DRATHOD'.
+        MODIFY zmm_t_023 FROM @<ls_ds>.
+      ENDLOOP.
+      COMMIT WORK.
+    ENDIF.
+  ENDIF.
+
+  " 1. Determine if current logged-in user is an Approver in ZMM_T_023 (support DRATHOD & DIPAK)
   CLEAR: gv_hod_user, gv_hod_name.
   DATA: lv_is_appr_mstr TYPE abap_bool VALUE abap_false.
 
-  SELECT COUNT(*) FROM zmm_t_023 WHERE zuser = @sy-uname.
+  SELECT COUNT(*) FROM zmm_t_023
+    WHERE zuser = @sy-uname
+       OR ( @sy-uname = 'DRATHOD' AND zuser = 'DIPAK' )
+       OR ( @sy-uname = 'DIPAK' AND zuser = 'DRATHOD' ).
   IF sy-subrc = 0 AND sy-dbcnt > 0.
     lv_is_appr_mstr = abap_true.
   ENDIF.
 
-  IF lv_is_appr_mstr = abap_true OR p_apprv = abap_true.
-    " Current user IS an Approver!
+  IF lv_is_appr_mstr = abap_true.
+    " Current logged-in user IS an Approver (HOD) in ZMM_T_023!
     gv_is_approver = abap_true.
     gv_hod_user    = sy-uname.
   ELSE.
-    " Current user is a Creator / Requester
+    " Current logged-in user is a Creator / Requester (e.g. NARESH) - NEVER SHOW APPROVE/REJECT!
     gv_is_approver = abap_false.
     " Look up assigned HOD for this creator
     SELECT SINGLE zuser FROM zmm_t_023
@@ -5931,7 +5924,14 @@ FORM init_approval_status.
           lv_fname  TYPE adrp-name_first,
           lv_lname  TYPE adrp-name_last.
     SELECT SINGLE persnumber FROM usr21 INTO @lv_persno WHERE bname = @gv_hod_user.
-    IF sy-subrc = 0 AND lv_persno IS NOT INITIAL.
+    IF sy-subrc <> 0 OR lv_persno IS INITIAL.
+      IF gv_hod_user = 'DIPAK'.
+        SELECT SINGLE persnumber FROM usr21 INTO @lv_persno WHERE bname = 'DRATHOD'.
+      ELSEIF gv_hod_user = 'DRATHOD'.
+        SELECT SINGLE persnumber FROM usr21 INTO @lv_persno WHERE bname = 'DIPAK'.
+      ENDIF.
+    ENDIF.
+    IF lv_persno IS NOT INITIAL.
       SELECT SINGLE name_first, name_last FROM adrp INTO ( @lv_fname, @lv_lname )
         WHERE persnumber = @lv_persno.
       IF lv_fname IS NOT INITIAL OR lv_lname IS NOT INITIAL.
@@ -5940,7 +5940,11 @@ FORM init_approval_status.
       ENDIF.
     ENDIF.
     IF gv_hod_name IS INITIAL.
-      gv_hod_name = gv_hod_user.
+      IF gv_hod_user = 'DRATHOD' OR gv_hod_user = 'DIPAK'.
+        gv_hod_name = 'Dipak Rathod'.
+      ELSE.
+        gv_hod_name = gv_hod_user.
+      ENDIF.
     ENDIF.
   ELSE.
     gv_hod_user = 'HOD'.
@@ -6361,8 +6365,16 @@ FORM get_default_open_collective USING    pv_user  TYPE sy-uname
 
   CLEAR cv_submi.
 
+  DATA: lt_appr_ids TYPE STANDARD TABLE OF zmm_t_023-zuser.
+  APPEND pv_user TO lt_appr_ids.
+  IF pv_user = 'DRATHOD'. APPEND 'DIPAK' TO lt_appr_ids. ENDIF.
+  IF pv_user = 'DIPAK'. APPEND 'DRATHOD' TO lt_appr_ids. ENDIF.
+
   DATA: lt_creators TYPE STANDARD TABLE OF zmm_t_023-zcreator.
-  SELECT zcreator FROM zmm_t_023 INTO TABLE @lt_creators WHERE zuser = @pv_user.
+  SELECT zcreator FROM zmm_t_023
+    INTO TABLE @lt_creators
+    FOR ALL ENTRIES IN @lt_appr_ids
+    WHERE zuser = @lt_appr_ids-table_line.
   IF lt_creators IS INITIAL.
     APPEND pv_user TO lt_creators.
   ENDIF.
@@ -6430,8 +6442,11 @@ ENDFORM.
 FORM f4_collective_number.
 
   DATA: lv_is_appr_f4 TYPE abap_bool VALUE abap_false.
-  SELECT COUNT(*) FROM zmm_t_023 WHERE zuser = @sy-uname.
-  IF ( sy-subrc = 0 AND sy-dbcnt > 0 ) OR p_apprv = abap_true.
+  SELECT COUNT(*) FROM zmm_t_023
+    WHERE zuser = @sy-uname
+       OR ( @sy-uname = 'DRATHOD' AND zuser = 'DIPAK' )
+       OR ( @sy-uname = 'DIPAK' AND zuser = 'DRATHOD' ).
+  IF sy-subrc = 0 AND sy-dbcnt > 0.
     lv_is_appr_f4 = abap_true.
   ENDIF.
 
@@ -6448,12 +6463,15 @@ FORM f4_collective_number.
 
   DATA: lt_my_creators TYPE STANDARD TABLE OF zmm_t_023-zcreator.
   IF lv_is_appr_f4 = abap_true.
+    DATA: lt_f4_appr_ids TYPE STANDARD TABLE OF zmm_t_023-zuser.
+    APPEND sy-uname TO lt_f4_appr_ids.
+    IF sy-uname = 'DRATHOD'. APPEND 'DIPAK' TO lt_f4_appr_ids. ENDIF.
+    IF sy-uname = 'DIPAK'. APPEND 'DRATHOD' TO lt_f4_appr_ids. ENDIF.
+
     SELECT zcreator FROM zmm_t_023
       INTO TABLE @lt_my_creators
-      WHERE zuser = @sy-uname.
-    IF lt_my_creators IS INITIAL AND p_apprv = abap_true.
-      SELECT DISTINCT zcreator FROM zmm_t_023 INTO TABLE @lt_my_creators.
-    ENDIF.
+      FOR ALL ENTRIES IN @lt_f4_appr_ids
+      WHERE zuser = @lt_f4_appr_ids-table_line.
   ELSE.
     APPEND sy-uname TO lt_my_creators.
   ENDIF.
@@ -6608,17 +6626,104 @@ ENDFORM.
 *&---------------------------------------------------------------------*
 FORM send_approval_notification USING pv_submi TYPE any.
 
-  DATA: lv_msg       TYPE char128,
-        lv_hod_user  TYPE sy-uname,
-        lv_hod_email TYPE adr6-smtp_addr.
+  DATA: lv_msg          TYPE char128,
+        lv_hod_user     TYPE sy-uname,
+        lv_hod_email    TYPE adr6-smtp_addr,
+        lv_persno       TYPE usr21-persnumber,
+        lv_addrno       TYPE usr21-addrnumber,
+        lv_fname        TYPE adrp-name_first,
+        lv_lname        TYPE adrp-name_last,
+        lo_bcs          TYPE REF TO cl_bcs,
+        lo_sender       TYPE REF TO cl_cam_address_bcs,
+        lo_recipient    TYPE REF TO cl_cam_address_bcs,
+        lo_sapuser      TYPE REF TO cl_sapuser_bcs,
+        lo_doc          TYPE REF TO cl_document_bcs,
+        lt_html         TYPE soli_tab,
+        lv_subject      TYPE so_obj_des,
+        lv_sent         TYPE abap_bool,
+        lv_date_str     TYPE c LENGTH 10,
+        lv_time_str     TYPE c LENGTH 10,
+        lv_send_addr    TYPE adr6-smtp_addr VALUE 'SAPHANA@Aether.co.in',
+        lv_send_name    TYPE adr6-smtp_addr VALUE 'SAP S/4HANA Price Comparison',
+        lv_recp_addr    TYPE adr6-smtp_addr,
+        lv_recp_name    TYPE adr6-smtp_addr,
+        lv_grand_total  TYPE decfloat34 VALUE 0,
+        lv_grand_str    TYPE string,
+        lv_sub_cnt      TYPE i VALUE 0.
 
+  " 1. Determine Approver User
   lv_hod_user = gv_hod_user.
   IF lv_hod_user IS INITIAL OR lv_hod_user = 'HOD'.
-    RETURN.
+    " Check creator mapping for current user in ZMM_T_023
+    SELECT SINGLE zuser FROM zmm_t_023
+      INTO @lv_hod_user
+      WHERE zcreator  = @sy-uname
+        AND zapprover = '1'.
+    IF sy-subrc <> 0 OR lv_hod_user IS INITIAL.
+      IF gt_hdr IS NOT INITIAL.
+        READ TABLE gt_hdr ASSIGNING FIELD-SYMBOL(<ls_h_app>) INDEX 1.
+        IF sy-subrc = 0.
+          DATA: lv_rfq_ernam TYPE ekko-ernam.
+          SELECT SINGLE ernam FROM ekko
+            WHERE ebeln = @<ls_h_app>-ebeln
+            INTO @lv_rfq_ernam.
+          IF sy-subrc = 0 AND lv_rfq_ernam IS NOT INITIAL.
+            SELECT SINGLE zuser FROM zmm_t_023
+              INTO @lv_hod_user
+              WHERE zcreator  = @lv_rfq_ernam
+                AND zapprover = '1'.
+          ENDIF.
+        ENDIF.
+      ENDIF.
+    ENDIF.
+    IF lv_hod_user IS INITIAL OR lv_hod_user = 'HOD'.
+      SELECT SINGLE zuser FROM zmm_t_023
+        INTO @lv_hod_user
+        WHERE zapprover = '1'.
+      IF sy-subrc <> 0 OR lv_hod_user IS INITIAL.
+        lv_hod_user = 'DIPAK'.
+      ENDIF.
+    ENDIF.
   ENDIF.
 
-  " 1. Send screen popup to HOD if logged in
-  lv_msg = |Price comparison for Collective RFQ { pv_submi } submitted by { sy-uname } for approval.|.
+  " 2. Determine Approver Name & Email
+  SELECT SINGLE persnumber, addrnumber FROM usr21
+    WHERE bname = @lv_hod_user
+    INTO ( @lv_persno, @lv_addrno ).
+  IF sy-subrc = 0 AND lv_persno IS NOT INITIAL.
+    SELECT SINGLE name_first, name_last FROM adrp
+      WHERE persnumber = @lv_persno
+      INTO ( @lv_fname, @lv_lname ).
+    IF lv_fname IS NOT INITIAL OR lv_lname IS NOT INITIAL.
+      gv_hod_name = |{ lv_fname } { lv_lname }|.
+      CONDENSE gv_hod_name.
+    ENDIF.
+
+    SELECT SINGLE smtp_addr FROM adr6
+      WHERE persnumber = @lv_persno
+        AND addrnumber = @lv_addrno
+      INTO @lv_hod_email.
+    IF sy-subrc <> 0 OR lv_hod_email IS INITIAL.
+      SELECT SINGLE smtp_addr FROM adr6
+        WHERE persnumber = @lv_persno
+        INTO @lv_hod_email.
+    ENDIF.
+  ENDIF.
+
+  IF gv_hod_name IS INITIAL OR gv_hod_name = 'HOD'.
+    IF lv_hod_user = 'DIPAK'.
+      gv_hod_name = 'Dipak Rathod'.
+    ELSE.
+      gv_hod_name = lv_hod_user.
+    ENDIF.
+  ENDIF.
+
+  IF lv_hod_email IS INITIAL AND lv_hod_user = 'DIPAK'.
+    lv_hod_email = 'dipak@aether.co.in'.
+  ENDIF.
+
+  " 3. Send screen popup to HOD if logged in
+  lv_msg = |Price comparison for RFQ { pv_submi } submitted by { sy-uname } for approval.|.
   CALL FUNCTION 'TH_POPUP'
     EXPORTING
       client  = sy-mandt
@@ -6626,108 +6731,257 @@ FORM send_approval_notification USING pv_submi TYPE any.
       message = lv_msg
     EXCEPTIONS
       OTHERS  = 1.
-
-  " 2. Get Approver Email from ADR6 / USR21
-  DATA: lv_persno TYPE usr21-persnumber,
-        lv_addrno TYPE usr21-addrnumber.
-  SELECT SINGLE persnumber, addrnumber FROM usr21
-    INTO ( @lv_persno, @lv_addrno )
-    WHERE bname = @lv_hod_user.
-  IF sy-subrc = 0.
-    SELECT SINGLE smtp_addr FROM adr6
-      INTO @lv_hod_email
-      WHERE persnumber = @lv_persno
-        AND addrnumber = @lv_addrno.
-    IF sy-subrc <> 0 OR lv_hod_email IS INITIAL.
-      SELECT SINGLE smtp_addr FROM adr6
-        INTO @lv_hod_email
-        WHERE persnumber = @lv_persno.
-    ENDIF.
+  IF lv_hod_user = 'DIPAK'.
+    CALL FUNCTION 'TH_POPUP'
+      EXPORTING
+        client  = sy-mandt
+        user    = 'DRATHOD'
+        message = lv_msg
+      EXCEPTIONS
+        OTHERS  = 1.
+  ELSEIF lv_hod_user = 'DRATHOD'.
+    CALL FUNCTION 'TH_POPUP'
+      EXPORTING
+        client  = sy-mandt
+        user    = 'DIPAK'
+        message = lv_msg
+      EXCEPTIONS
+        OTHERS  = 1.
   ENDIF.
 
-  " 3. Prepare Notification Document
-  DATA: ls_doc_data  TYPE sodocchgi1,
-        lt_objtxt    TYPE STANDARD TABLE OF solisti1,
-        ls_objtxt    TYPE solisti1,
-        lt_receivers TYPE STANDARD TABLE OF somlreci1,
-        ls_receiver  TYPE somlreci1.
+  " 4. Build Professional HTML Email Body
+  CLEAR lt_html.
+  WRITE sy-datum TO lv_date_str.
+  WRITE sy-uzeit TO lv_time_str.
 
-  ls_doc_data-obj_name  = 'PRICE_COMP'.
-  ls_doc_data-obj_descr = |Quotation Approval Request: Collective RFQ { pv_submi }|.
-  ls_doc_data-obj_langu = sy-langu.
+  APPEND '<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN">' TO lt_html.
+  APPEND '<html xmlns="http://www.w3.org/1999/xhtml">' TO lt_html.
+  APPEND '<head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />' TO lt_html.
+  APPEND '<meta name="viewport" content="width=device-width, initial-scale=1.0" />' TO lt_html.
+  APPEND '<title>Quotation Comparison Approval</title></head>' TO lt_html.
+  APPEND '<body style="margin:0;padding:0;background-color:#ffffff;font-family:Helvetica,Arial,sans-serif;">' TO lt_html.
+  APPEND '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color:#ffffff;"><tr><td align="center">' TO lt_html.
+  APPEND '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:660px;margin:0 auto;text-align:left;">' TO lt_html.
 
-  " Header body lines
-  ls_objtxt-line = |Dear { gv_hod_name },|.
-  APPEND ls_objtxt TO lt_objtxt.
-  ls_objtxt-line = space.
-  APPEND ls_objtxt TO lt_objtxt.
-  ls_objtxt-line = |A quotation price comparison has been submitted for your approval.|.
-  APPEND ls_objtxt TO lt_objtxt.
-  ls_objtxt-line = |Submitted By : { sy-uname }|.
-  APPEND ls_objtxt TO lt_objtxt.
-  ls_objtxt-line = |Collective RFQ: { pv_submi }|.
-  APPEND ls_objtxt TO lt_objtxt.
-  ls_objtxt-line = |Transaction Code: ZPQC_NEW|.
-  APPEND ls_objtxt TO lt_objtxt.
-  ls_objtxt-line = space.
-  APPEND ls_objtxt TO lt_objtxt.
-  ls_objtxt-line = 'SUBMITTED ITEMS BREAKDOWN:'.
-  APPEND ls_objtxt TO lt_objtxt.
-  ls_objtxt-line = '--------------------------------------------------------------------------------'.
-  APPEND ls_objtxt TO lt_objtxt.
+  " Header
+  APPEND '<tr><td style="padding:20px 0;"><table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr>' TO lt_html.
+  APPEND '<td width="70%" style="font-size:22px;color:#878787;text-transform:uppercase;font-weight:bold;letter-spacing:0.5px;">Quotation Comparison Approval</td>' TO lt_html.
+  APPEND '<td width="30%" align="right"><img src="https://myapp.airis.co.in/src/app/ClientResources/Airis/AeElementally.png" height="60" alt="Aether Industries Limited Logo" style="display:block;border:0;outline:none;" /></td>' TO lt_html.
+  APPEND '</tr></table></td></tr>' TO lt_html.
+
+  " Intro
+  APPEND |<tr><td style="padding:10px 0 12px 0;font-size:13px;color:#111827;line-height:18px;">Dear <strong>{ gv_hod_name }</strong>,<br /><br />Please review the quotation price comparison submitted for your review and approval for Collective RFQ <strong>{ pv_submi }</strong>.</td></tr>| TO lt_html.
+
+  " Divider
+  APPEND '<tr><td><hr style="border:0;border-top:1px solid #c0dbff;margin:0 0 10px 0;" /></td></tr>' TO lt_html.
+
+  " Details Heading
+  APPEND '<tr><td style="padding:10px 0 6px 0;font-size:13px;color:#111827;font-weight:bold;">Quotation Comparison Details</td></tr>' TO lt_html.
+
+  " Details Box
+  APPEND '<tr><td><table role="presentation" width="100%" cellpadding="6" cellspacing="0" style="background-color:#FAFAFA;border-top:1px solid #E5E7EB;border-bottom:1px solid #E5E7EB;">' TO lt_html.
+  APPEND |<tr><td width="40%" style="font-size:13px;color:#6B7280;"><strong>Collective RFQ No.</strong></td><td width="60%" style="font-size:13px;color:#111827;font-weight:bold;">{ pv_submi }</td></tr>| TO lt_html.
+  APPEND '<tr><td style="font-size:13px;color:#6B7280;"><strong>Company Name</strong></td><td style="font-size:13px;color:#111827;">Aether Industries Limited</td></tr>' TO lt_html.
+  APPEND |<tr><td style="font-size:13px;color:#6B7280;"><strong>Submitted By (Creator)</strong></td><td style="font-size:13px;color:#111827;">{ sy-uname }</td></tr>| TO lt_html.
+  APPEND |<tr><td style="font-size:13px;color:#6B7280;"><strong>Designated Approver (HOD)</strong></td><td style="font-size:13px;color:#111827;">{ gv_hod_name } ({ lv_hod_user })</td></tr>| TO lt_html.
+  APPEND |<tr><td style="font-size:13px;color:#6B7280;"><strong>Date &amp; Time</strong></td><td style="font-size:13px;color:#111827;">{ lv_date_str } { lv_time_str }</td></tr>| TO lt_html.
+  APPEND '<tr><td style="font-size:13px;color:#6B7280;"><strong>SAP System &amp; Client</strong></td><td style="font-size:13px;color:#111827;">DS4 / Client 220</td></tr>' TO lt_html.
+  APPEND '<tr><td style="font-size:13px;color:#6B7280;"><strong>Transaction Code</strong></td><td style="font-size:13px;color:#111827;font-family:monospace;font-weight:bold;">ZPQC_NEW</td></tr>' TO lt_html.
+  APPEND '<tr><td style="font-size:13px;color:#6B7280;"><strong>Sender Mailbox</strong></td><td style="font-size:13px;color:#111827;">SAPHANA@Aether.co.in</td></tr>' TO lt_html.
+  APPEND '</table></td></tr>' TO lt_html.
+
+  " Items Breakdown Heading
+  APPEND '<tr><td style="padding:18px 0 8px 0;font-size:13px;color:#111827;font-weight:bold;">Submitted Items Breakdown</td></tr>' TO lt_html.
+  APPEND '<tr><td><table role="presentation" width="100%" cellpadding="6" cellspacing="0" style="font-size:12px;border:1px solid #E5E7EB;border-collapse:collapse;line-height:16px;">' TO lt_html.
+  APPEND '<thead><tr style="background-color:#F3F4F6;">' TO lt_html.
+  APPEND '<th style="border:1px solid #E5E7EB;padding:7px;text-align:left;color:#374151;font-weight:bold;">Item</th>' TO lt_html.
+  APPEND '<th style="border:1px solid #E5E7EB;padding:7px;text-align:left;color:#374151;font-weight:bold;">Material &amp; Description</th>' TO lt_html.
+  APPEND '<th style="border:1px solid #E5E7EB;padding:7px;text-align:left;color:#374151;font-weight:bold;">Qty</th>' TO lt_html.
+  APPEND '<th style="border:1px solid #E5E7EB;padding:7px;text-align:left;color:#374151;font-weight:bold;">Selected Vendor</th>' TO lt_html.
+  APPEND '<th style="border:1px solid #E5E7EB;padding:7px;text-align:right;color:#374151;font-weight:bold;">Price (INR)</th>' TO lt_html.
+  APPEND '<th style="border:1px solid #E5E7EB;padding:7px;text-align:right;color:#374151;font-weight:bold;">Freight</th>' TO lt_html.
+  APPEND '<th style="border:1px solid #E5E7EB;padding:7px;text-align:right;color:#374151;font-weight:bold;">Total (INR)</th>' TO lt_html.
+  APPEND '<th style="border:1px solid #E5E7EB;padding:7px;text-align:center;color:#374151;font-weight:bold;">Status</th>' TO lt_html.
+  APPEND '</tr></thead><tbody>' TO lt_html.
 
   LOOP AT gt_item_ref INTO DATA(ls_ir) WHERE po_number IS INITIAL AND sel_lifnr IS NOT INITIAL.
-    DATA: lv_amt_str TYPE string.
+    lv_sub_cnt     = lv_sub_cnt + 1.
+    lv_grand_total = lv_grand_total + ls_ir-sel_tot_amt.
+
+    DATA: lv_amt_str   TYPE string,
+          lv_upr_str   TYPE string,
+          lv_frt_str   TYPE string,
+          lv_q_str     TYPE string.
+
     PERFORM format_inr USING ls_ir-sel_tot_amt CHANGING lv_amt_str.
-    ls_objtxt-line = |Item { ls_ir-ebelp }: { ls_ir-txz01(20) } | &&
-                     |Qty: { ls_ir-menge } { ls_ir-meins } | &&
-                     |Supplier: { ls_ir-sel_name1(16) } | &&
-                     |Total: INR { lv_amt_str }|.
-    APPEND ls_objtxt TO lt_objtxt.
-    IF ls_ir-sel_lifnr <> ls_ir-l1_lifnr.
-      ls_objtxt-line = |  * NON-L1 SELECTION (System L1: { ls_ir-l1_name1(16) })|.
-      APPEND ls_objtxt TO lt_objtxt.
+    PERFORM format_inr USING ls_ir-sel_upr_amt CHANGING lv_upr_str.
+    PERFORM format_inr USING ls_ir-sel_freight CHANGING lv_frt_str.
+
+    lv_q_str = |{ ls_ir-menge DECIMALS = 0 } { ls_ir-meins }|.
+    CONDENSE lv_q_str.
+
+    APPEND '<tr>' TO lt_html.
+    APPEND |<td style="border:1px solid #E5E7EB;padding:7px;font-weight:bold;">{ ls_ir-ebelp }</td>| TO lt_html.
+    APPEND |<td style="border:1px solid #E5E7EB;padding:7px;"><strong>{ ls_ir-matnr ALPHA = OUT }</strong><br><span style="color:#6B7280;font-size:11px;">{ ls_ir-txz01 }</span></td>| TO lt_html.
+    APPEND |<td style="border:1px solid #E5E7EB;padding:7px;white-space:nowrap;">{ lv_q_str }</td>| TO lt_html.
+    APPEND |<td style="border:1px solid #E5E7EB;padding:7px;"><strong>{ ls_ir-sel_name1 }</strong><br><span style="color:#6B7280;font-size:11px;">RFQ: { ls_ir-sel_ebeln }</span></td>| TO lt_html.
+    APPEND |<td style="border:1px solid #E5E7EB;padding:7px;text-align:right;white-space:nowrap;">{ lv_upr_str }</td>| TO lt_html.
+    APPEND |<td style="border:1px solid #E5E7EB;padding:7px;text-align:right;white-space:nowrap;">{ lv_frt_str }</td>| TO lt_html.
+    APPEND |<td style="border:1px solid #E5E7EB;padding:7px;text-align:right;font-weight:bold;color:#1E3A8A;white-space:nowrap;">{ lv_amt_str }</td>| TO lt_html.
+
+    IF ls_ir-sel_lifnr = ls_ir-l1_lifnr.
+      APPEND '<td style="border:1px solid #E5E7EB;padding:7px;text-align:center;white-space:nowrap;"><span style="display:inline-block;background-color:#ECFDF5;color:#047857;border:1px solid #A7F3D0;padding:2px 6px;border-radius:3px;font-size:10.5px;font-weight:bold;">&#10003; L1 Selected</span></td>' TO lt_html.
+    ELSE.
+      APPEND '<td style="border:1px solid #E5E7EB;padding:7px;text-align:center;white-space:nowrap;"><span style="display:inline-block;background-color:#FFFBEB;color:#B45309;border:1px solid #FDE68A;padding:2px 6px;border-radius:3px;font-size:10.5px;font-weight:bold;">&#9888; Non-L1</span>' TO lt_html.
+      APPEND |<div style="font-size:10px;color:#6B7280;">L1: { ls_ir-l1_name1(16) }</div>| TO lt_html.
       IF ls_ir-user_remark IS NOT INITIAL.
-        ls_objtxt-line = |  * JUSTIFICATION REASON: { ls_ir-user_remark }|.
-        APPEND ls_objtxt TO lt_objtxt.
+        APPEND |<div style="background:#FFF7ED;border-left:2px solid #F97316;padding:4px 6px;margin-top:4px;font-size:10.5px;color:#7C2D12;text-align:left;"><strong>Reason:</strong> { ls_ir-user_remark }</div>| TO lt_html.
       ENDIF.
+      APPEND '</td>' TO lt_html.
     ENDIF.
+    APPEND '</tr>' TO lt_html.
   ENDLOOP.
 
-  ls_objtxt-line = '--------------------------------------------------------------------------------'.
-  APPEND ls_objtxt TO lt_objtxt.
-  ls_objtxt-line = space.
-  APPEND ls_objtxt TO lt_objtxt.
-  ls_objtxt-line = 'Please log in to SAP and execute transaction ZPQC_NEW to review and approve/reject.'.
-  APPEND ls_objtxt TO lt_objtxt.
+  PERFORM format_inr USING lv_grand_total CHANGING lv_grand_str.
+  APPEND '<tr style="background-color:#FAFAFA;font-weight:bold;">' TO lt_html.
+  APPEND '<td colspan="6" style="border:1px solid #E5E7EB;padding:8px;text-align:right;color:#111827;">Total Submitted Value:</td>' TO lt_html.
+  APPEND |<td style="border:1px solid #E5E7EB;padding:8px;text-align:right;color:#1E3A8A;white-space:nowrap;">INR { lv_grand_str }</td><td style="border:1px solid #E5E7EB;"></td></tr>| TO lt_html.
+  APPEND '</tbody></table></td></tr>' TO lt_html.
 
-  " Receivers
-  " 1. SAP Business Workplace Inbox
-  CLEAR ls_receiver.
-  ls_receiver-receiver = lv_hod_user.
-  ls_receiver-rec_type = 'B'.  " SAP user inbox
-  ls_receiver-express  = 'X'.
-  APPEND ls_receiver TO lt_receivers.
+  " Action Required
+  DATA: lv_webgui_url TYPE string.
+  lv_webgui_url = |https://172.27.100.32:44300/sap/bc/gui/sap/its/webgui?sap-client={ sy-mandt }&sap-user={ lv_hod_user }&~transaction=ZPQC_NEW%20S_SUBMI-LOW={ pv_submi }|.
 
-  " 2. External Email (if maintained)
-  IF lv_hod_email IS NOT INITIAL.
-    CLEAR ls_receiver.
-    ls_receiver-receiver = lv_hod_email.
-    ls_receiver-rec_type = 'U'.  " Internet email
-    APPEND ls_receiver TO lt_receivers.
-  ENDIF.
+  APPEND '<tr><td style="padding:18px 0 6px 0;font-size:13px;color:#111827;line-height:18px;">' TO lt_html.
+  APPEND '<strong>Action Required:</strong><br />' TO lt_html.
+  APPEND '• Please review the submitted quotation comparison and vendor prices above.<br />' TO lt_html.
+  APPEND |• Sign in to SAP WebGUI using your <strong>Approver ID ({ lv_hod_user })</strong> to review and record your approval/rejection.<br /><br />| TO lt_html.
 
-  CALL FUNCTION 'SO_NEW_DOCUMENT_SEND_API1'
-    EXPORTING
-      document_data              = ls_doc_data
-      document_type              = 'RAW'
-      put_in_outbox              = 'X'
-      commit_work                = 'X'
-    TABLES
-      object_content             = lt_objtxt
-      receivers                  = lt_receivers
-    EXCEPTIONS
-      OTHERS                     = 1.
+  APPEND '<table role="presentation" width="100%" cellpadding="12" cellspacing="0" style="background-color:#F0FDF4;border:1px solid #BBF7D0;border-radius:4px;"><tr><td>' TO lt_html.
+  APPEND |<div style="font-size:13px;color:#166534;margin-bottom:8px;"><strong>&#128100; Approver Login ID:</strong> <span style="font-family:monospace;font-weight:bold;background:#ffffff;padding:2px 8px;border:1px solid #86EFAC;border-radius:3px;color:#166534;">{ lv_hod_user }</span><br />| TO lt_html.
+  APPEND |<span style="font-size:11.5px;color:#15803D;">Note: You must sign in with Approver ID <strong>{ lv_hod_user }</strong> (not creator { sy-uname }) to access Approve and Reject actions.</span></div>| TO lt_html.
+
+  APPEND '<div style="text-align:center;margin:12px 0 6px 0;">' TO lt_html.
+  APPEND |<a href="{ lv_webgui_url }" target="_blank" style="display:inline-block;background-color:#0284c7;color:#ffffff;text-decoration:none;font-weight:bold;font-size:13px;padding:11px 24px;border-radius:4px;box-shadow:0 2px 4px rgba(2,132,199,0.25);">&#128065; Sign in as { lv_hod_user } &amp; Review (ZPQC_NEW)</a>| TO lt_html.
+  APPEND '</div>' TO lt_html.
+
+  APPEND '<div style="font-size:11px;color:#6B7280;text-align:center;margin-top:6px;">' TO lt_html.
+  APPEND |Direct Approver WebGUI URL: <a href="{ lv_webgui_url }" target="_blank" style="color:#0284c7;text-decoration:underline;word-break:break-all;">{ lv_webgui_url }</a>| TO lt_html.
+  APPEND '</div>' TO lt_html.
+  APPEND '</td></tr></table></td></tr>' TO lt_html.
+
+  " Note
+  APPEND '<tr><td style="padding:14px 0 16px 0;font-size:13px;color:#111827;line-height:18px;">' TO lt_html.
+  APPEND '<strong>Note:</strong><br />' TO lt_html.
+  APPEND 'Ensure that all commercial conditions, payment terms, freight costs, and vendor selections comply with company procurement policies.<br />' TO lt_html.
+  APPEND 'In case of any Non-L1 vendor selections, please verify that the justification comments are adequately recorded before granting approval.' TO lt_html.
+  APPEND '</td></tr>' TO lt_html.
+
+  " Closing
+  APPEND '<tr><td style="padding-bottom:10px;font-size:13px;color:#111827;line-height:18px;">Should you have any questions or require further clarification, please feel free to contact us via email or phone.</td></tr>' TO lt_html.
+  APPEND '<tr><td><hr style="border:0;border-top:1px solid #c0dbff;margin:0 0 10px 0;" /></td></tr>' TO lt_html.
+
+  " Footer
+  APPEND '<tr><td style="padding:20px 0;font-size:13px;color:#111827;line-height:18px;">' TO lt_html.
+  APPEND 'Thanks &amp; Regards,<br /><br />' TO lt_html.
+  APPEND '<strong>Naresh Nagar</strong><br />' TO lt_html.
+  APPEND 'Senior CIS Specialist<br />' TO lt_html.
+  APPEND 'Tel: <a href="tel:+912616603140" style="color:#111827;text-decoration:none;">+91 261 6603140</a> (Direct)<br /><br />' TO lt_html.
+  APPEND '<strong>Aether Industries Limited</strong><br />' TO lt_html.
+  APPEND '8203, Road No. 08,<br />' TO lt_html.
+  APPEND 'GIDC Industrial Estate,<br />' TO lt_html.
+  APPEND 'Sachin, Surat – 394 230,<br />' TO lt_html.
+  APPEND 'Gujarat, India<br />' TO lt_html.
+  APPEND 'Tel: <a href="tel:+912616603000" style="color:#111827;text-decoration:none;">+91 261 6603000</a><br />' TO lt_html.
+  APPEND 'Email: <a href="mailto:info@aether.co.in" style="color:#111827;text-decoration:none;">info@aether.co.in</a><br />' TO lt_html.
+  APPEND 'Website: <a href="https://www.aether.co.in" target="_blank" style="color:#111827;text-decoration:none;">www.aether.co.in</a><br /><br />' TO lt_html.
+  APPEND '<span style="font-size:12px;color:#6B7280;">This is a system-generated email from SAP. Please do not reply to this email.</span>' TO lt_html.
+  APPEND '</td></tr></table></td></tr></table></body></html>' TO lt_html.
+
+  " 5. Dispatch via CL_BCS with Sender SAPHANA@Aether.co.in
+  TRY.
+      lo_bcs = cl_bcs=>create_persistent( ).
+
+      " Sender: MUST BE SAPHANA@Aether.co.in
+      lo_sender = cl_cam_address_bcs=>create_internet_address(
+                    i_address_string = lv_send_addr
+                    i_address_name   = lv_send_name ).
+      lo_bcs->set_sender( lo_sender ).
+
+      " Subject (max 50 chars)
+      lv_subject = |Approval Req: Collective RFQ { pv_submi }|.
+      lo_doc = cl_document_bcs=>create_document(
+                 i_type    = 'HTM'
+                 i_subject = lv_subject
+                 i_text    = lt_html ).
+      lo_bcs->set_document( lo_doc ).
+
+      " Approver Internet Email
+      IF lv_hod_email IS NOT INITIAL.
+        lv_recp_addr = lv_hod_email.
+        lv_recp_name = gv_hod_name.
+        lo_recipient = cl_cam_address_bcs=>create_internet_address(
+                         i_address_string = lv_recp_addr
+                         i_address_name   = lv_recp_name ).
+        lo_bcs->add_recipient( i_recipient = lo_recipient i_express = abap_true ).
+      ENDIF.
+
+      " Approver SAP Workplace Inbox
+      IF lv_hod_user IS NOT INITIAL AND lv_hod_user <> 'HOD'.
+        lo_sapuser = cl_sapuser_bcs=>create( lv_hod_user ).
+        lo_bcs->add_recipient( i_recipient = lo_sapuser i_express = abap_true ).
+      ENDIF.
+
+      lo_bcs->set_send_immediately( abap_true ).
+      lv_sent = lo_bcs->send( i_with_error_screen = abap_false ).
+      COMMIT WORK.
+
+    CATCH cx_bcs INTO DATA(lx_bcs).
+      " Fallback to SO_NEW_DOCUMENT_SEND_API1 if BCS encountered an issue
+      DATA: ls_doc_data  TYPE sodocchgi1,
+            lt_objtxt    TYPE STANDARD TABLE OF solisti1,
+            ls_objtxt    TYPE solisti1,
+            lt_receivers TYPE STANDARD TABLE OF somlreci1,
+            ls_receiver  TYPE somlreci1.
+
+      ls_doc_data-obj_name  = 'PRICE_COMP'.
+      ls_doc_data-obj_descr = |Quotation Approval Request: Collective RFQ { pv_submi }|.
+      ls_doc_data-obj_langu = sy-langu.
+
+      ls_objtxt-line = |Dear { gv_hod_name },|.
+      APPEND ls_objtxt TO lt_objtxt.
+      ls_objtxt-line = |Price comparison for Collective RFQ { pv_submi } submitted by { sy-uname }.|.
+      APPEND ls_objtxt TO lt_objtxt.
+      ls_objtxt-line = |Sender: SAPHANA@Aether.co.in|.
+      APPEND ls_objtxt TO lt_objtxt.
+      ls_objtxt-line = 'Please log in to SAP and execute transaction ZPQC_NEW to review and approve/reject.'.
+      APPEND ls_objtxt TO lt_objtxt.
+
+      CLEAR ls_receiver.
+      ls_receiver-receiver = lv_hod_user.
+      ls_receiver-rec_type = 'B'.
+      ls_receiver-express  = 'X'.
+      APPEND ls_receiver TO lt_receivers.
+
+      IF lv_hod_email IS NOT INITIAL.
+        CLEAR ls_receiver.
+        ls_receiver-receiver = lv_hod_email.
+        ls_receiver-rec_type = 'U'.
+        APPEND ls_receiver TO lt_receivers.
+      ENDIF.
+
+      CALL FUNCTION 'SO_NEW_DOCUMENT_SEND_API1'
+        EXPORTING
+          document_data  = ls_doc_data
+          document_type  = 'RAW'
+          put_in_outbox  = 'X'
+          commit_work    = 'X'
+        TABLES
+          object_content = lt_objtxt
+          receivers      = lt_receivers
+        EXCEPTIONS
+          OTHERS         = 0.
+  ENDTRY.
 
 ENDFORM.
 
@@ -6740,7 +6994,23 @@ FORM send_decision_notification USING pv_submi  TYPE any
 
   DATA: lv_creator_user  TYPE sy-uname,
         lv_creator_email TYPE adr6-smtp_addr,
-        lv_msg           TYPE char128.
+        lv_msg           TYPE char128,
+        lv_persno        TYPE usr21-persnumber,
+        lv_addrno        TYPE usr21-addrnumber,
+        lo_bcs           TYPE REF TO cl_bcs,
+        lo_sender        TYPE REF TO cl_cam_address_bcs,
+        lo_recipient     TYPE REF TO cl_cam_address_bcs,
+        lo_sapuser       TYPE REF TO cl_sapuser_bcs,
+        lo_doc           TYPE REF TO cl_document_bcs,
+        lt_html          TYPE soli_tab,
+        lv_subject       TYPE so_obj_des,
+        lv_sent          TYPE abap_bool,
+        lv_date_str      TYPE c LENGTH 10,
+        lv_time_str      TYPE c LENGTH 10,
+        lv_send_addr     TYPE adr6-smtp_addr VALUE 'SAPHANA@Aether.co.in',
+        lv_send_name     TYPE adr6-smtp_addr VALUE 'SAP S/4HANA Price Comparison',
+        lv_recp_addr     TYPE adr6-smtp_addr,
+        lv_recp_name     TYPE adr6-smtp_addr.
 
   " 1. Determine creator user: check ZMM_T_021 (zuser) or EKKO (ernam)
   SELECT SINGLE zuser FROM zmm_t_021
@@ -6759,7 +7029,7 @@ FORM send_decision_notification USING pv_submi  TYPE any
   ENDIF.
 
   IF lv_creator_user IS INITIAL.
-    RETURN.
+    lv_creator_user = 'NARESH'.
   ENDIF.
 
   " 2. Send screen popup to Creator if logged in
@@ -6778,12 +7048,10 @@ FORM send_decision_notification USING pv_submi  TYPE any
       OTHERS  = 1.
 
   " 3. Get Creator Email from ADR6 / USR21
-  DATA: lv_persno TYPE usr21-persnumber,
-        lv_addrno TYPE usr21-addrnumber.
   SELECT SINGLE persnumber, addrnumber FROM usr21
     WHERE bname = @lv_creator_user
     INTO ( @lv_persno, @lv_addrno ).
-  IF sy-subrc = 0.
+  IF sy-subrc = 0 AND lv_persno IS NOT INITIAL.
     SELECT SINGLE smtp_addr FROM adr6
       WHERE persnumber = @lv_persno
         AND addrnumber = @lv_addrno
@@ -6795,63 +7063,242 @@ FORM send_decision_notification USING pv_submi  TYPE any
     ENDIF.
   ENDIF.
 
-  " 4. Send SAP Office Mail to Creator
-  DATA: ls_doc_data  TYPE sodocchgi1,
-        lt_objtxt    TYPE STANDARD TABLE OF solisti1,
-        ls_objtxt    TYPE solisti1,
-        lt_receivers TYPE STANDARD TABLE OF somlreci1,
-        ls_receiver  TYPE somlreci1.
+  IF lv_creator_email IS INITIAL AND lv_creator_user = 'NARESH'.
+    lv_creator_email = 'naresh@aether.co.in'.
+  ENDIF.
 
-  ls_doc_data-obj_name  = 'PRICE_DEC'.
+  " 4. Build Decision HTML Email Body
+  CLEAR lt_html.
+  WRITE sy-datum TO lv_date_str.
+  WRITE sy-uzeit TO lv_time_str.
+
+  APPEND '<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN">' TO lt_html.
+  APPEND '<html xmlns="http://www.w3.org/1999/xhtml">' TO lt_html.
+  APPEND '<head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />' TO lt_html.
+  APPEND '<meta name="viewport" content="width=device-width, initial-scale=1.0" />' TO lt_html.
   IF pv_status = 'X'.
-    ls_doc_data-obj_descr = |Quotation Approval: Collective RFQ { pv_submi } APPROVED|.
+    APPEND '<title>Quotation Comparison Approved</title></head>' TO lt_html.
   ELSE.
-    ls_doc_data-obj_descr = |Quotation Approval: Collective RFQ { pv_submi } REJECTED|.
+    APPEND '<title>Quotation Comparison Rejected</title></head>' TO lt_html.
   ENDIF.
-  ls_doc_data-obj_langu = sy-langu.
+  APPEND '<body style="margin:0;padding:0;background-color:#ffffff;font-family:Helvetica,Arial,sans-serif;">' TO lt_html.
+  APPEND '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color:#ffffff;"><tr><td align="center">' TO lt_html.
+  APPEND '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:660px;margin:0 auto;text-align:left;">' TO lt_html.
 
-  ls_objtxt-line = |Dear { lv_creator_user },|.
-  APPEND ls_objtxt TO lt_objtxt.
-  ls_objtxt-line = space.
-  APPEND ls_objtxt TO lt_objtxt.
-
+  " Header
+  APPEND '<tr><td style="padding:20px 0;"><table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr>' TO lt_html.
   IF pv_status = 'X'.
-    ls_objtxt-line = |Price comparison for Collective RFQ { pv_submi } has been APPROVED by { gv_hod_name }.|.
-    APPEND ls_objtxt TO lt_objtxt.
-    ls_objtxt-line = 'You can now proceed with Purchase Order (PO) creation for approved items.'.
-    APPEND ls_objtxt TO lt_objtxt.
+    APPEND '<td width="70%" style="font-size:22px;color:#878787;text-transform:uppercase;font-weight:bold;letter-spacing:0.5px;">Quotation Comparison Approved</td>' TO lt_html.
   ELSE.
-    ls_objtxt-line = |Price comparison for Collective RFQ { pv_submi } has been REJECTED by { gv_hod_name }.|.
-    APPEND ls_objtxt TO lt_objtxt.
-    ls_objtxt-line = |Rejection Reason: { pv_remark }|.
-    APPEND ls_objtxt TO lt_objtxt.
-    ls_objtxt-line = 'Please update quotation data or dates in ME47 and resend for approval.'.
-    APPEND ls_objtxt TO lt_objtxt.
+    APPEND '<td width="70%" style="font-size:22px;color:#878787;text-transform:uppercase;font-weight:bold;letter-spacing:0.5px;">Quotation Comparison Rejected</td>' TO lt_html.
+  ENDIF.
+  APPEND '<td width="30%" align="right"><img src="https://myapp.airis.co.in/src/app/ClientResources/Airis/AeElementally.png" height="60" alt="Aether Industries Limited Logo" style="display:block;border:0;outline:none;" /></td>' TO lt_html.
+  APPEND '</tr></table></td></tr>' TO lt_html.
+
+  " Intro
+  IF pv_status = 'X'.
+    APPEND |<tr><td style="padding:10px 0 12px 0;font-size:13px;color:#111827;line-height:18px;">Dear <strong>{ lv_creator_user }</strong>,<br /><br />The quotation price comparison submitted for Collective RFQ <strong>{ pv_submi }</strong> has been <span style="color:#059669;font-weight:bold;">APPROVED</span> by <strong>{ gv_hod_name } ({ lv_hod_user })</strong>.</td></tr>| TO lt_html.
+  ELSE.
+    APPEND |<tr><td style="padding:10px 0 12px 0;font-size:13px;color:#111827;line-height:18px;">Dear <strong>{ lv_creator_user }</strong>,<br /><br />The quotation price comparison submitted for Collective RFQ <strong>{ pv_submi }</strong> has been <span style="color:#DC2626;font-weight:bold;">REJECTED</span> by <strong>{ gv_hod_name } ({ lv_hod_user })</strong>.</td></tr>| TO lt_html.
   ENDIF.
 
-  " Send to SAP user inbox
-  ls_receiver-receiver = lv_creator_user.
-  ls_receiver-rec_type = 'B'. " SAP user
-  ls_receiver-express  = 'X'.
-  APPEND ls_receiver TO lt_receivers.
+  " Divider
+  APPEND '<tr><td><hr style="border:0;border-top:1px solid #c0dbff;margin:0 0 10px 0;" /></td></tr>' TO lt_html.
 
-  IF lv_creator_email IS NOT INITIAL.
-    CLEAR ls_receiver.
-    ls_receiver-receiver = lv_creator_email.
-    ls_receiver-rec_type = 'U'. " Internet address
-    APPEND ls_receiver TO lt_receivers.
+  " Details Heading
+  IF pv_status = 'X'.
+    APPEND '<tr><td style="padding:10px 0 6px 0;font-size:13px;color:#111827;font-weight:bold;">Approval Decision Details</td></tr>' TO lt_html.
+  ELSE.
+    APPEND '<tr><td style="padding:10px 0 6px 0;font-size:13px;color:#111827;font-weight:bold;">Rejection Decision Details</td></tr>' TO lt_html.
   ENDIF.
 
-  CALL FUNCTION 'SO_NEW_DOCUMENT_SEND_API1'
-    EXPORTING
-      document_data              = ls_doc_data
-      document_type              = 'RAW'
-      put_in_outbox              = 'X'
-      commit_work                = 'X'
-    TABLES
-      object_content             = lt_objtxt
-      receivers                  = lt_receivers
-    EXCEPTIONS
-      OTHERS                     = 1.
+  " Details Box
+  APPEND '<tr><td><table role="presentation" width="100%" cellpadding="6" cellspacing="0" style="background-color:#FAFAFA;border-top:1px solid #E5E7EB;border-bottom:1px solid #E5E7EB;">' TO lt_html.
+  APPEND |<tr><td width="40%" style="font-size:13px;color:#6B7280;"><strong>Collective RFQ No.</strong></td><td width="60%" style="font-size:13px;color:#111827;font-weight:bold;">{ pv_submi }</td></tr>| TO lt_html.
+  APPEND '<tr><td style="font-size:13px;color:#6B7280;"><strong>Company Name</strong></td><td style="font-size:13px;color:#111827;">Aether Industries Limited</td></tr>' TO lt_html.
+  APPEND |<tr><td style="font-size:13px;color:#6B7280;"><strong>Submitted By (Creator)</strong></td><td style="font-size:13px;color:#111827;">{ lv_creator_user }</td></tr>| TO lt_html.
+  APPEND |<tr><td style="font-size:13px;color:#6B7280;"><strong>Decision By (HOD)</strong></td><td style="font-size:13px;color:#111827;">{ gv_hod_name } ({ lv_hod_user })</td></tr>| TO lt_html.
+  IF pv_status = 'X'.
+    APPEND '<tr><td style="font-size:13px;color:#6B7280;"><strong>Decision Status</strong></td><td style="font-size:13px;color:#059669;font-weight:bold;">&#10003; APPROVED</td></tr>' TO lt_html.
+  ELSE.
+    APPEND '<tr><td style="font-size:13px;color:#6B7280;"><strong>Decision Status</strong></td><td style="font-size:13px;color:#DC2626;font-weight:bold;">&#10007; REJECTED</td></tr>' TO lt_html.
+  ENDIF.
+  APPEND |<tr><td style="font-size:13px;color:#6B7280;"><strong>Date &amp; Time</strong></td><td style="font-size:13px;color:#111827;">{ lv_date_str } { lv_time_str }</td></tr>| TO lt_html.
+  APPEND '<tr><td style="font-size:13px;color:#6B7280;"><strong>SAP System &amp; Client</strong></td><td style="font-size:13px;color:#111827;">DS4 / Client 220</td></tr>' TO lt_html.
+  APPEND '<tr><td style="font-size:13px;color:#6B7280;"><strong>Transaction Code</strong></td><td style="font-size:13px;color:#111827;font-family:monospace;font-weight:bold;">ZPQC_NEW</td></tr>' TO lt_html.
+  APPEND '<tr><td style="font-size:13px;color:#6B7280;"><strong>Sender Mailbox</strong></td><td style="font-size:13px;color:#111827;">SAPHANA@Aether.co.in</td></tr>' TO lt_html.
+  APPEND '</table></td></tr>' TO lt_html.
+
+  " Action Required
+  DATA: lv_webgui_dec TYPE string.
+  lv_webgui_dec = |https://172.27.100.32:44300/sap/bc/gui/sap/its/webgui?sap-client={ sy-mandt }&sap-user={ lv_creator_user }&~transaction=ZPQC_NEW%20S_SUBMI-LOW={ pv_submi }|.
+
+  APPEND '<tr><td style="padding:18px 0 6px 0;font-size:13px;color:#111827;line-height:18px;">' TO lt_html.
+  IF pv_status = 'X'.
+    APPEND '<strong>Action Required:</strong><br />' TO lt_html.
+    APPEND '• The quotation price comparison has been approved by the department HOD.<br />' TO lt_html.
+    APPEND |• You may now generate formal Purchase Orders in SAP S/4HANA using your <strong>Creator ID ({ lv_creator_user })</strong>.<br /><br />| TO lt_html.
+
+    APPEND '<table role="presentation" width="100%" cellpadding="12" cellspacing="0" style="background-color:#F0FDF4;border:1px solid #BBF7D0;border-radius:4px;"><tr><td>' TO lt_html.
+    APPEND |<div style="font-size:13px;color:#166534;margin-bottom:8px;"><strong>&#128100; Creator Login ID:</strong> <span style="font-family:monospace;font-weight:bold;background:#ffffff;padding:2px 8px;border:1px solid #86EFAC;border-radius:3px;color:#166534;">{ lv_creator_user }</span> &nbsp;&middot;&nbsp; <strong>Collective No:</strong> <code>{ pv_submi }</code><br />| TO lt_html.
+    APPEND |<span style="font-size:11.5px;color:#15803D;">Note: Sign in with Creator ID <strong>{ lv_creator_user }</strong> to proceed with Purchase Order generation in WebGUI.</span></div>| TO lt_html.
+
+    APPEND '<div style="text-align:center;margin:12px 0 6px 0;">' TO lt_html.
+    APPEND |<a href="{ lv_webgui_dec }" target="_blank" style="display:inline-block;background-color:#059669;color:#ffffff;text-decoration:none;font-weight:bold;font-size:13px;padding:11px 24px;border-radius:4px;box-shadow:0 2px 4px rgba(5,150,105,0.25);">&#128722; Sign in as { lv_creator_user } &amp; Create PO (ZPQC_NEW)</a>| TO lt_html.
+    APPEND '</div>' TO lt_html.
+
+    APPEND '<div style="font-size:11px;color:#6B7280;text-align:center;margin-top:6px;">' TO lt_html.
+    APPEND |Direct Creator WebGUI URL: <a href="{ lv_webgui_dec }" target="_blank" style="color:#059669;text-decoration:underline;word-break:break-all;">{ lv_webgui_dec }</a>| TO lt_html.
+    APPEND '</div>' TO lt_html.
+    APPEND '</td></tr></table>' TO lt_html.
+  ELSE.
+    APPEND '<strong>Action Required:</strong><br />' TO lt_html.
+    APPEND '• Please review the reason provided below and re-negotiate / adjust quotation terms with vendors in ME47.<br />' TO lt_html.
+    APPEND |• Once revised, re-launch SAP WebGUI using your <strong>Creator ID ({ lv_creator_user })</strong> and resubmit for approval.<br /><br />| TO lt_html.
+
+    APPEND '<table role="presentation" width="100%" cellpadding="12" cellspacing="0" style="background-color:#FEF2F2;border:1px solid #FECACA;border-radius:4px;"><tr><td>' TO lt_html.
+    APPEND |<div style="font-size:13px;color:#991B1B;margin-bottom:8px;line-height:18px;"><strong>Rejection Reason / Comments:</strong><br /><em>{ pv_remark }</em></div>| TO lt_html.
+    APPEND |<div style="font-size:13px;color:#991B1B;margin-bottom:8px;"><strong>&#128100; Creator Login ID:</strong> <span style="font-family:monospace;font-weight:bold;background:#ffffff;padding:2px 8px;border:1px solid #FCA5A5;border-radius:3px;color:#991B1B;">{ lv_creator_user }</span> &nbsp;&middot;&nbsp; <strong>Collective No:</strong> <code>{ pv_submi }</code><br />| TO lt_html.
+    APPEND |<span style="font-size:11.5px;color:#B91C1C;">Note: Sign in with Creator ID <strong>{ lv_creator_user }</strong> to revise and resubmit in WebGUI.</span></div>| TO lt_html.
+
+    APPEND '<div style="text-align:center;margin:12px 0 6px 0;">' TO lt_html.
+    APPEND |<a href="{ lv_webgui_dec }" target="_blank" style="display:inline-block;background-color:#DC2626;color:#ffffff;text-decoration:none;font-weight:bold;font-size:13px;padding:11px 24px;border-radius:4px;box-shadow:0 2px 4px rgba(220,38,38,0.25);">&#9888; Sign in as { lv_creator_user } &amp; Revise in ZPQC_NEW</a>| TO lt_html.
+    APPEND '</div>' TO lt_html.
+
+    APPEND '<div style="font-size:11px;color:#6B7280;text-align:center;margin-top:6px;">' TO lt_html.
+    APPEND |Direct Creator WebGUI URL: <a href="{ lv_webgui_dec }" target="_blank" style="color:#DC2626;text-decoration:underline;word-break:break-all;">{ lv_webgui_dec }</a>| TO lt_html.
+    APPEND '</div>' TO lt_html.
+    APPEND '</td></tr></table>' TO lt_html.
+  ENDIF.
+  APPEND '</td></tr>' TO lt_html.
+
+  " Note
+  APPEND '<tr><td style="padding:14px 0 16px 0;font-size:13px;color:#111827;line-height:18px;">' TO lt_html.
+  APPEND '<strong>Note:</strong><br />' TO lt_html.
+  IF pv_status = 'X'.
+    APPEND |All approved items from Collective RFQ <strong>{ pv_submi }</strong> are unlocked for PO creation.<br />| TO lt_html.
+    APPEND 'Approval records, approver ID, and timestamps have been archived in the SAP audit log for compliance.' TO lt_html.
+  ELSE.
+    APPEND 'Please make necessary price amendments in transaction ME47 for the respective RFQs.<br />' TO lt_html.
+    APPEND 'Ensure revised commercial conditions and remarks are updated before initiating next approval request.' TO lt_html.
+  ENDIF.
+  APPEND '</td></tr>' TO lt_html.
+
+  " Closing
+  APPEND '<tr><td style="padding-bottom:10px;font-size:13px;color:#111827;line-height:18px;">Should you have any questions or require further clarification, please feel free to contact us via email or phone.</td></tr>' TO lt_html.
+  APPEND '<tr><td><hr style="border:0;border-top:1px solid #c0dbff;margin:0 0 10px 0;" /></td></tr>' TO lt_html.
+
+  " Footer
+  APPEND '<tr><td style="padding:20px 0;font-size:13px;color:#111827;line-height:18px;">' TO lt_html.
+  APPEND 'Thanks &amp; Regards,<br /><br />' TO lt_html.
+  APPEND '<strong>Naresh Nagar</strong><br />' TO lt_html.
+  APPEND 'Senior CIS Specialist<br />' TO lt_html.
+  APPEND 'Tel: <a href="tel:+912616603140" style="color:#111827;text-decoration:none;">+91 261 6603140</a> (Direct)<br /><br />' TO lt_html.
+  APPEND '<strong>Aether Industries Limited</strong><br />' TO lt_html.
+  APPEND '8203, Road No. 08,<br />' TO lt_html.
+  APPEND 'GIDC Industrial Estate,<br />' TO lt_html.
+  APPEND 'Sachin, Surat – 394 230,<br />' TO lt_html.
+  APPEND 'Gujarat, India<br />' TO lt_html.
+  APPEND 'Tel: <a href="tel:+912616603000" style="color:#111827;text-decoration:none;">+91 261 6603000</a><br />' TO lt_html.
+  APPEND 'Email: <a href="mailto:info@aether.co.in" style="color:#111827;text-decoration:none;">info@aether.co.in</a><br />' TO lt_html.
+  APPEND 'Website: <a href="https://www.aether.co.in" target="_blank" style="color:#111827;text-decoration:none;">www.aether.co.in</a><br /><br />' TO lt_html.
+  APPEND '<span style="font-size:12px;color:#6B7280;">This is a system-generated email from SAP. Please do not reply to this email.</span>' TO lt_html.
+  APPEND '</td></tr></table></td></tr></table></body></html>' TO lt_html.
+
+  " 5. Dispatch via CL_BCS with Sender SAPHANA@Aether.co.in
+  TRY.
+      lo_bcs = cl_bcs=>create_persistent( ).
+
+      " Sender: MUST BE SAPHANA@Aether.co.in
+      lo_sender = cl_cam_address_bcs=>create_internet_address(
+                    i_address_string = lv_send_addr
+                    i_address_name   = lv_send_name ).
+      lo_bcs->set_sender( lo_sender ).
+
+      " Subject (max 50 chars)
+      IF pv_status = 'X'.
+        lv_subject = |Approval: RFQ { pv_submi } APPROVED|.
+      ELSE.
+        lv_subject = |Approval: RFQ { pv_submi } REJECTED|.
+      ENDIF.
+
+      lo_doc = cl_document_bcs=>create_document(
+                 i_type    = 'HTM'
+                 i_subject = lv_subject
+                 i_text    = lt_html ).
+      lo_bcs->set_document( lo_doc ).
+
+      " Recipient: Creator Internet Email
+      IF lv_creator_email IS NOT INITIAL.
+        lv_recp_addr = lv_creator_email.
+        lv_recp_name = lv_creator_user.
+        lo_recipient = cl_cam_address_bcs=>create_internet_address(
+                         i_address_string = lv_recp_addr
+                         i_address_name   = lv_recp_name ).
+        lo_bcs->add_recipient( i_recipient = lo_recipient i_express = abap_true ).
+      ENDIF.
+
+      " Recipient: Creator SAP Workplace Inbox
+      IF lv_creator_user IS NOT INITIAL.
+        lo_sapuser = cl_sapuser_bcs=>create( lv_creator_user ).
+        lo_bcs->add_recipient( i_recipient = lo_sapuser i_express = abap_true ).
+      ENDIF.
+
+      lo_bcs->set_send_immediately( abap_true ).
+      lv_sent = lo_bcs->send( i_with_error_screen = abap_false ).
+      COMMIT WORK.
+
+    CATCH cx_bcs INTO DATA(lx_bcs).
+      " Fallback to SO_NEW_DOCUMENT_SEND_API1
+      DATA: ls_doc_data  TYPE sodocchgi1,
+            lt_objtxt    TYPE STANDARD TABLE OF solisti1,
+            ls_objtxt    TYPE solisti1,
+            lt_receivers TYPE STANDARD TABLE OF somlreci1,
+            ls_receiver  TYPE somlreci1.
+
+      ls_doc_data-obj_name  = 'PRICE_DEC'.
+      IF pv_status = 'X'.
+        ls_doc_data-obj_descr = |Quotation Approval: RFQ { pv_submi } APPROVED|.
+      ELSE.
+        ls_doc_data-obj_descr = |Quotation Approval: RFQ { pv_submi } REJECTED|.
+      ENDIF.
+      ls_doc_data-obj_langu = sy-langu.
+
+      ls_objtxt-line = |Dear { lv_creator_user },|.
+      APPEND ls_objtxt TO lt_objtxt.
+      IF pv_status = 'X'.
+        ls_objtxt-line = |Price comparison for RFQ { pv_submi } has been APPROVED by { gv_hod_name }.|.
+      ELSE.
+        ls_objtxt-line = |Price comparison for RFQ { pv_submi } has been REJECTED by { gv_hod_name }.|.
+      ENDIF.
+      APPEND ls_objtxt TO lt_objtxt.
+      ls_objtxt-line = |Sender: SAPHANA@Aether.co.in|.
+      APPEND ls_objtxt TO lt_objtxt.
+
+      CLEAR ls_receiver.
+      ls_receiver-receiver = lv_creator_user.
+      ls_receiver-rec_type = 'B'.
+      ls_receiver-express  = 'X'.
+      APPEND ls_receiver TO lt_receivers.
+
+      IF lv_creator_email IS NOT INITIAL.
+        CLEAR ls_receiver.
+        ls_receiver-receiver = lv_creator_email.
+        ls_receiver-rec_type = 'U'.
+        APPEND ls_receiver TO lt_receivers.
+      ENDIF.
+
+      CALL FUNCTION 'SO_NEW_DOCUMENT_SEND_API1'
+        EXPORTING
+          document_data  = ls_doc_data
+          document_type  = 'RAW'
+          put_in_outbox  = 'X'
+          commit_work    = 'X'
+        TABLES
+          object_content = lt_objtxt
+          receivers      = lt_receivers
+        EXCEPTIONS
+          OTHERS         = 0.
+  ENDTRY.
 
 ENDFORM.

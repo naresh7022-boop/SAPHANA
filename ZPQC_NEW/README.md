@@ -109,8 +109,10 @@ In transaction `/UI2/FLPCM_CUST` (or Launchpad Designer `/UI2/FLPD_CUST`), confi
 ### 4. Direct Browser Launch URLs
 * **SAP Fiori Launchpad URL:**  
   `https://172.27.100.32:44300/sap/bc/ui5_ui5/ui2/ushell/shells/abap/FioriLaunchpad.html?sap-client=220#ZPQC_NEW-manage`
-* **Direct WebGUI URL:**  
-  `https://172.27.100.32:44300/sap/bc/gui/sap/its/webgui?sap-client=220&~transaction=ZPQC_NEW`
+* **Approver Direct WebGUI URL (DRATHOD):**  
+  `https://172.27.100.32:44300/sap/bc/gui/sap/its/webgui?sap-client=220&sap-user=DRATHOD&~transaction=ZPQC_NEW`
+* **Creator Direct WebGUI URL (NARESH):**  
+  `https://172.27.100.32:44300/sap/bc/gui/sap/its/webgui?sap-client=220&sap-user=NARESH&~transaction=ZPQC_NEW`
 
 ---
 
@@ -203,7 +205,8 @@ node ZPQC_NEW/deploy-me49n.cjs
    * Execute transaction **`ZPQC_NEW`** in SAP client `220`.
    * Test both Modern HTML mode and Classical ALV mode.
 3. **Test in WebGUI:**
-   * Launch `https://172.27.100.32:44300/sap/bc/gui/sap/its/webgui?sap-client=220&~transaction=ZPQC_NEW`.
+   * **Approver Mode (`DRATHOD`):** Launch `https://172.27.100.32:44300/sap/bc/gui/sap/its/webgui?sap-client=220&sap-user=DRATHOD&~transaction=ZPQC_NEW`
+   * **Creator Mode (`NARESH`):** Launch `https://172.27.100.32:44300/sap/bc/gui/sap/its/webgui?sap-client=220&sap-user=NARESH&~transaction=ZPQC_NEW`
 
 ---
 

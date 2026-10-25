@@ -1,0 +1,65 @@
+*======================================================================*
+* DYNPRO SCREEN DEFINITION: 0200 (Scanning, Verification & Execution)
+* Program: SAPMZRF_RES_WM_TRANSFER / ZRF_RES_WM_TRANSFER
+* Screen Type: Normal (RF Terminal Layout 16 lines x 20/40 cols)
+* Maintenance Transaction: SE51 / ADT
+*======================================================================*
+
+----------------------------------------------------------------------
+1. FLOW LOGIC (Screen 0200)
+----------------------------------------------------------------------
+PROCESS BEFORE OUTPUT.
+  MODULE status_0200.
+
+PROCESS AFTER INPUT.
+  MODULE user_command_0200.
+
+----------------------------------------------------------------------
+2. SCREEN PF-STATUS & GUI TITLE DEFINITIONS
+----------------------------------------------------------------------
+GUI Status : STATUS_0200
+Titlebar   : TITLE_0200 ("Scan HU & Execute Transfer")
+
+Function Keys / Pushbuttons:
+  ENTER (Fcode: ENTR) -> Validate Scanned HU
+  F1    (Fcode: POST) -> Single-Click Execute Posting (IM + WM)
+  F2    (Fcode: NEXT) -> Next Open Item
+  F3    (Fcode: BACK) -> Back to Selection Screen 0100
+  F4    (Fcode: CLEA) -> Clear Scanned HU Fields
+  F6    (Fcode: SERN) -> Show Serial Numbers in HU
+  F7    (Fcode: BINS) -> Show Stock Storage Bins
+
+----------------------------------------------------------------------
+3. SCREEN ELEMENTS (Layout Painter / 16 x 20 or 8 x 40 Character Layout)
+----------------------------------------------------------------------
+Line | Col | Type  | Field Name               | Length | Attributes / Text
+-----+-----+-------+--------------------------+--------+-----------------------------------
+ 01  | 01  | OUTPT | G_SCR0200-DOC_TYPE       | 03     | Char 3, Output only ('RES' / 'TR')
+ 01  | 05  | OUTPT | G_SCR0200-DOC_NUM        | 10     | Char 10, Output only
+ 01  | 16  | TEXT  | TXT_ITM                  | 02     | It:
+ 01  | 19  | OUTPT | G_SCR0200-ITEM_CURR      | 02     | Integer, Output only
+ 01  | 21  | TEXT  | TXT_SLASH                | 01     | /
+ 01  | 22  | OUTPT | G_SCR0200-ITEM_TOTAL     | 02     | Integer, Output only
+ 02  | 01  | TEXT  | TXT_MAT                  | 04     | Mat:
+ 02  | 06  | OUTPT | G_SCR0200-MATNR          | 18     | Char 18, Output only
+ 03  | 01  | OUTPT | G_SCR0200-MAKTX          | 20     | Char 20, Output only
+ 04  | 01  | TEXT  | TXT_TGT                  | 04     | Tgt:
+ 04  | 06  | OUTPT | G_SCR0200-TARGET_QTY     | 08     | Packed/Dec, Output only
+ 04  | 15  | TEXT  | TXT_OPN                  | 04     | Opn:
+ 04  | 20  | OUTPT | G_SCR0200-OPEN_QTY       | 08     | Packed/Dec, Output only
+ 04  | 29  | OUTPT | G_SCR0200-MEINS          | 03     | Char 3, Output only
+ 05  | 01  | TEXT  | TXT_SCAN_HU              | 08     | Scan HU:
+ 06  | 01  | INPUT | G_SCR0200-EXIDV_SCAN     | 20     | Char 20, Barcode Scannable, Focus
+ 07  | 01  | TEXT  | TXT_BAT                  | 04     | Bat:
+ 07  | 06  | OUTPT | G_SCR0200-CHARG_DISP     | 10     | Char 10, Output only
+ 07  | 17  | TEXT  | TXT_SN                   | 03     | SN:
+ 07  | 21  | OUTPT | G_SCR0200-SER_COUNT      | 03     | Integer (Count of serials in HU)
+ 08  | 01  | TEXT  | TXT_BIN                  | 04     | Bin:
+ 08  | 06  | OUTPT | G_SCR0200-VLTYP_DISP     | 03     | Char 3 (Source Storage Type)
+ 08  | 10  | TEXT  | TXT_HYPH                 | 01     | /
+ 08  | 11  | OUTPT | G_SCR0200-VLPLA_DISP     | 10     | Char 10 (Source Storage Bin)
+ 09  | 01  | TEXT  | TXT_QTY                  | 04     | Qty:
+ 09  | 06  | INPUT | G_SCR0200-POST_QTY       | 08     | Packed/Dec, Post quantity
+ 10  | 01  | TEXT  | TXT_FKEYS                | 40     | [F1]Post [F2]Next [F4]Clr [F6]SN [F7]Bin
+ 12  | 01  | OUTPT | G_SCR0200-STATUS_MSG     | 40     | Char 40, Output only (Flash/Status)
+----------------------------------------------------------------------
