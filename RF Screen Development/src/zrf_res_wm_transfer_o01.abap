@@ -58,11 +58,28 @@ MODULE status_0200 OUTPUT.
     g_scr0200-lgort      = gs_header-lgort.
     g_scr0200-bwart      = gs_header-bwart.
     g_scr0200-target_qty = gs_curr_item-target_qty.
-    g_scr0200-open_qty   = gs_curr_item-open_qty.
     g_scr0200-meins      = gs_curr_item-meins.
+
+    " Dynamic Scan Label and Guidance based on Material Management
+    IF gs_curr_item-is_serialized = abap_true.
+      g_scr0200-scan_lbl = 'Scan HU/SU:'.
+      IF g_scr0200-status_msg IS INITIAL.
+        g_scr0200-status_msg = 'Serial material: Scan HU or SU barcode'.
+      ENDIF.
+    ELSEIF gs_curr_item-is_batch_managed = abap_true.
+      g_scr0200-scan_lbl = 'Scan Batch:'.
+      IF g_scr0200-status_msg IS INITIAL.
+        g_scr0200-status_msg = 'Batch material: Scan Batch number'.
+      ENDIF.
+    ELSE.
+      g_scr0200-scan_lbl = 'Scan HU/SU:'.
+      IF g_scr0200-status_msg IS INITIAL.
+        g_scr0200-status_msg = 'Scan HU or SU barcode'.
+      ENDIF.
+    ENDIF.
   ENDIF.
 
-  " If an HU has been validated, display its details
+  " If an HU has been validated, display its details and calculate pending open quantity
   IF gs_hu_info-is_valid = abap_true.
     g_scr0200-exidv_scan = gs_hu_info-exidv.
     g_scr0200-charg_disp = gs_hu_info-charg.
@@ -71,8 +88,22 @@ MODULE status_0200 OUTPUT.
     g_scr0200-vlpla_disp = gs_hu_info-lgpla.
     g_scr0200-lenum_disp = gs_hu_info-lenum.
     IF g_scr0200-post_qty IS INITIAL.
-      g_scr0200-post_qty = gs_hu_info-menge.
+      DATA: lv_init_qty_o TYPE menge_d.
+      lv_init_qty_o = gs_hu_info-menge.
+      IF lv_init_qty_o > gs_curr_item-open_qty.
+        lv_init_qty_o = gs_curr_item-open_qty.
+      ENDIF.
+      g_scr0200-post_qty = lv_init_qty_o.
     ENDIF.
+
+    DATA: lv_rem_open TYPE menge_d.
+    lv_rem_open = gs_curr_item-open_qty - g_scr0200-post_qty.
+    IF lv_rem_open < 0.
+      lv_rem_open = 0.
+    ENDIF.
+    g_scr0200-open_qty = lv_rem_open.
+  ELSE.
+    g_scr0200-open_qty = gs_curr_item-open_qty.
   ENDIF.
 
   " Screen Element Controls: disable Post & Scan if item complete, disable Next if no other open

@@ -46,12 +46,70 @@ MODULE user_command_0200 INPUT.
              g_scr0200-lenum_disp, g_scr0200-post_qty, g_scr0200-status_msg.
 
     WHEN c_fcode_enter.
-      " Triggered on Barcode Scan of Handling Unit
-      IF g_scr0200-exidv_scan IS NOT INITIAL.
-        PERFORM validate_scanned_hu.
-      ELSE.
-        g_scr0200-status_msg = 'Please scan Handling Unit (HU)'.
+      IF g_scr0200-exidv_scan IS INITIAL.
+        IF gs_curr_item-is_batch_managed = abap_true AND gs_curr_item-is_serialized = abap_false.
+          g_scr0200-status_msg = 'Please scan Batch Number'.
+        ELSE.
+          g_scr0200-status_msg = 'Please scan Handling Unit (HU) or SU'.
+        ENDIF.
+        RETURN.
       ENDIF.
+
+      " Check if active HU or SU on screen is scanned again
+      DATA: lv_ent_raw   TYPE exidv,
+            lv_ent_strip TYPE exidv.
+      lv_ent_raw = g_scr0200-exidv_scan.
+      CONDENSE lv_ent_raw NO-GAPS.
+      lv_ent_strip = lv_ent_raw.
+      SHIFT lv_ent_strip LEFT DELETING LEADING ' 0'.
+
+      IF gs_hu_info-is_valid = abap_true.
+        DATA: lv_act_raw   TYPE exidv,
+              lv_act_strip TYPE exidv,
+              lv_act_su    TYPE exidv.
+        lv_act_raw = gs_hu_info-exidv.
+        CONDENSE lv_act_raw NO-GAPS.
+        lv_act_strip = lv_act_raw.
+        SHIFT lv_act_strip LEFT DELETING LEADING ' 0'.
+        lv_act_su = gs_hu_info-lenum.
+        SHIFT lv_act_su LEFT DELETING LEADING ' 0'.
+
+        IF lv_ent_raw = lv_act_raw OR lv_ent_strip = lv_act_strip
+           OR ( lv_act_su IS NOT INITIAL AND ( lv_ent_raw = gs_hu_info-lenum OR lv_ent_strip = lv_act_su ) ).
+          g_scr0200-status_msg = 'HU or SU is already scan'.
+          MESSAGE s000(00) WITH 'HU or SU is already scan' DISPLAY LIKE 'E'.
+          RETURN.
+        ENDIF.
+      ENDIF.
+
+      " If cursor was on POST_QTY and user entered a new quantity, recalculate remaining
+      GET CURSOR FIELD gv_cursor.
+      IF gv_cursor = 'G_SCR0200-POST_QTY' AND gs_hu_info-is_valid = abap_true.
+        DATA: lv_u_pqty TYPE menge_d,
+              lv_u_str  TYPE string.
+        lv_u_str = g_scr0200-post_qty.
+        REPLACE ALL OCCURRENCES OF ',' IN lv_u_str WITH '.'.
+        CONDENSE lv_u_str NO-GAPS.
+        TRY.
+            lv_u_pqty = lv_u_str.
+          CATCH cx_root.
+            lv_u_pqty = gs_hu_info-menge.
+        ENDTRY.
+        IF lv_u_pqty > gs_curr_item-open_qty.
+          lv_u_pqty = gs_curr_item-open_qty.
+        ENDIF.
+        IF lv_u_pqty > gs_hu_info-menge.
+          lv_u_pqty = gs_hu_info-menge.
+        ENDIF.
+        g_scr0200-post_qty = lv_u_pqty.
+        DATA(lv_upd_open) = gs_curr_item-open_qty - lv_u_pqty.
+        g_scr0200-open_qty = lv_upd_open.
+        g_scr0200-status_msg = |Qty updated ({ lv_u_pqty DECIMALS = 3 }). Press Post (F1)|.
+        RETURN.
+      ENDIF.
+
+      " User scanned barcode into the scan field -> validate it
+      PERFORM validate_scanned_hu.
 
     WHEN c_fcode_post.
       " Single-Click Atomic Posting

@@ -1618,79 +1618,162 @@ FORM get_data.
     ( CONV i( gt_final1[ 2 ]-quat6 ) )
     ( CONV i( gt_final1[ 2 ]-quat7 ) ) ).
 
-  DATA(lv_max_days) = REDUCE i( INIT max = 0 FOR day IN lt_days NEXT max = nmax( val1 = max val2 = day ) ).
+  PERFORM recalculate_interest.
 
-  " Interest Rate (%) Row
+ENDFORM.
+
+*&---------------------------------------------------------------------*
+*& Form recalculate_interest
+*&---------------------------------------------------------------------*
+FORM recalculate_interest.
+  DATA: lv_max_days  TYPE i VALUE 0,
+        lv_has_diff  TYPE abap_bool VALUE abap_false,
+        lt_q_days    TYPE TABLE OF i,
+        lv_d         TYPE i,
+        lv_calc_days TYPE i,
+        lv_amt_val   TYPE decfloat34,
+        lv_intr_val  TYPE decfloat34,
+        ls_amt       TYPE ty_final,
+        ls_days      TYPE ty_final.
+
+  " Find Total Quotation Amount row
+  READ TABLE gt_final INTO ls_amt WITH KEY maktx = 'Total Quotation Amount' ##READ_WHERE_OK.
+  IF sy-subrc <> 0.
+    RETURN.
+  ENDIF.
+
+  " Get credit days from gt_final1 index 2
+  IF lines( gt_final1 ) >= 2.
+    READ TABLE gt_final1 INTO ls_days INDEX 2.
+  ENDIF.
+
   int_days = p_rate / 100.
 
-  APPEND VALUE #(
-    matnr   = ''
-    maktx   = 'Interest Rate(%)'
-    quat1   = |{ p_rate DECIMALS = 2 }%|
-    quat2   = |{ p_rate DECIMALS = 2 }%|
-    quat3   = |{ p_rate DECIMALS = 2 }%|
-    quat4   = |{ p_rate DECIMALS = 2 }%|
-    quat5   = |{ p_rate DECIMALS = 2 }%|
-    quat6   = |{ p_rate DECIMALS = 2 }%|
-    quat7   = |{ p_rate DECIMALS = 2 }%|
-    color   = 'C110'
-  ) TO gt_final.
+  " Determine days for each vendor and find max days
+  DO lines( gt_hdr ) TIMES.
+    DATA(lv_idx) = sy-index.
+    CLEAR lv_d.
+    IF lv_idx <= lines( gt_hdr ).
+      lv_d = gt_hdr[ lv_idx ]-ztag1.
+    ENDIF.
+    IF lv_d = 0.
+      CASE lv_idx.
+        WHEN 1. lv_d = CONV i( ls_days-quat1 ).
+        WHEN 2. lv_d = CONV i( ls_days-quat2 ).
+        WHEN 3. lv_d = CONV i( ls_days-quat3 ).
+        WHEN 4. lv_d = CONV i( ls_days-quat4 ).
+        WHEN 5. lv_d = CONV i( ls_days-quat5 ).
+        WHEN 6. lv_d = CONV i( ls_days-quat6 ).
+        WHEN 7. lv_d = CONV i( ls_days-quat7 ).
+      ENDCASE.
+    ENDIF.
+    APPEND lv_d TO lt_q_days.
+    IF lv_d > lv_max_days.
+      lv_max_days = lv_d.
+    ENDIF.
+  ENDDO.
 
-  " Interest Amount Row
-  CLEAR ls_interest.
+  " Check if there is any difference between vendor credit days
+  IF lv_max_days > 0.
+    LOOP AT lt_q_days INTO lv_d.
+      IF lv_d < lv_max_days.
+        lv_has_diff = abap_true.
+        EXIT.
+      ENDIF.
+    ENDLOOP.
+  ENDIF.
+
+  " 1. Update or append Interest Rate(%) row
+  READ TABLE gt_final ASSIGNING FIELD-SYMBOL(<fs_rate_row>) WITH KEY maktx = 'Interest Rate(%)'.
+  IF sy-subrc = 0.
+    <fs_rate_row>-quat1 = |{ p_rate DECIMALS = 2 }%|.
+    <fs_rate_row>-quat2 = |{ p_rate DECIMALS = 2 }%|.
+    <fs_rate_row>-quat3 = |{ p_rate DECIMALS = 2 }%|.
+    <fs_rate_row>-quat4 = |{ p_rate DECIMALS = 2 }%|.
+    <fs_rate_row>-quat5 = |{ p_rate DECIMALS = 2 }%|.
+    <fs_rate_row>-quat6 = |{ p_rate DECIMALS = 2 }%|.
+    <fs_rate_row>-quat7 = |{ p_rate DECIMALS = 2 }%|.
+  ELSE.
+    APPEND VALUE #(
+      matnr   = ''
+      maktx   = 'Interest Rate(%)'
+      quat1   = |{ p_rate DECIMALS = 2 }%|
+      quat2   = |{ p_rate DECIMALS = 2 }%|
+      quat3   = |{ p_rate DECIMALS = 2 }%|
+      quat4   = |{ p_rate DECIMALS = 2 }%|
+      quat5   = |{ p_rate DECIMALS = 2 }%|
+      quat6   = |{ p_rate DECIMALS = 2 }%|
+      quat7   = |{ p_rate DECIMALS = 2 }%|
+      color   = 'C110'
+    ) TO gt_final.
+  ENDIF.
+
+  " 2. Calculate and update or append Interest Amount row
+  DATA: ls_interest TYPE ty_final.
   ls_interest-maktx = 'Interest Amount'.
   ls_interest-color = 'C110'.
 
-  READ TABLE gt_final1 INTO DATA(ls_days) INDEX 2.
-  READ TABLE gt_final INTO DATA(ls_amt) WITH KEY maktx = 'Total Quotation Amount' ##READ_WHERE_OK.
+  DO lines( gt_hdr ) TIMES.
+    DATA(lv_vcol) = sy-index.
+    DATA: lv_raw_amt  TYPE string,
+          lv_calc_res TYPE string.
+    CLEAR: lv_raw_amt, lv_calc_res, lv_calc_days, lv_amt_val, lv_intr_val.
 
+    CASE lv_vcol.
+      WHEN 1. lv_raw_amt = ls_amt-quat1.
+      WHEN 2. lv_raw_amt = ls_amt-quat2.
+      WHEN 3. lv_raw_amt = ls_amt-quat3.
+      WHEN 4. lv_raw_amt = ls_amt-quat4.
+      WHEN 5. lv_raw_amt = ls_amt-quat5.
+      WHEN 6. lv_raw_amt = ls_amt-quat6.
+      WHEN 7. lv_raw_amt = ls_amt-quat7.
+    ENDCASE.
+
+    READ TABLE lt_q_days INTO lv_d INDEX lv_vcol.
+
+    IF lv_has_diff = abap_true.
+      lv_calc_days = lv_max_days - lv_d.
+    ELSEIF lv_d > 0.
+      lv_calc_days = lv_d.
+    ELSE.
+      lv_calc_days = 30.
+    ENDIF.
+
+    IF lv_raw_amt IS NOT INITIAL AND lv_raw_amt NE 'No Price'.
+      lv_amt_val = CONV decfloat34( lv_raw_amt ).
+      IF p_rate > 0 AND lv_amt_val > 0.
+        lv_intr_val = ( ( int_days / 365 ) * lv_calc_days ) * lv_amt_val.
+        lv_calc_res = |{ lv_intr_val DECIMALS = 2 }|.
+      ELSE.
+        lv_calc_res = '0.00'.
+      ENDIF.
+    ELSE.
+      lv_calc_res = 'No Price'.
+    ENDIF.
+
+    CASE lv_vcol.
+      WHEN 1. ls_interest-quat1 = lv_calc_res.
+      WHEN 2. ls_interest-quat2 = lv_calc_res.
+      WHEN 3. ls_interest-quat3 = lv_calc_res.
+      WHEN 4. ls_interest-quat4 = lv_calc_res.
+      WHEN 5. ls_interest-quat5 = lv_calc_res.
+      WHEN 6. ls_interest-quat6 = lv_calc_res.
+      WHEN 7. ls_interest-quat7 = lv_calc_res.
+    ENDCASE.
+  ENDDO.
+
+  READ TABLE gt_final ASSIGNING FIELD-SYMBOL(<fs_intr_row>) WITH KEY maktx = 'Interest Amount'.
   IF sy-subrc = 0.
-    IF lines( gt_hdr ) >= 1 AND ls_amt-quat1 IS NOT INITIAL AND ls_amt-quat1 NE 'No Price'.
-      lv_result = |{ ( int_days / 365 ) * ( lv_max_days - CONV i( ls_days-quat1 ) ) * CONV decfloat34( ls_amt-quat1 ) }|.
-      ls_interest-quat1 = lv_result.
-    ELSEIF lines( gt_hdr ) >= 1.
-      ls_interest-quat1 = 'No Price'.
-    ENDIF.
-    IF lines( gt_hdr ) >= 2 AND ls_amt-quat2 IS NOT INITIAL AND ls_amt-quat2 NE 'No Price'.
-      lv_result = |{ ( int_days / 365 ) * ( lv_max_days - CONV i( ls_days-quat2 ) ) * CONV decfloat34( ls_amt-quat2 ) }|.
-      ls_interest-quat2 = lv_result.
-    ELSEIF lines( gt_hdr ) >= 2.
-      ls_interest-quat2 = 'No Price'.
-    ENDIF.
-    IF lines( gt_hdr ) >= 3 AND ls_amt-quat3 IS NOT INITIAL AND ls_amt-quat3 NE 'No Price'.
-      lv_result = |{ ( int_days / 365 ) * ( lv_max_days - CONV i( ls_days-quat3 ) ) * CONV decfloat34( ls_amt-quat3 ) }|.
-      ls_interest-quat3 = lv_result.
-    ELSEIF lines( gt_hdr ) >= 3.
-      ls_interest-quat3 = 'No Price'.
-    ENDIF.
-    IF lines( gt_hdr ) >= 4 AND ls_amt-quat4 IS NOT INITIAL AND ls_amt-quat4 NE 'No Price'.
-      lv_result = |{ ( int_days / 365 ) * ( lv_max_days - CONV i( ls_days-quat4 ) ) * CONV decfloat34( ls_amt-quat4 ) }|.
-      ls_interest-quat4 = lv_result.
-    ELSEIF lines( gt_hdr ) >= 4.
-      ls_interest-quat4 = 'No Price'.
-    ENDIF.
-    IF lines( gt_hdr ) >= 5 AND ls_amt-quat5 IS NOT INITIAL AND ls_amt-quat5 NE 'No Price'.
-      lv_result = |{ ( int_days / 365 ) * ( lv_max_days - CONV i( ls_days-quat5 ) ) * CONV decfloat34( ls_amt-quat5 ) }|.
-      ls_interest-quat5 = lv_result.
-    ELSEIF lines( gt_hdr ) >= 5.
-      ls_interest-quat5 = 'No Price'.
-    ENDIF.
-    IF lines( gt_hdr ) >= 6 AND ls_amt-quat6 IS NOT INITIAL AND ls_amt-quat6 NE 'No Price'.
-      lv_result = |{ ( int_days / 365 ) * ( lv_max_days - CONV i( ls_days-quat6 ) ) * CONV decfloat34( ls_amt-quat6 ) }|.
-      ls_interest-quat6 = lv_result.
-    ELSEIF lines( gt_hdr ) >= 6.
-      ls_interest-quat6 = 'No Price'.
-    ENDIF.
-    IF lines( gt_hdr ) >= 7 AND ls_amt-quat7 IS NOT INITIAL AND ls_amt-quat7 NE 'No Price'.
-      lv_result = |{ ( int_days / 365 ) * ( lv_max_days - CONV i( ls_days-quat7 ) ) * CONV decfloat34( ls_amt-quat7 ) }|.
-      ls_interest-quat7 = lv_result.
-    ELSEIF lines( gt_hdr ) >= 7.
-      ls_interest-quat7 = 'No Price'.
-    ENDIF.
+    <fs_intr_row>-quat1 = ls_interest-quat1.
+    <fs_intr_row>-quat2 = ls_interest-quat2.
+    <fs_intr_row>-quat3 = ls_interest-quat3.
+    <fs_intr_row>-quat4 = ls_interest-quat4.
+    <fs_intr_row>-quat5 = ls_interest-quat5.
+    <fs_intr_row>-quat6 = ls_interest-quat6.
+    <fs_intr_row>-quat7 = ls_interest-quat7.
+  ELSE.
+    APPEND ls_interest TO gt_final.
   ENDIF.
-
-  APPEND ls_interest TO gt_final.
-
 ENDFORM.
 
 *&---------------------------------------------------------------------*
@@ -3491,6 +3574,21 @@ CLASS lcl_html_handler IMPLEMENTATION.
           lv_getdata TYPE string.
     lv_act     = action.
     lv_getdata = getdata.
+
+    LOOP AT query_table INTO DATA(ls_q).
+      IF lv_getdata IS INITIAL.
+        lv_getdata = |{ ls_q-name }={ ls_q-value }|.
+      ELSE.
+        lv_getdata = |{ lv_getdata }&{ ls_q-name }={ ls_q-value }|.
+      ENDIF.
+    ENDLOOP.
+
+    IF lv_getdata IS INITIAL.
+      lv_getdata = postdata.
+    ELSEIF postdata IS NOT INITIAL.
+      lv_getdata = |{ lv_getdata }&{ postdata }|.
+    ENDIF.
+
     IF lv_act CS '?'.
       DATA: lv_act_part TYPE string,
             lv_qry_part TYPE string.
@@ -3923,6 +4021,11 @@ FORM render_html.
     ENDIF.
   ENDLOOP.
 
+  DATA: lv_is_comp_approved TYPE abap_bool VALUE abap_false.
+  IF lv_appr_cnt > 0 AND lv_unsub_cnt = 0 AND lv_pend_cnt = 0 AND lv_rej_cnt = 0.
+    lv_is_comp_approved = abap_true.
+  ENDIF.
+
   IF gv_is_approver = abap_true.
     " Approver View
     lv_appr_badge =
@@ -4031,6 +4134,21 @@ FORM render_html.
       '</div>'.
   ENDIF.
 
+  DATA: lv_appr_lock_banner TYPE string.
+  CLEAR lv_appr_lock_banner.
+  IF lv_is_comp_approved = abap_true.
+    lv_appr_lock_banner =
+      '<div style="margin: 6px 0; padding: 8px 12px; background: #ecfdf5; border: 1.5px solid #10b981;' &&
+      'border-radius: 6px; color: #065f46; display: flex; align-items: center; justify-content: space-between; font-size: 11.5px;">' &&
+      '  <div style="display: flex; align-items: center; gap: 8px;">' &&
+      '    <span style="display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px;' &&
+      '          border-radius:50%;background:#10b981;color:#ffffff;font-size:12px;font-weight:800;">&#10003;</span>' &&
+      '    <span><strong>Quotation Comparison Approved:</strong> All selections and commercial parameters are finalized. All change options are disabled.</span>' &&
+      '  </div>' &&
+      '  <span style="font-weight: 700; font-size: 11px; color: #15803d; background: #dcfce7; padding: 2px 8px; border-radius: 4px; border: 1px solid #86efac;">&#128274; Modifications Locked</span>' &&
+      '</div>'.
+  ENDIF.
+
   lv_html =
     '<!DOCTYPE html>' &&
     '<html lang="en"><head>' &&
@@ -4048,6 +4166,11 @@ FORM render_html.
         '<span style="display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:700;' &&
         'color:#15803d;background:#dcfce7;padding:3px 10px;border-radius:12px;border:1px solid #86efac;">' &&
         '&#10003; All Line Items PO Created</span>'
+      WHEN lv_is_comp_approved = abap_true THEN
+        '<span class="select-all-btn" style="background:#dcfce7;color:#15803d;border:1px solid #86efac;cursor:default;" title="Comparison Approved - Selection locked">' &&
+        '<span class="radio-box radio-sel" style="background:#16a34a;border-color:#16a34a;">&#10003;</span>' &&
+        '<span>Comparison Approved</span></span>' &&
+        |    <span class="badge-count" style="background:#dcfce7;color:#15803d;border:1px solid #86efac;">&#128274; Locked</span>|
       ELSE
         '<a href="SAPEVENT:TOGGLE_ALL" class="select-all-btn" title="Toggle Select All items">' &&
         COND string(
@@ -4086,12 +4209,25 @@ FORM render_html.
       ELSE
         |    <span class="val-summary">Selected: &#8377;{ lv_fmt_sel_mat }</span>|
     ) &&
-    '    <div class="rate-box">' &&
-    '      <span>Rate:</span>' &&
-    |      <input type="number" id="inpRate" value="{ p_rate DECIMALS = 2 }" step="0.25" class="rate-input" />| &&
-    '      <span>%</span>' &&
-    '      <button onclick="applyRate()" class="btn-apply">Apply</button>' &&
-    '    </div>' &&
+    COND string(
+      WHEN lv_is_comp_approved = abap_true THEN
+        '    <div class="rate-box" style="background:#f1f5f9;border-color:#cbd5e1;" title="Comparison is Approved - Interest Rate is locked">' &&
+        '      <span style="font-weight:700;color:#64748b;">&#128274; Rate:</span>' &&
+        |      <input type="number" id="inpRate" value="{ p_rate DECIMALS = 2 }" class="rate-input" disabled readonly| &&
+        '             style="background:#e2e8f0;color:#64748b;cursor:not-allowed;border-color:#cbd5e1;" title="Comparison Approved - Rate cannot be changed" />' &&
+        '      <span style="font-weight:700;color:#64748b;">%</span>' &&
+        '      <span class="btn-apply" style="background:#94a3b8;cursor:not-allowed;color:#ffffff;box-shadow:none;" title="Comparison Approved - Modifications locked">&#128274; Locked</span>' &&
+        '    </div>'
+      ELSE
+        '    <div class="rate-box">' &&
+        '      <span>Rate:</span>' &&
+        |      <input type="number" id="inpRate" value="{ p_rate DECIMALS = 2 }" step="0.25" class="rate-input"| &&
+        |             oninput="onRateInput(this.value);" onchange="onRateInput(this.value);" onkeydown="if(event.key==='Enter'||event.keyCode===13)\{doApplyRate();return false;\}" title="Enter manual interest rate percentage and press Enter or Apply" />| &&
+        '      <span>%</span>' &&
+        |      <a id="btnApplyRate" href="SAPEVENT:SET_RATE?rate={ p_rate DECIMALS = 2 }" onclick="return applyRate(event);" class="btn-apply" title="Apply interest rate and recalculate">&#10003; Apply</a>| &&
+        '      <span id="rateNotice" style="display:none;font-size:10.5px;font-weight:700;color:#047857;background:#d1fae5;padding:2px 8px;border-radius:4px;border:1px solid #a7f3d0;margin-left:4px;"></span>' &&
+        '    </div>'
+    ) &&
     '    <a href="SAPEVENT:REFRESH" class="btn-refresh">&#128260; Refresh</a>' &&
     lv_appr_actions &&
     '  </div>' &&
@@ -4100,6 +4236,7 @@ FORM render_html.
   " Table header
   lv_html = lv_html &&
     lv_rej_banner &&
+    lv_appr_lock_banner &&
     '<div class="table-wrapper">' &&
     '<table class="cmp-table">' &&
     '  <thead><tr>' &&
@@ -4114,12 +4251,17 @@ FORM render_html.
     '    </th>'.
 
   LOOP AT gt_hdr INTO wa_hdr.
+    DATA: lv_rfq_link_hdr TYPE string.
+    IF lv_is_comp_approved = abap_true.
+      lv_rfq_link_hdr = |<span style="color:#475569;font-weight:600;" title="Quotation #{ wa_hdr-ebeln } (Approved - Locked)">RFQ #{ wa_hdr-ebeln } &#128274;</span>|.
+    ELSE.
+      lv_rfq_link_hdr = |<a href="SAPEVENT:ME47?ebeln={ wa_hdr-ebeln }" style="color:#2563eb;text-decoration:underline;" title="Maintain quotation dates and pricing in ME47">RFQ #{ wa_hdr-ebeln } &#9998;</a>|.
+    ENDIF.
+
     lv_html = lv_html &&
       '<th style="min-width: 155px;">' &&
       |  <div class="v-hdr-title">{ wa_hdr-name1 }</div>| &&
-      |  <div class="v-hdr-sub">Vendor { wa_hdr-lifnr } · | &&
-      |    <a href="SAPEVENT:ME47?ebeln={ wa_hdr-ebeln }" style="color:#2563eb;text-decoration:underline;"| &&
-      |       title="Maintain quotation dates and pricing in ME47">RFQ #{ wa_hdr-ebeln } &#9998;</a></div>| &&
+      |  <div class="v-hdr-sub">Vendor { wa_hdr-lifnr } · { lv_rfq_link_hdr }</div>| &&
       '</th>'.
   ENDLOOP.
 
@@ -4370,14 +4512,9 @@ FORM render_html.
         ELSEIF ls_item-appr_status = 'X'.
           IF lv_is_sel = abap_true.
             lv_pill_action =
-              '<span class="quote-chk-btn is-appr" title="Quotation Approved"><span class="chk-sq">&#10003;</span><span>Approved</span></span>'.
+              '<span class="quote-chk-btn is-appr" title="Quotation Approved · Locked"><span class="chk-sq">&#10003;</span><span>Approved</span></span>'.
           ELSE.
-            IF gv_is_approver = abap_true.
-              lv_pill_action =
-                |<a href="SAPEVENT:SELECT?item={ ls_item-ebelp }&col=QUAT{ lv_cidx }" class="quote-chk-btn is-unsel" title="Select this quotation"><span class="chk-sq"></span><span>Select</span></a>|.
-            ELSE.
-              lv_pill_action = space.
-            ENDIF.
+            lv_pill_action = space.
           ENDIF.
         ELSEIF ls_item-appr_status = 'R'.
           IF lv_is_sel = abap_true.
@@ -4449,11 +4586,17 @@ FORM render_html.
           '</td>'.
 
       ELSEIF sy-subrc = 0.
+        DATA: lv_m47_link TYPE string.
+        IF ls_item-appr_status = 'X' OR lv_is_comp_approved = abap_true.
+          lv_m47_link = '<div class="no-price-sub" style="color:#94a3b8;font-size:9.5px;margin-top:2px;">&#128274; Locked</div>'.
+        ELSE.
+          lv_m47_link = |<a href="SAPEVENT:ME47?ebeln={ ls_qitem-ebeln }" class="no-price-link">&#9998; Maintain ME47</a>|.
+        ENDIF.
         lv_html = lv_html &&
           '<td style="background: #fff1f2; text-align: center;">' &&
           '  <div class="no-price-badge">No Price</div>' &&
           '  <div class="no-price-sub">Price not maintained</div>' &&
-          |  <a href="SAPEVENT:ME47?ebeln={ ls_qitem-ebeln }" class="no-price-link">&#9998; Maintain ME47</a>| &&
+          lv_m47_link &&
           '</td>'.
       ELSE.
         lv_html = lv_html &&
@@ -4867,7 +5010,7 @@ FORM render_html.
   " Commercial Evaluation & Financing Section (Unified in single table)
   lv_html = lv_html &&
     '<tr class="comm-sec-hdr">' &&
-    |  <td colspan="6">Commercial Evaluation & Financing Analysis ({ p_rate DECIMALS = 2 }% Interest Rate)</td>|.
+    |  <td colspan="6">Commercial Evaluation & Financing Analysis (<span id="lblRateHeader">{ p_rate DECIMALS = 2 }</span>% Interest Rate)</td>|.
 
   LOOP AT gt_hdr INTO wa_hdr.
     lv_html = lv_html &&
@@ -4914,7 +5057,7 @@ FORM render_html.
   lv_html = lv_html &&
     '<tr class="comm-row-hl">' &&
     |  <td colspan="6" class="comm-param-label" style="font-weight: 700; color: #854d0e;">| &&
-    |Financing / Interest Cost ({ p_rate DECIMALS = 2 }%)</td>|.
+    |Financing / Interest Cost (<span id="lblRateRow">{ p_rate DECIMALS = 2 }</span>%)</td>|.
 
   LOOP AT gt_hdr INTO wa_hdr.
     DATA(lv_hidx) = sy-tabix.
@@ -4931,9 +5074,9 @@ FORM render_html.
     ENDCASE.
     PERFORM format_inr USING lv_raw_intr CHANGING lv_fmt_intr.
     IF lv_fmt_intr = 'No Price'.
-      lv_html = lv_html && |<td class="comm-param-val" style="color: #dc2626;">{ lv_fmt_intr }</td>|.
+      lv_html = lv_html && |<td id="cellIntr_{ lv_hidx }" class="comm-param-val" style="color: #dc2626;">{ lv_fmt_intr }</td>|.
     ELSE.
-      lv_html = lv_html && |<td class="comm-param-val" style="text-align: right; font-weight: 600;">&#8377;{ lv_fmt_intr }</td>|.
+      lv_html = lv_html && |<td id="cellIntr_{ lv_hidx }" class="comm-param-val" style="text-align: right; font-weight: 600;">&#8377;{ lv_fmt_intr }</td>|.
     ENDIF.
   ENDLOOP.
   lv_html = lv_html &&
@@ -4999,27 +5142,194 @@ FORM render_html.
     '  </td>'.
 
   LOOP AT lt_flnd INTO lv_flnd.
+    DATA(lv_lidx) = sy-tabix.
     IF lv_flnd = 'No Price'.
-      lv_html = lv_html && |<td class="comm-param-val" style="color: #dc2626;"><strong>{ lv_flnd }</strong></td>|.
+      lv_html = lv_html && |<td id="cellLanded_{ lv_lidx }" class="comm-param-val" style="color: #dc2626;"><strong>{ lv_flnd }</strong></td>|.
     ELSE.
-      lv_html = lv_html && |<td class="comm-param-val" style="text-align: right;"><strong>&#8377;{ lv_flnd }</strong></td>|.
+      lv_html = lv_html && |<td id="cellLanded_{ lv_lidx }" class="comm-param-val" style="text-align: right;"><strong>&#8377;{ lv_flnd }</strong></td>|.
     ENDIF.
   ENDLOOP.
 
   lv_html = lv_html &&
-    |  <td class="comm-param-val" style="text-align: right; font-weight: 800; color: #166534;">&#8377;{ lv_fmt_min_land }</td>| &&
+    |  <td id="cellMinLanded" class="comm-param-val" style="text-align: right; font-weight: 800; color: #166534;">&#8377;{ lv_fmt_min_land }</td>| &&
     '  <td class="comm-param-val" style="text-align: center; color: #94a3b8;">—</td>' &&
     '</tr>' &&
     '</tfoot></table></div>'.
 
+  " Build purely numeric JSON metadata array for dynamic runtime recalculation
+  DATA: lv_vdata_js TYPE string.
+  CLEAR lv_vdata_js.
+  LOOP AT gt_hdr INTO wa_hdr.
+    DATA(lv_vidx) = sy-tabix.
+    DATA: lv_v_tot_val TYPE decfloat34,
+          lv_v_has_p   TYPE string,
+          lv_cdays     TYPE i,
+          lv_v_raw_amt TYPE string.
+    CLEAR: lv_v_raw_amt, lv_v_tot_val.
+    CASE lv_vidx.
+      WHEN 1. lv_v_raw_amt = ls_tot-quat1.
+      WHEN 2. lv_v_raw_amt = ls_tot-quat2.
+      WHEN 3. lv_v_raw_amt = ls_tot-quat3.
+      WHEN 4. lv_v_raw_amt = ls_tot-quat4.
+      WHEN 5. lv_v_raw_amt = ls_tot-quat5.
+      WHEN 6. lv_v_raw_amt = ls_tot-quat6.
+      WHEN 7. lv_v_raw_amt = ls_tot-quat7.
+    ENDCASE.
+    IF lv_v_raw_amt IS NOT INITIAL AND lv_v_raw_amt NE 'No Price'.
+      lv_v_tot_val = CONV decfloat34( lv_v_raw_amt ).
+      lv_v_has_p   = 'true'.
+    ELSE.
+      lv_v_tot_val = 0.
+      lv_v_has_p   = 'false'.
+    ENDIF.
+    lv_cdays = wa_hdr-ztag1.
+
+    IF lv_vdata_js IS NOT INITIAL.
+      lv_vdata_js = lv_vdata_js && ','.
+    ENDIF.
+    lv_vdata_js = lv_vdata_js &&
+      |\{idx:{ lv_vidx },creditDays:{ lv_cdays },totAmt:{ lv_v_tot_val STYLE = SIMPLE },hasPrice:{ lv_v_has_p }\}|.
+  ENDLOOP.
+
   lv_html = lv_html &&
     '</div>' &&
     '<script>' &&
-    'function applyRate() {' &&
-    '  var val = document.getElementById("inpRate").value;' &&
-    '  if (val && !isNaN(val)) {' &&
-    '    window.location.href = "SAPEVENT:SET_RATE?rate=" + encodeURIComponent(val);' &&
+    |var gIsComparisonApproved = { COND string( WHEN lv_is_comp_approved = abap_true THEN 'true' ELSE 'false' ) };| &&
+    |var gVendorData = [{ lv_vdata_js }];| &&
+    'function formatInr(val) {' &&
+    '  if (isNaN(val)) return "0.00";' &&
+    '  var isNeg = val < 0;' &&
+    '  var num = Math.abs(val).toFixed(2);' &&
+    '  var parts = num.split(".");' &&
+    '  var intPart = parts[0];' &&
+    '  var decPart = parts[1];' &&
+    '  var lastThree = intPart.substring(intPart.length - 3);' &&
+    '  var otherNumbers = intPart.substring(0, intPart.length - 3);' &&
+    '  if (otherNumbers !== "") {' &&
+    '    lastThree = "," + lastThree;' &&
     '  }' &&
+    '  var res = otherNumbers.replace(/\B(?=(\d{2})+(?!\d))/g, ",") + lastThree + "." + decPart;' &&
+    '  return (isNeg ? "-" : "") + res;' &&
+    '}' &&
+    'function recalculateInterestRuntime(rateVal) {' &&
+    '  var rate = parseFloat(rateVal);' &&
+    '  if (isNaN(rate) || rate < 0) return;' &&
+    '  var rHeader = document.getElementById("lblRateHeader");' &&
+    '  if (rHeader) rHeader.textContent = rate.toFixed(2);' &&
+    '  var rRow = document.getElementById("lblRateRow");' &&
+    '  if (rRow) rRow.textContent = rate.toFixed(2);' &&
+    '  if (!window.gVendorData || !window.gVendorData.length) return;' &&
+    '  var maxDays = 0;' &&
+    '  for (var i = 0; i < gVendorData.length; i++) {' &&
+    '    var d = gVendorData[i].creditDays || 0;' &&
+    '    if (d > maxDays) maxDays = d;' &&
+    '  }' &&
+    '  var hasDiff = false;' &&
+    '  if (maxDays > 0) {' &&
+    '    for (var i = 0; i < gVendorData.length; i++) {' &&
+    '      if ((gVendorData[i].creditDays || 0) < maxDays) {' &&
+    '        hasDiff = true;' &&
+    '        break;' &&
+    '      }' &&
+    '    }' &&
+    '  }' &&
+    '  var minLanded = 0;' &&
+    '  var minFound = false;' &&
+    '  for (var i = 0; i < gVendorData.length; i++) {' &&
+    '    var v = gVendorData[i];' &&
+    '    var cellI = document.getElementById("cellIntr_" + v.idx);' &&
+    '    var cellL = document.getElementById("cellLanded_" + v.idx);' &&
+    '    if (!v.hasPrice) {' &&
+    '      if (cellI) cellI.innerHTML = "<span style=\"color:#dc2626;\">No Price</span>";' &&
+    '      if (cellL) cellL.innerHTML = "<span style=\"color:#dc2626;\"><strong>No Price</strong></span>";' &&
+    '      continue;' &&
+    '    }' &&
+    '    var calcDays = 0;' &&
+    '    if (hasDiff) {' &&
+    '      calcDays = maxDays - (v.creditDays || 0);' &&
+    '    } else if (v.creditDays > 0) {' &&
+    '      calcDays = v.creditDays;' &&
+    '    } else {' &&
+    '      calcDays = 30;' &&
+    '    }' &&
+    '    var intr = (rate / 100 / 365) * calcDays * v.totAmt;' &&
+    '    var landed = v.totAmt + intr;' &&
+    '    if (!minFound || landed < minLanded) {' &&
+    '      minLanded = landed;' &&
+    '      minFound = true;' &&
+    '    }' &&
+    '    if (cellI) cellI.innerHTML = "&#8377;" + formatInr(intr);' &&
+    '    if (cellL) cellL.innerHTML = "<strong>&#8377;" + formatInr(landed) + "</strong>";' &&
+    '  }' &&
+    '  var cellMin = document.getElementById("cellMinLanded");' &&
+    '  if (cellMin) cellMin.innerHTML = minFound ? "&#8377;" + formatInr(minLanded) : "—";' &&
+    '}' &&
+    'function onRateInput(val) {' &&
+    '  if (gIsComparisonApproved) return;' &&
+    '  var btn = document.getElementById("btnApplyRate");' &&
+    '  if (btn && val) {' &&
+    '    btn.href = "SAPEVENT:SET_RATE?rate=" + encodeURIComponent(val);' &&
+    '  }' &&
+    '  recalculateInterestRuntime(val);' &&
+    '}' &&
+    'function sendSapEvent(actionWithQuery) {' &&
+    '  try {' &&
+    '    var f = document.getElementById("sapEventForm");' &&
+    '    if (!f) {' &&
+    '      f = document.createElement("form");' &&
+    '      f.id = "sapEventForm";' &&
+    '      f.method = "POST";' &&
+    '      f.style.display = "none";' &&
+    '      document.body.appendChild(f);' &&
+    '    }' &&
+    '    f.action = actionWithQuery;' &&
+    '    f.submit();' &&
+    '  } catch (err) {' &&
+    '    window.location.href = actionWithQuery;' &&
+    '  }' &&
+    '}' &&
+    'function applyRate(e) {' &&
+    '  if (gIsComparisonApproved) {' &&
+    '    alert("Quotation comparison is approved. All change options are disabled.");' &&
+    '    if (e && e.preventDefault) e.preventDefault();' &&
+    '    return false;' &&
+    '  }' &&
+    '  var inp = document.getElementById("inpRate");' &&
+    '  if (!inp) return true;' &&
+    '  var val = parseFloat(inp.value);' &&
+    '  if (isNaN(val) || val < 0) {' &&
+    '    alert("Please enter a valid interest rate percentage.");' &&
+    '    if (e && e.preventDefault) e.preventDefault();' &&
+    '    return false;' &&
+    '  }' &&
+    '  recalculateInterestRuntime(val);' &&
+    '  var notice = document.getElementById("rateNotice");' &&
+    '  if (notice) {' &&
+    '    notice.textContent = "Rate applied (" + val.toFixed(2) + "%)";' &&
+    '    notice.style.display = "inline";' &&
+    '    setTimeout(function() { notice.style.display = "none"; }, 3000);' &&
+    '  }' &&
+    '  sendSapEvent("SAPEVENT:SET_RATE?rate=" + encodeURIComponent(val));' &&
+    '  if (e && e.preventDefault) e.preventDefault();' &&
+    '  return false;' &&
+    '}' &&
+    'function doApplyRate() {' &&
+    '  if (gIsComparisonApproved) return;' &&
+    '  var inp = document.getElementById("inpRate");' &&
+    '  if (!inp) return;' &&
+    '  var val = parseFloat(inp.value);' &&
+    '  if (isNaN(val) || val < 0) {' &&
+    '    alert("Please enter a valid interest rate percentage.");' &&
+    '    return;' &&
+    '  }' &&
+    '  recalculateInterestRuntime(val);' &&
+    '  var notice = document.getElementById("rateNotice");' &&
+    '  if (notice) {' &&
+    '    notice.textContent = "Rate applied (" + val.toFixed(2) + "%)";' &&
+    '    notice.style.display = "inline";' &&
+    '    setTimeout(function() { notice.style.display = "none"; }, 3000);' &&
+    '  }' &&
+    '  sendSapEvent("SAPEVENT:SET_RATE?rate=" + encodeURIComponent(val));' &&
     '}' &&
     'function confirmApproveAll() {' &&
     '  if (confirm("Are you sure you want to approve all pending quotation items?")) {' &&
@@ -5056,6 +5366,10 @@ FORM render_html.
     '  return false;' &&
     '}' &&
     'function promptEditRemark(item, curVal) {' &&
+    '  if (gIsComparisonApproved) {' &&
+    '    alert("Quotation comparison is approved. All change options are disabled.");' &&
+    '    return false;' &&
+    '  }' &&
     '  var rem = prompt("Enter justification / reason for selecting non-L1 quotation for Item " + item + ":", curVal || "");' &&
     '  if (rem === null) return false;' &&
     '  rem = rem.trim();' &&
@@ -5792,11 +6106,21 @@ FORM handle_html_action USING pv_action  TYPE any
       MESSAGE 'Quotation comparison data refreshed successfully.' TYPE 'S'.
 
     WHEN 'SET_RATE'.
+      DATA: lv_is_appr_rate TYPE abap_bool VALUE abap_false.
+      LOOP AT gt_item_ref TRANSPORTING NO FIELDS WHERE appr_status = 'X'.
+        lv_is_appr_rate = abap_true.
+        EXIT.
+      ENDLOOP.
+      IF lv_is_appr_rate = abap_true.
+        MESSAGE 'Quotation comparison is approved. Commercial parameters and interest rate are locked.' TYPE 'W'.
+        RETURN.
+      ENDIF.
+
       DATA: lv_rate_str TYPE string.
       PERFORM parse_query_param USING lv_data 'rate' CHANGING lv_rate_str.
       IF lv_rate_str IS NOT INITIAL.
         p_rate = CONV decfloat34( lv_rate_str ).
-        PERFORM get_data.
+        PERFORM recalculate_interest.
         PERFORM render_html.
         MESSAGE |Interest Rate updated to { p_rate DECIMALS = 2 }%.| TYPE 'S'.
       ENDIF.

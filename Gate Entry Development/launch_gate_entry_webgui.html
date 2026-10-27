@@ -1,0 +1,966 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SAP Gate Entry WebGUI Launcher - Program ZGATEENTRY</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --primary: #0070F2;
+      --primary-hover: #0054b8;
+      --primary-glow: rgba(0, 112, 242, 0.25);
+      --bg: #0b1120;
+      --bg-card: rgba(15, 23, 42, 0.75);
+      --bg-card-hover: rgba(30, 41, 59, 0.85);
+      --border: rgba(148, 163, 184, 0.15);
+      --border-highlight: rgba(0, 112, 242, 0.4);
+      --text: #f8fafc;
+      --text-muted: #94a3b8;
+      --text-dim: #64748b;
+      --accent-green: #10b981;
+      --accent-green-glow: rgba(16, 185, 129, 0.2);
+      --accent-amber: #f59e0b;
+      --accent-purple: #8b5cf6;
+      --font-main: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      --font-mono: 'JetBrains Mono', monospace;
+      --radius-sm: 8px;
+      --radius-md: 12px;
+      --radius-lg: 16px;
+      --transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    [data-theme="light"] {
+      --primary: #0064d9;
+      --primary-hover: #004fb0;
+      --primary-glow: rgba(0, 100, 217, 0.2);
+      --bg: #f1f5f9;
+      --bg-card: rgba(255, 255, 255, 0.85);
+      --bg-card-hover: rgba(255, 255, 255, 0.98);
+      --border: rgba(203, 213, 225, 0.8);
+      --border-highlight: rgba(0, 100, 217, 0.4);
+      --text: #0f172a;
+      --text-muted: #475569;
+      --text-dim: #64748b;
+      --accent-green: #059669;
+      --accent-amber: #d97706;
+      --accent-purple: #7c3aed;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: var(--font-main);
+      background-color: var(--bg);
+      color: var(--text);
+      line-height: 1.5;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      position: relative;
+      overflow-x: hidden;
+      background-image: 
+        radial-gradient(at 0% 0%, rgba(0, 112, 242, 0.12) 0px, transparent 50%),
+        radial-gradient(at 100% 100%, rgba(139, 92, 246, 0.08) 0px, transparent 50%);
+      background-attachment: fixed;
+    }
+
+    /* Ambient Background Gradients */
+    .ambient-glow {
+      position: fixed;
+      width: 500px;
+      height: 500px;
+      border-radius: 50%;
+      pointer-events: none;
+      z-index: 0;
+      filter: blur(100px);
+      opacity: 0.4;
+      animation: pulse 8s ease-in-out infinite alternate;
+    }
+    .glow-1 { top: -100px; left: 10%; background: #0070F2; }
+    .glow-2 { bottom: -100px; right: 10%; background: #8b5cf6; }
+
+    @keyframes pulse {
+      0% { transform: scale(1) translate(0, 0); opacity: 0.3; }
+      100% { transform: scale(1.15) translate(20px, -20px); opacity: 0.5; }
+    }
+
+    /* Top Navigation Bar */
+    header {
+      position: sticky;
+      top: 0;
+      z-index: 50;
+      background: rgba(11, 17, 32, 0.8);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border-bottom: 1px solid var(--border);
+      padding: 14px 32px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    [data-theme="light"] header {
+      background: rgba(241, 245, 249, 0.85);
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      text-decoration: none;
+      color: inherit;
+    }
+    .sap-badge {
+      background: linear-gradient(135deg, #0070F2, #004b9e);
+      color: #fff;
+      font-weight: 800;
+      font-size: 13px;
+      padding: 4px 10px;
+      border-radius: var(--radius-sm);
+      letter-spacing: 0.5px;
+      box-shadow: 0 2px 10px var(--primary-glow);
+    }
+    .brand-title {
+      font-size: 17px;
+      font-weight: 700;
+      letter-spacing: -0.3px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .brand-title span {
+      color: var(--primary);
+    }
+
+    .header-actions {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+
+    .sys-pill {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      background: rgba(16, 185, 129, 0.1);
+      border: 1px solid rgba(16, 185, 129, 0.3);
+      color: var(--accent-green);
+      font-size: 12px;
+      font-weight: 600;
+      padding: 5px 12px;
+      border-radius: 9999px;
+    }
+    .sys-dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: var(--accent-green);
+      box-shadow: 0 0 8px var(--accent-green);
+      animation: blink 2s infinite;
+    }
+    @keyframes blink {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.4; }
+    }
+
+    .theme-toggle {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      color: var(--text);
+      cursor: pointer;
+      width: 36px;
+      height: 36px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 16px;
+      transition: var(--transition);
+    }
+    .theme-toggle:hover {
+      border-color: var(--primary);
+      transform: rotate(15deg);
+    }
+
+    /* Main Container */
+    main {
+      flex: 1;
+      width: 100%;
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 40px 24px 60px;
+      z-index: 1;
+    }
+
+    /* Hero Section */
+    .hero {
+      text-align: center;
+      margin-bottom: 40px;
+    }
+    .hero-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 14px;
+      border-radius: 9999px;
+      background: rgba(0, 112, 242, 0.12);
+      border: 1px solid var(--border-highlight);
+      color: var(--primary);
+      font-size: 12px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.6px;
+      margin-bottom: 16px;
+    }
+    .hero h1 {
+      font-size: 38px;
+      font-weight: 800;
+      letter-spacing: -1px;
+      line-height: 1.2;
+      margin-bottom: 12px;
+      background: linear-gradient(135deg, var(--text) 30%, var(--primary) 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+    .hero p {
+      font-size: 16px;
+      color: var(--text-muted);
+      max-width: 650px;
+      margin: 0 auto;
+    }
+
+    /* Launcher Grid */
+    .grid-launchers {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
+      gap: 24px;
+      margin-bottom: 40px;
+    }
+
+    .card {
+      background: var(--bg-card);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      padding: 28px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      transition: var(--transition);
+      position: relative;
+      overflow: hidden;
+    }
+    .card::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 3px;
+      background: linear-gradient(90deg, transparent, var(--card-color, var(--primary)), transparent);
+      opacity: 0;
+      transition: var(--transition);
+    }
+    .card:hover {
+      background: var(--bg-card-hover);
+      border-color: var(--border-highlight);
+      transform: translateY(-4px);
+      box-shadow: 0 16px 32px -8px rgba(0, 0, 0, 0.35);
+    }
+    .card:hover::before {
+      opacity: 1;
+    }
+
+    .card.primary-card {
+      --card-color: var(--primary);
+      border-color: rgba(0, 112, 242, 0.3);
+      box-shadow: 0 10px 25px -5px var(--primary-glow);
+    }
+    .card.user-card {
+      --card-color: var(--accent-green);
+    }
+    .card.flp-card {
+      --card-color: var(--accent-purple);
+    }
+
+    .card-header {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      margin-bottom: 16px;
+    }
+    .card-icon {
+      width: 48px;
+      height: 48px;
+      border-radius: var(--radius-md);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 24px;
+      background: rgba(0, 112, 242, 0.1);
+      color: var(--primary);
+    }
+    .primary-card .card-icon { background: rgba(0, 112, 242, 0.15); color: #38bdf8; }
+    .user-card .card-icon { background: rgba(16, 185, 129, 0.15); color: #34d399; }
+    .flp-card .card-icon { background: rgba(139, 92, 246, 0.15); color: #c084fc; }
+
+    .card-chip {
+      font-size: 11px;
+      font-weight: 700;
+      padding: 4px 10px;
+      border-radius: 9999px;
+      letter-spacing: 0.5px;
+      text-transform: uppercase;
+    }
+    .primary-card .card-chip { background: rgba(0, 112, 242, 0.15); color: #38bdf8; }
+    .user-card .card-chip { background: rgba(16, 185, 129, 0.15); color: #34d399; }
+    .flp-card .card-chip { background: rgba(139, 92, 246, 0.15); color: #c084fc; }
+
+    .card h3 {
+      font-size: 20px;
+      font-weight: 700;
+      margin-bottom: 8px;
+    }
+    .card p {
+      font-size: 13.5px;
+      color: var(--text-muted);
+      margin-bottom: 20px;
+      line-height: 1.5;
+    }
+
+    .url-preview-box {
+      background: rgba(0, 0, 0, 0.25);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      padding: 10px 12px;
+      font-family: var(--font-mono);
+      font-size: 11.5px;
+      color: var(--text-muted);
+      word-break: break-all;
+      margin-bottom: 20px;
+      position: relative;
+    }
+    [data-theme="light"] .url-preview-box {
+      background: rgba(0, 0, 0, 0.04);
+    }
+
+    .btn-group {
+      display: flex;
+      gap: 10px;
+    }
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      padding: 12px 20px;
+      font-size: 14px;
+      font-weight: 600;
+      border-radius: var(--radius-md);
+      text-decoration: none;
+      cursor: pointer;
+      border: none;
+      transition: var(--transition);
+      flex: 1;
+    }
+    .btn-primary {
+      background: var(--primary);
+      color: #ffffff;
+      box-shadow: 0 4px 14px var(--primary-glow);
+    }
+    .btn-primary:hover {
+      background: var(--primary-hover);
+      box-shadow: 0 6px 20px rgba(0, 112, 242, 0.4);
+      transform: translateY(-1px);
+    }
+    .btn-secondary {
+      background: transparent;
+      color: var(--text);
+      border: 1px solid var(--border);
+      flex: 0 0 auto;
+      padding: 12px 14px;
+    }
+    .btn-secondary:hover {
+      border-color: var(--text-muted);
+      background: rgba(255, 255, 255, 0.05);
+    }
+    .btn-green {
+      background: #059669;
+      color: #ffffff;
+      box-shadow: 0 4px 14px var(--accent-green-glow);
+    }
+    .btn-green:hover {
+      background: #047857;
+      box-shadow: 0 6px 20px rgba(16, 185, 129, 0.4);
+      transform: translateY(-1px);
+    }
+    .btn-purple {
+      background: #7c3aed;
+      color: #ffffff;
+      box-shadow: 0 4px 14px rgba(124, 58, 237, 0.3);
+    }
+    .btn-purple:hover {
+      background: #6d28d9;
+      box-shadow: 0 6px 20px rgba(124, 58, 237, 0.4);
+      transform: translateY(-1px);
+    }
+
+    /* URL Builder & Interactive Parameters Section */
+    .builder-section {
+      background: var(--bg-card);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      padding: 32px;
+      margin-bottom: 40px;
+    }
+    .section-title-wrap {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 24px;
+      flex-wrap: wrap;
+      gap: 12px;
+    }
+    .section-title-wrap h2 {
+      font-size: 22px;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .section-title-wrap p {
+      color: var(--text-muted);
+      font-size: 13.5px;
+      margin-top: 4px;
+    }
+
+    .form-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+      gap: 18px;
+      margin-bottom: 24px;
+    }
+    .form-group {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .form-group label {
+      font-size: 12.5px;
+      font-weight: 600;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    .form-control {
+      background: rgba(0, 0, 0, 0.2);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      padding: 10px 14px;
+      font-family: var(--font-main);
+      font-size: 14px;
+      color: var(--text);
+      outline: none;
+      transition: var(--transition);
+    }
+    [data-theme="light"] .form-control {
+      background: #ffffff;
+      border-color: #cbd5e1;
+    }
+    .form-control:focus {
+      border-color: var(--primary);
+      box-shadow: 0 0 0 3px var(--primary-glow);
+    }
+
+    .output-container {
+      background: rgba(0, 0, 0, 0.35);
+      border: 1px solid var(--border-highlight);
+      border-radius: var(--radius-md);
+      padding: 18px 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+    [data-theme="light"] .output-container {
+      background: #ffffff;
+    }
+    .output-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .output-label {
+      font-size: 12px;
+      font-weight: 700;
+      color: var(--primary);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    .output-url {
+      font-family: var(--font-mono);
+      font-size: 13.5px;
+      color: #38bdf8;
+      word-break: break-all;
+      background: rgba(0, 0, 0, 0.2);
+      padding: 12px;
+      border-radius: var(--radius-sm);
+    }
+    [data-theme="light"] .output-url {
+      color: #0369a1;
+      background: #f8fafc;
+    }
+
+    /* Tabs & Documentation */
+    .info-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+      gap: 24px;
+      margin-bottom: 40px;
+    }
+    .info-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      padding: 24px;
+    }
+    .info-card h4 {
+      font-size: 16px;
+      font-weight: 700;
+      margin-bottom: 14px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .info-list {
+      list-style: none;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      font-size: 13.5px;
+      color: var(--text-muted);
+    }
+    .info-list li {
+      display: flex;
+      align-items: flex-start;
+      gap: 8px;
+      line-height: 1.5;
+    }
+    .info-list strong {
+      color: var(--text);
+    }
+    .tag {
+      background: rgba(148, 163, 184, 0.15);
+      color: var(--text);
+      padding: 2px 7px;
+      border-radius: 4px;
+      font-family: var(--font-mono);
+      font-size: 12px;
+    }
+
+    /* Toast Notification */
+    .toast {
+      position: fixed;
+      bottom: 24px;
+      right: 24px;
+      background: #1e293b;
+      color: #f8fafc;
+      padding: 12px 20px;
+      border-radius: var(--radius-md);
+      box-shadow: 0 10px 25px rgba(0, 0, 0, 0.4);
+      border: 1px solid var(--border-highlight);
+      font-size: 13.5px;
+      font-weight: 500;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      z-index: 100;
+      transform: translateY(100px);
+      opacity: 0;
+      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+      pointer-events: none;
+    }
+    .toast.show {
+      transform: translateY(0);
+      opacity: 1;
+    }
+
+    /* Footer */
+    footer {
+      border-top: 1px solid var(--border);
+      padding: 24px 32px;
+      text-align: center;
+      font-size: 13px;
+      color: var(--text-dim);
+      background: rgba(11, 17, 32, 0.5);
+    }
+    [data-theme="light"] footer {
+      background: #e2e8f0;
+    }
+
+    /* QR Code Display */
+    .qr-box {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+      background: #ffffff;
+      border-radius: var(--radius-md);
+      width: fit-content;
+      margin: 10px auto;
+      box-shadow: 0 4px 14px rgba(0,0,0,0.2);
+    }
+    .qr-box svg {
+      width: 140px;
+      height: 140px;
+    }
+    .qr-caption {
+      font-size: 11px;
+      color: #475569;
+      margin-top: 8px;
+      font-weight: 600;
+    }
+
+    @media (max-width: 768px) {
+      header { padding: 12px 18px; }
+      main { padding: 24px 16px 40px; }
+      .hero h1 { font-size: 28px; }
+      .grid-launchers { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body data-theme="dark">
+
+  <div class="ambient-glow glow-1"></div>
+  <div class="ambient-glow glow-2"></div>
+
+  <!-- Header -->
+  <header>
+    <a href="#" class="brand">
+      <div class="sap-badge">SAP S/4HANA</div>
+      <div class="brand-title">Gate Entry <span>WebGUI</span></div>
+    </a>
+    <div class="header-actions">
+      <div class="sys-pill">
+        <div class="sys-dot"></div>
+        <span>DS4 / 220 Active</span>
+      </div>
+      <button class="theme-toggle" id="themeBtn" title="Toggle Theme" onclick="toggleTheme()">🌙</button>
+    </div>
+  </header>
+
+  <!-- Main Container -->
+  <main>
+
+    <!-- Hero -->
+    <div class="hero">
+      <div class="hero-badge">⚡ Production Web Access</div>
+      <h1>SAP Gate Entry Cockpit</h1>
+      <p>Direct browser-based SAP GUI for HTML (WebGUI) execution for custom gate pass creation, vehicle tracking, material inward & outward verification.</p>
+    </div>
+
+    <!-- 3 Quick Launchers -->
+    <div class="grid-launchers">
+
+      <!-- Card 1: Default WebGUI -->
+      <div class="card primary-card">
+        <div>
+          <div class="card-header">
+            <div class="card-icon">🌐</div>
+            <span class="card-chip">Standard WebGUI</span>
+          </div>
+          <h3>Primary WebGUI Link</h3>
+          <p>Launches SAP GUI for HTML directly into program <strong>ZGATEENTRY</strong> on Client 220 with standard credentials prompt.</p>
+          <div class="url-preview-box" id="urlBox1">
+            https://172.27.100.32:44300/sap/bc/gui/sap/its/webgui?sap-client=220&~transaction=ZGATEENTRY
+          </div>
+        </div>
+        <div class="btn-group">
+          <a href="https://172.27.100.32:44300/sap/bc/gui/sap/its/webgui?sap-client=220&~transaction=ZGATEENTRY" target="_blank" class="btn btn-primary">
+            🚀 Launch WebGUI
+          </a>
+          <button class="btn btn-secondary" onclick="copyText('https://172.27.100.32:44300/sap/bc/gui/sap/its/webgui?sap-client=220&~transaction=ZGATEENTRY', 'Standard WebGUI URL copied!')" title="Copy URL">
+            📋
+          </button>
+        </div>
+      </div>
+
+      <!-- Card 2: User Pre-filled (NARESH) -->
+      <div class="card user-card">
+        <div>
+          <div class="card-header">
+            <div class="card-icon">👤</div>
+            <span class="card-chip">Pre-filled User</span>
+          </div>
+          <h3>Direct User (NARESH)</h3>
+          <p>Pre-populates the login dialog with user ID <strong>NARESH</strong> on Client 220 for quick developer & tester authentication.</p>
+          <div class="url-preview-box" id="urlBox2">
+            https://172.27.100.32:44300/sap/bc/gui/sap/its/webgui?sap-client=220&sap-user=NARESH&~transaction=ZGATEENTRY
+          </div>
+        </div>
+        <div class="btn-group">
+          <a href="https://172.27.100.32:44300/sap/bc/gui/sap/its/webgui?sap-client=220&sap-user=NARESH&~transaction=ZGATEENTRY" target="_blank" class="btn btn-green">
+            ⚡ Launch as NARESH
+          </a>
+          <button class="btn btn-secondary" onclick="copyText('https://172.27.100.32:44300/sap/bc/gui/sap/its/webgui?sap-client=220&sap-user=NARESH&~transaction=ZGATEENTRY', 'User NARESH URL copied!')" title="Copy URL">
+            📋
+          </button>
+        </div>
+      </div>
+
+      <!-- Card 3: Fiori Launchpad -->
+      <div class="card flp-card">
+        <div>
+          <div class="card-header">
+            <div class="card-icon">📱</div>
+            <span class="card-chip">Fiori Launchpad</span>
+          </div>
+          <h3>Fiori Launchpad (FLP)</h3>
+          <p>Opens the SAP Fiori Launchpad shell with intent navigation <strong>#GateEntry-manage</strong> embedded within the Horizon shell.</p>
+          <div class="url-preview-box" id="urlBox3">
+            https://172.27.100.32:44300/sap/bc/ui5_ui5/ui2/ushell/shells/abap/FioriLaunchpad.html?sap-client=220#GateEntry-manage
+          </div>
+        </div>
+        <div class="btn-group">
+          <a href="https://172.27.100.32:44300/sap/bc/ui5_ui5/ui2/ushell/shells/abap/FioriLaunchpad.html?sap-client=220#GateEntry-manage" target="_blank" class="btn btn-purple">
+            ✨ Open in Launchpad
+          </a>
+          <button class="btn btn-secondary" onclick="copyText('https://172.27.100.32:44300/sap/bc/ui5_ui5/ui2/ushell/shells/abap/FioriLaunchpad.html?sap-client=220#GateEntry-manage', 'FLP Intent URL copied!')" title="Copy URL">
+            📋
+          </button>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- Dynamic URL Generator -->
+    <div class="builder-section">
+      <div class="section-title-wrap">
+        <div>
+          <h2>🛠️ Dynamic WebGUI URL Builder</h2>
+          <p>Pass initial screen parameters, selection variables, or mobile scanner options directly into the WebGUI link.</p>
+        </div>
+        <button class="btn btn-secondary" onclick="resetForm()" style="font-size:12px;padding:6px 12px;">Reset Defaults</button>
+      </div>
+
+      <div class="form-grid">
+        <div class="form-group">
+          <label for="sapHost">SAP Host / IP</label>
+          <input type="text" id="sapHost" class="form-control" value="172.27.100.32" oninput="updateUrl()">
+        </div>
+        <div class="form-group">
+          <label for="sapPort">HTTPS Port</label>
+          <input type="text" id="sapPort" class="form-control" value="44300" oninput="updateUrl()">
+        </div>
+        <div class="form-group">
+          <label for="sapClient">Client Mandt</label>
+          <input type="text" id="sapClient" class="form-control" value="220" oninput="updateUrl()">
+        </div>
+        <div class="form-group">
+          <label for="sapUser">Pre-fill User (Optional)</label>
+          <input type="text" id="sapUser" class="form-control" value="" placeholder="e.g. NARESH" oninput="updateUrl()">
+        </div>
+        <div class="form-group">
+          <label for="tcode">Transaction Code</label>
+          <input type="text" id="tcode" class="form-control" value="ZGATEENTRY" oninput="updateUrl()">
+        </div>
+        <div class="form-group">
+          <label for="gatePass">Gate Pass / Doc No (Optional)</label>
+          <input type="text" id="gatePass" class="form-control" placeholder="e.g. GP2026-001" oninput="updateUrl()">
+        </div>
+        <div class="form-group">
+          <label for="poNumber">PO / Inbound Delivery (Optional)</label>
+          <input type="text" id="poNumber" class="form-control" placeholder="e.g. 4500001234" oninput="updateUrl()">
+        </div>
+        <div class="form-group">
+          <label for="vehicleNo">Vehicle Number (Optional)</label>
+          <input type="text" id="vehicleNo" class="form-control" placeholder="e.g. MH-12-AB-1234" oninput="updateUrl()">
+        </div>
+      </div>
+
+      <div class="output-container">
+        <div class="output-header">
+          <span class="output-label">Generated WebGUI Direct URL</span>
+          <span style="font-size:11px;color:var(--text-dim);">Ready for Browser & Handhelds</span>
+        </div>
+        <div class="output-url" id="generatedUrl"></div>
+        <div class="btn-group" style="margin-top:4px;">
+          <a id="testLaunchBtn" href="#" target="_blank" class="btn btn-primary" style="flex:2;">
+            🚀 Test Launch Generated URL
+          </a>
+          <button class="btn btn-secondary" onclick="copyGeneratedUrl()" style="flex:1;">
+            📋 Copy URL
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Information and Instructions Grid -->
+    <div class="info-grid">
+
+      <!-- Technical Architecture Card -->
+      <div class="info-card">
+        <h4>📋 Technical Specifications</h4>
+        <ul class="info-list">
+          <li><strong>Program Name:</strong> <span class="tag">ZGATEENTRY</span></li>
+          <li><strong>Primary TCODE:</strong> <span class="tag">ZGATEENTRY</span> (Short: <span class="tag">ZGE01</span>)</li>
+          <li><strong>System / Client:</strong> <span class="tag">DS4 / 220</span> (S/4HANA On-Premise)</li>
+          <li><strong>WebGUI Protocol:</strong> <span class="tag">HTTPS (TLS 1.2/1.3)</span> on Port <span class="tag">44300</span></li>
+          <li><strong>ICF Service Path:</strong> <span class="tag">/sap/bc/gui/sap/its/webgui</span></li>
+          <li><strong>GUI Web Status:</strong> <span class="tag">TSTCC-S_WEBGUI = '1'</span></li>
+        </ul>
+      </div>
+
+      <!-- Quick Shortcuts Card -->
+      <div class="info-card">
+        <h4>💻 Local Desktop Shortcuts</h4>
+        <ul class="info-list">
+          <li>
+            <strong>macOS (.webloc):</strong>
+            Double-click <span class="tag">ZGATEENTRY_WebGUI.webloc</span> in Finder to immediately launch in Safari or Chrome.
+          </li>
+          <li>
+            <strong>Windows (.url):</strong>
+            Open <span class="tag">ZGATEENTRY_WebGUI.url</span> to launch in Edge or Chrome.
+          </li>
+          <li>
+            <strong>Mobile / RF Handheld:</strong>
+            Compatible with Zebra, Honeywell, and Datalogic barcode browsers and warehouse touch tablets.
+          </li>
+        </ul>
+      </div>
+
+      <!-- Troubleshooting Card -->
+      <div class="info-card">
+        <h4>💡 Connection Tips</h4>
+        <ul class="info-list">
+          <li>
+            <strong>Self-Signed SSL Warning:</strong> If the browser warns "Your connection is not private", click <em>Advanced &rarr; Proceed to 172.27.100.32 (unsafe)</em> once.
+          </li>
+          <li>
+            <strong>SICF Activation:</strong> Ensure service <span class="tag">webgui</span> is active in transaction <span class="tag">SICF</span>.
+          </li>
+          <li>
+            <strong>Buffer Refresh:</strong> If TCODE was recently modified, run <span class="tag">/$SYNC</span> in SAP command box.
+          </li>
+        </ul>
+      </div>
+
+    </div>
+
+  </main>
+
+  <!-- Footer -->
+  <footer>
+    SAP S/4HANA DS4/220 &bull; Program ZGATEENTRY WebGUI Integration &bull; Created for naresh7022-boop/SAPHANA
+  </footer>
+
+  <!-- Toast -->
+  <div class="toast" id="toast">
+    <span id="toastIcon">✓</span>
+    <span id="toastMsg">URL copied to clipboard!</span>
+  </div>
+
+  <script>
+    function updateUrl() {
+      const host = document.getElementById('sapHost').value.trim() || '172.27.100.32';
+      const port = document.getElementById('sapPort').value.trim() || '44300';
+      const client = document.getElementById('sapClient').value.trim() || '220';
+      const user = document.getElementById('sapUser').value.trim();
+      const tcode = document.getElementById('tcode').value.trim() || 'ZGATEENTRY';
+
+      const gatePass = document.getElementById('gatePass').value.trim();
+      const poNumber = document.getElementById('poNumber').value.trim();
+      const vehicleNo = document.getElementById('vehicleNo').value.trim();
+
+      let url = `https://${host}:${port}/sap/bc/gui/sap/its/webgui?sap-client=${encodeURIComponent(client)}`;
+      
+      if (user) {
+        url += `&sap-user=${encodeURIComponent(user)}`;
+      }
+
+      // Build Transaction & screen parameters
+      let tcodeParam = tcode;
+      let params = [];
+      if (gatePass) params.push(`P_GPASS=${encodeURIComponent(gatePass)}`);
+      if (poNumber) params.push(`P_EBELN=${encodeURIComponent(poNumber)}`);
+      if (vehicleNo) params.push(`P_VEHNO=${encodeURIComponent(vehicleNo)}`);
+
+      if (params.length > 0) {
+        tcodeParam += ' ' + params.join(' ');
+      }
+
+      url += `&~transaction=${encodeURIComponent(tcodeParam)}`;
+
+      document.getElementById('generatedUrl').textContent = url;
+      document.getElementById('testLaunchBtn').href = url;
+    }
+
+    function resetForm() {
+      document.getElementById('sapHost').value = '172.27.100.32';
+      document.getElementById('sapPort').value = '44300';
+      document.getElementById('sapClient').value = '220';
+      document.getElementById('sapUser').value = '';
+      document.getElementById('tcode').value = 'ZGATEENTRY';
+      document.getElementById('gatePass').value = '';
+      document.getElementById('poNumber').value = '';
+      document.getElementById('vehicleNo').value = '';
+      updateUrl();
+      showToast('Form reset to default settings');
+    }
+
+    function copyText(text, msg) {
+      navigator.clipboard.writeText(text).then(() => {
+        showToast(msg || 'Copied to clipboard!');
+      }).catch(err => {
+        // Fallback
+        const textarea = document.createElement('textarea');
+        textarea.value = text;
+        document.body.appendChild(textarea);
+        textarea.select();
+        document.execCommand('copy');
+        document.body.removeChild(textarea);
+        showToast(msg || 'Copied to clipboard!');
+      });
+    }
+
+    function copyGeneratedUrl() {
+      const url = document.getElementById('generatedUrl').textContent;
+      copyText(url, 'Generated URL copied to clipboard!');
+    }
+
+    function showToast(msg) {
+      const toast = document.getElementById('toast');
+      document.getElementById('toastMsg').textContent = msg;
+      toast.classList.add('show');
+      setTimeout(() => {
+        toast.classList.remove('show');
+      }, 2800);
+    }
+
+    function toggleTheme() {
+      const body = document.body;
+      const btn = document.getElementById('themeBtn');
+      if (body.getAttribute('data-theme') === 'dark') {
+        body.setAttribute('data-theme', 'light');
+        btn.textContent = '☀️';
+      } else {
+        body.setAttribute('data-theme', 'dark');
+        btn.textContent = '🌙';
+      }
+    }
+
+    // Initialize
+    updateUrl();
+  </script>
+</body>
+</html>

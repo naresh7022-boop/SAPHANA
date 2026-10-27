@@ -433,9 +433,9 @@ FORM create_screen_0200 USING iv_prog TYPE trdir-name.
   PERFORM add_template_field TABLES lt_fields USING 'G_SCR0200-VLTYP_DISP' 7 11 3 ' ' 'X' 'X'.
   PERFORM add_template_field TABLES lt_fields USING 'G_SCR0200-VLPLA_DISP' 7 15 10 ' ' 'X' 'X'.
 
-  " Row 9: Scan HU: [EXIDV_SCAN]
-  PERFORM add_text_field TABLES lt_fields USING 'TXT_SHU' 'Scan HU :' 9 2 9.
-  PERFORM add_template_field TABLES lt_fields USING 'G_SCR0200-EXIDV_SCAN' 9 12 20 'X' 'X' ' '.
+  " Row 9: Dynamic Scan Label [SCAN_LBL]: [EXIDV_SCAN]
+  PERFORM add_template_field TABLES lt_fields USING 'G_SCR0200-SCAN_LBL' 9 2 11 ' ' 'X' 'X'.
+  PERFORM add_template_field TABLES lt_fields USING 'G_SCR0200-EXIDV_SCAN' 9 14 20 'X' 'X' ' '.
 
   " Row 11: Batch: [CHARG] Ser: [CNT]
   PERFORM add_text_field TABLES lt_fields USING 'TXT_SBAT' 'Batch   :' 11 2 9.

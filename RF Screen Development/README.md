@@ -223,3 +223,73 @@ node deploy/deploy_rf_program.cjs
     - **Before**: `LQUA` quant was at `EN1 / 1-L0001-04`.
     - **TO Created**: Transfer Order `0001037366` created and confirmed automatically.
     - **After**: `LQUA` quant and `LX02` stock overview immediately updated to destination Storage Type **`EN1`**, Storage Bin **`0-L0001-01`**.
+
+### 7. Dynamic Scanning Scenarios: Serial-Managed vs. Batch-Managed Materials
+- **Business Requirement**:
+  - **Serial-Managed Materials**: Handheld terminal scanning must strictly be of **Handling Unit (HU)** or **Storage Unit (SU)** numbers containing serial items.
+  - **Batch-Managed Materials (Non-Serialized)**: Store team scans the physical **Batch Number** barcode directly from the item.
+- **Dynamic Detection & Validation Architecture**:
+  1. **Automatic Material Classification (`get_document_details`)**:
+     - Serial Managed: `MARC-SERNP IS NOT INITIAL` $\rightarrow$ `is_serialized = abap_true`.
+     - Batch Managed: `MARC-XCHPF = 'X'` or `MARA-XCHPF = 'X'` $\rightarrow$ `is_batch_managed = abap_true`.
+  2. **Adaptive Dynpro 0200 UI**:
+     - Dynamic Scan Label (`G_SCR0200-SCAN_LBL`) automatically toggles:
+       - Serial Materials: Displays `Scan HU/SU:`
+       - Batch Materials: Displays `Scan Batch:`
+     - Contextual Operator Guidance:
+       - Serial Materials: Prompt displays `Serial material: Scan HU or SU barcode`.
+       - Batch Materials: Prompt displays `Batch material: Scan Batch number`.
+  3. **Verification Logic (`validate_hu_and_stock`)**:
+     - **Serial Materials (Scenario A)**:
+       - Must match a valid Handling Unit in `VEKP` or Storage Unit in `LQUA`.
+       - Scanned plain batch numbers are rejected with: `Serial material: Scan valid HU or SU. '<scan>' not found.`
+       - Serials are retrieved via `SER06` / `OBJK` for traceability.
+     - **Batch Materials (Scenario B)**:
+       - User scans the batch barcode (`CHARG`).
+       - Validates batch master record in `MCHA` / `MCH1`.
+       - Verifies unrestricted stock availability in `MCHB-CLABS`.
+       - Locates active quants in `LQUA` (`LGNUM = lgnum`, `MATNR = matnr`, `CHARG = scan`, `VERME > 0`).
+       - Auto-fills Source Storage Type (`VLTYP`), Source Storage Bin (`VLPLA`), Storage Unit (`LENUM`), Batch (`CHARG`), and Available Quantity (`MENGE`), capping to reservation open requirement.
+  4. **Single-Step Posting Routing**:
+     - For Handling Units (`venum IS NOT INITIAL`), invokes `HU_CREATE_GOODS_MOVEMENT`.
+     - For Pure Batch movements (`venum IS INITIAL`), invokes `BAPI_GOODSMVT_CREATE` with `bapi2017_gm_item_create-batch = is_hu_info-charg`.
+     - Followed immediately by destination putaway bin determination (`determine_destination_bin`) and auto-confirmed Transfer Order creation (`L_TO_CREATE_SINGLE`), ensuring zero orphan quants in interim storage `922`.
+  5. **Dynamic Open Quantity Calculation (Pending / Remaining Quantity)**:
+     - **Before Scan**: `Open:` displays the full unposted open requirement (e.g. `2.000 NOS`).
+     - **After Scan & Verification ("Material OK")**: `Open:` instantly recalculates to display the **projected remaining balance** (`Pending Open = Current Open - Scanned Quantity`).
+     - **Live Verification Example (Screen 0200)**:
+       - Reservation Requirement: `2.000 NOS` | Initial Open: `2.000 NOS`.
+       - Operator scans HU `0000000001000059690` containing `1.000 NOS`.
+       - Screen dynamically updates: `Req: 2.000   Open: 1.000   NOS` | `Qty: 1.000`.
+       - Status Message: `HU/SU 0000000001000059690 valid. Rem: 1.000 NOS. Press Post`.
+     - Once posted, the transaction updates `picked_qty = 1.000` and `open_qty = 1.000`, cleanly preserving the open item for the next scan until full closure (`Open = 0.000`).
+  6. **Airtight Duplicate HU / SU Scan Prevention in Single Reservation ("HU or SU is already scan")**:
+     - **Business Requirement**: Under no circumstances should an operator scan or post the same Handling Unit (HU) or Storage Unit (SU) multiple times within a single reservation request (`RSNUM`).
+     - **Airtight 4-Layer Prevention Architecture**:
+       1. **Screen Focus & Barcode Gun Auto-Post Elimination**:
+          - Dynpro Screen 0200 PBO (`status_0200`) strictly keeps cursor focus on `G_SCR0200-EXIDV_SCAN` (`SET CURSOR FIELD 'G_SCR0200-EXIDV_SCAN'`), preventing barcode scanners from inadvertently typing numbers into `POST_QTY`.
+          - In PAI (`user_command_0200`), Enter (`c_fcode_enter` / `space` / `'/00'`) **never auto-posts**. If the user scans the active HU again or presses Enter on `EXIDV_SCAN`, it immediately rejects it with:
+            ```text
+            HU or SU is already scan
+            ```
+          - Posting is strictly triggered by clicking `[Post]` (F1 / `c_fcode_post`). Enter on `POST_QTY` only updates the projected remaining open balance.
+       2. **Multi-Representation Normalization (Raw, Stripped, Padded)**:
+          - Automatically normalizes all barcodes into:
+            - Raw text (condensed with no gaps)
+            - Stripped text (leading zeros deleted, e.g. `1000005555`)
+            - 20-digit padded format (`ALPHA = IN` for `EXIDV`)
+            - 10-digit padded format (`ALPHA = IN` for `LENUM`)
+          - Duplicate checks compare all representations so scanning `00000000001000005555` after scanning `1000005555` is immediately rejected.
+       3. **Cross-Session Database Cluster Persistence (`DATABASE indx(rf)`)**:
+          - Every posted HU and SU is exported to SAP standard database cluster `INDX(rf)` with Key `|ZRF_RES_{ lv_rsnum }|`.
+          - When a reservation is loaded in Screen 0100 (`get_document_details` / `fetch_document_data`), `mt_scanned_hus` and `gt_scanned_hus` are automatically restored from the cluster database and standard historical tables.
+          - Even if the operator logs out, restarts the RF terminal, or re-opens the reservation hours later, repeat scans of previously used HUs/SUs are permanently blocked.
+       4. **Deep Standard SAP Historical Table Verification**:
+          - **`VBEH` $\bowtie$ `MSEG`**: Checks standard SAP Handling Unit history for material documents posted under the reservation.
+          - **`LTBK` $\bowtie$ `LTAP`**: Checks Transfer Requirements and Transfer Orders for source (`VLENR`) and destination (`NLENR`) Storage Units linked to the reservation.
+          - **`SER06` $\bowtie$ `OBJK` $\bowtie$ `MSEG`**: Checks serial numbers and Handling Units recorded during goods movement.
+          - **Resolved HU $\leftrightarrow$ SU Cross-Check**: Validates both the scanned string AND the resolved `EXIDV` / `LENUM` to prevent scanning an SU when its parent HU was already used (or vice versa).
+          - Upon detecting any repeat scan, all HU details are cleared, `Open:` reverts to the actual remaining unposted quantity, and the system displays:
+            ```text
+            HU or SU is already scan
+            ```

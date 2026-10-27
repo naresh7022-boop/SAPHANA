@@ -9,9 +9,10 @@
 *&---------------------------------------------------------------------*
 FORM fetch_document_data.
   DATA: lv_doc_type TYPE char3,
-        lt_return   TYPE bapiret2_t.
+        lt_return   TYPE bapiret2_t,
+        lt_scan_his TYPE zcl_rf_auto_wm_im_transfer=>tt_exidv.
 
-  CLEAR: gs_header, gt_items, gs_curr_item, gs_hu_info.
+  CLEAR: gs_header, gt_items, gs_curr_item, gs_hu_info, gt_scanned_hus.
   gv_item_idx = 1.
 
   IF g_scr0100-lgnum IS INITIAL.
@@ -29,13 +30,14 @@ FORM fetch_document_data.
   " Call Backend Class
   go_controller->get_document_details(
     EXPORTING
-      iv_lgnum    = g_scr0100-lgnum
-      iv_doc_type = lv_doc_type
-      iv_doc_num  = g_scr0100-doc_num
+      iv_lgnum       = g_scr0100-lgnum
+      iv_doc_type    = lv_doc_type
+      iv_doc_num     = g_scr0100-doc_num
     IMPORTING
-      es_header   = gs_header
-      et_items    = gt_items
-      et_return   = lt_return
+      es_header      = gs_header
+      et_items       = gt_items
+      et_scanned_hus = lt_scan_his
+      et_return      = lt_return
   ).
 
   READ TABLE lt_return INTO DATA(ls_err) WITH KEY type = 'E'.
@@ -64,6 +66,7 @@ FORM fetch_document_data.
 
   " Set first open item active
   READ TABLE gt_items INTO gs_curr_item INDEX gv_item_idx.
+  gt_scanned_hus = lt_scan_his.
 
   " Navigate to screen 0200
   CLEAR g_scr0100-msg.
@@ -78,6 +81,67 @@ ENDFORM.
 FORM validate_scanned_hu.
   DATA: lt_return TYPE bapiret2_t.
 
+  " Prevent scanning the same HU/SU multiple times in the same request
+  DATA: lv_scan_in    TYPE exidv,
+        lv_scan_strip TYPE exidv,
+        lv_scan_pad20 TYPE exidv,
+        lv_scan_pad10 TYPE char10.
+
+  lv_scan_in = g_scr0200-exidv_scan.
+  CONDENSE lv_scan_in NO-GAPS.
+  lv_scan_strip = lv_scan_in.
+  SHIFT lv_scan_strip LEFT DELETING LEADING ' 0'.
+  lv_scan_pad20 = |{ lv_scan_strip ALPHA = IN }|.
+  lv_scan_pad10 = |{ lv_scan_strip ALPHA = IN }|.
+
+  " 1. Check if already posted for this reservation in the current session
+  LOOP AT gt_scanned_hus INTO DATA(lv_done_hu).
+    DATA: lv_done_raw   TYPE exidv,
+          lv_done_strip TYPE exidv,
+          lv_done_pad20 TYPE exidv,
+          lv_done_pad10 TYPE char10.
+
+    lv_done_raw = lv_done_hu.
+    CONDENSE lv_done_raw NO-GAPS.
+    lv_done_strip = lv_done_raw.
+    SHIFT lv_done_strip LEFT DELETING LEADING ' 0'.
+    lv_done_pad20 = |{ lv_done_strip ALPHA = IN }|.
+    lv_done_pad10 = |{ lv_done_strip ALPHA = IN }|.
+
+    IF lv_scan_in    = lv_done_raw   OR
+       lv_scan_strip = lv_done_strip OR
+       lv_scan_pad20 = lv_done_pad20 OR
+       lv_scan_pad10 = lv_done_pad10.
+      g_scr0200-status_msg = 'HU or SU is already scan'.
+      MESSAGE s000(00) WITH 'HU or SU is already scan' DISPLAY LIKE 'E'.
+      CLEAR: gs_hu_info, g_scr0200-charg_disp, g_scr0200-ser_count,
+             g_scr0200-vltyp_disp, g_scr0200-vlpla_disp,
+             g_scr0200-lenum_disp, g_scr0200-post_qty.
+      g_scr0200-open_qty = gs_curr_item-open_qty.
+      RETURN.
+    ENDIF.
+  ENDLOOP.
+
+  " 2. Check if the exact same HU is already active/validated on screen
+  IF gs_hu_info-is_valid = abap_true.
+    DATA: lv_act_raw   TYPE exidv,
+          lv_act_strip TYPE exidv.
+    lv_act_raw = gs_hu_info-exidv.
+    CONDENSE lv_act_raw NO-GAPS.
+    lv_act_strip = lv_act_raw.
+    SHIFT lv_act_strip LEFT DELETING LEADING ' 0'.
+
+    IF lv_scan_in = lv_act_raw OR lv_scan_strip = lv_act_strip.
+      g_scr0200-status_msg = 'HU or SU is already scan'.
+      MESSAGE s000(00) WITH 'HU or SU is already scan' DISPLAY LIKE 'E'.
+      CLEAR: gs_hu_info, g_scr0200-charg_disp, g_scr0200-ser_count,
+             g_scr0200-vltyp_disp, g_scr0200-vlpla_disp,
+             g_scr0200-lenum_disp, g_scr0200-post_qty.
+      g_scr0200-open_qty = gs_curr_item-open_qty.
+      RETURN.
+    ENDIF.
+  ENDIF.
+
   CLEAR gs_hu_info.
 
   go_controller->validate_hu_and_stock(
@@ -89,6 +153,7 @@ FORM validate_scanned_hu.
       iv_lgort   = gs_header-lgort
       iv_charg   = gs_curr_item-charg
       iv_req_qty = gs_curr_item-open_qty
+      iv_doc_num = gs_header-doc_num
     IMPORTING
       es_hu_info = gs_hu_info
       et_return  = lt_return
@@ -97,11 +162,43 @@ FORM validate_scanned_hu.
   READ TABLE lt_return INTO DATA(ls_err) WITH KEY type = 'E'.
   IF sy-subrc = 0.
     g_scr0200-status_msg = ls_err-message(40).
+    MESSAGE s000(00) WITH ls_err-message DISPLAY LIKE 'E'.
     CLEAR: g_scr0200-charg_disp, g_scr0200-ser_count,
            g_scr0200-vltyp_disp, g_scr0200-vlpla_disp,
            g_scr0200-lenum_disp, g_scr0200-post_qty.
+    g_scr0200-open_qty = gs_curr_item-open_qty.
     RETURN.
   ENDIF.
+
+  " 3. Extra verification: Check if resolved HU or SU was already scanned for this reservation
+  LOOP AT gt_scanned_hus INTO DATA(lv_prev_res).
+    DATA: lv_prev_res_strip TYPE exidv,
+          lv_hu_res_strip   TYPE exidv,
+          lv_su_res_strip   TYPE exidv.
+
+    lv_prev_res_strip = lv_prev_res.
+    CONDENSE lv_prev_res_strip NO-GAPS.
+    SHIFT lv_prev_res_strip LEFT DELETING LEADING ' 0'.
+
+    lv_hu_res_strip = gs_hu_info-exidv.
+    CONDENSE lv_hu_res_strip NO-GAPS.
+    SHIFT lv_hu_res_strip LEFT DELETING LEADING ' 0'.
+
+    lv_su_res_strip = gs_hu_info-lenum.
+    CONDENSE lv_su_res_strip NO-GAPS.
+    SHIFT lv_su_res_strip LEFT DELETING LEADING ' 0'.
+
+    IF ( lv_hu_res_strip IS NOT INITIAL AND lv_hu_res_strip = lv_prev_res_strip ) OR
+       ( lv_su_res_strip IS NOT INITIAL AND lv_su_res_strip = lv_prev_res_strip ).
+      g_scr0200-status_msg = 'HU or SU is already scan'.
+      MESSAGE s000(00) WITH 'HU or SU is already scan' DISPLAY LIKE 'E'.
+      CLEAR: gs_hu_info, g_scr0200-charg_disp, g_scr0200-ser_count,
+             g_scr0200-vltyp_disp, g_scr0200-vlpla_disp,
+             g_scr0200-lenum_disp, g_scr0200-post_qty.
+      g_scr0200-open_qty = gs_curr_item-open_qty.
+      RETURN.
+    ENDIF.
+  ENDLOOP.
 
   " Populate screen fields
   g_scr0200-charg_disp = gs_hu_info-charg.
@@ -109,8 +206,36 @@ FORM validate_scanned_hu.
   g_scr0200-vltyp_disp = gs_hu_info-lgtyp.
   g_scr0200-vlpla_disp = gs_hu_info-lgpla.
   g_scr0200-lenum_disp = gs_hu_info-lenum.
-  g_scr0200-post_qty   = gs_hu_info-menge.
-  g_scr0200-status_msg = |HU Validated. Ready to Post (F1).|.
+
+  " Fetch Qty from selected HU, SU, or Batch, capped at reservation/TR material open quantity
+  DATA: lv_fetch_qty TYPE menge_d.
+  lv_fetch_qty = gs_hu_info-menge.
+  IF lv_fetch_qty > gs_curr_item-open_qty.
+    lv_fetch_qty = gs_curr_item-open_qty.
+  ENDIF.
+
+  DATA: lv_rem_qty TYPE menge_d.
+  lv_rem_qty = gs_curr_item-open_qty - lv_fetch_qty.
+  IF lv_rem_qty < 0.
+    lv_rem_qty = 0.
+  ENDIF.
+
+  g_scr0200-open_qty = lv_rem_qty.
+  g_scr0200-post_qty = lv_fetch_qty.
+
+  IF gs_curr_item-is_batch_managed = abap_true AND gs_curr_item-is_serialized = abap_false.
+    IF lv_rem_qty > 0.
+      g_scr0200-status_msg = |Batch { gs_hu_info-charg } valid. Rem: { lv_rem_qty DECIMALS = 3 } { gs_curr_item-meins }. Press Post (F1)|.
+    ELSE.
+      g_scr0200-status_msg = |Batch { gs_hu_info-charg } valid ({ lv_fetch_qty DECIMALS = 3 } { gs_curr_item-meins }). Press Post (F1)|.
+    ENDIF.
+  ELSE.
+    IF lv_rem_qty > 0.
+      g_scr0200-status_msg = |HU/SU { gs_hu_info-exidv } valid. Rem: { lv_rem_qty DECIMALS = 3 } { gs_curr_item-meins }. Press Post (F1)|.
+    ELSE.
+      g_scr0200-status_msg = |HU/SU { gs_hu_info-exidv } valid ({ lv_fetch_qty DECIMALS = 3 } { gs_curr_item-meins }). Press Post (F1)|.
+    ENDIF.
+  ENDIF.
 ENDFORM.
 
 *&---------------------------------------------------------------------*
@@ -119,7 +244,11 @@ ENDFORM.
 *&---------------------------------------------------------------------*
 FORM execute_posting.
   IF gs_hu_info IS INITIAL OR gs_hu_info-is_valid = abap_false.
-    g_scr0200-status_msg = 'Please scan & validate HU first'.
+    IF gs_curr_item-is_batch_managed = abap_true AND gs_curr_item-is_serialized = abap_false.
+      g_scr0200-status_msg = 'Please scan & validate Batch first'.
+    ELSE.
+      g_scr0200-status_msg = 'Please scan & validate HU first'.
+    ENDIF.
     RETURN.
   ENDIF.
 
@@ -142,6 +271,25 @@ FORM execute_posting.
     gs_curr_item-open_qty   = gs_curr_item-target_qty - gs_curr_item-picked_qty.
 
     MODIFY gt_items FROM gs_curr_item INDEX gv_item_idx.
+
+    " Record scanned HU/SU in all representations to strictly prevent duplicate scanning in this single reservation
+    APPEND gs_hu_info-exidv TO gt_scanned_hus.
+    DATA: lv_prog_h_strip TYPE exidv.
+    lv_prog_h_strip = gs_hu_info-exidv.
+    SHIFT lv_prog_h_strip LEFT DELETING LEADING ' 0'.
+    APPEND lv_prog_h_strip TO gt_scanned_hus.
+    APPEND |{ lv_prog_h_strip ALPHA = IN }| TO gt_scanned_hus.
+
+    IF gs_hu_info-lenum IS NOT INITIAL AND gs_hu_info-lenum <> gs_hu_info-exidv.
+      APPEND gs_hu_info-lenum TO gt_scanned_hus.
+      DATA: lv_prog_s_strip TYPE exidv.
+      lv_prog_s_strip = gs_hu_info-lenum.
+      SHIFT lv_prog_s_strip LEFT DELETING LEADING ' 0'.
+      APPEND lv_prog_s_strip TO gt_scanned_hus.
+      APPEND |{ lv_prog_s_strip ALPHA = IN }| TO gt_scanned_hus.
+    ENDIF.
+    SORT gt_scanned_hus.
+    DELETE ADJACENT DUPLICATES FROM gt_scanned_hus.
 
     " Clear scanned HU for next scan
     CLEAR: gs_hu_info, g_scr0200-exidv_scan, g_scr0200-charg_disp,

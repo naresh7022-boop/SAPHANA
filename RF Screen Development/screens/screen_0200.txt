@@ -48,7 +48,7 @@ Line | Col | Type  | Field Name               | Length | Attributes / Text
  04  | 15  | TEXT  | TXT_OPN                  | 04     | Opn:
  04  | 20  | OUTPT | G_SCR0200-OPEN_QTY       | 08     | Packed/Dec, Output only
  04  | 29  | OUTPT | G_SCR0200-MEINS          | 03     | Char 3, Output only
- 05  | 01  | TEXT  | TXT_SCAN_HU              | 08     | Scan HU:
+ 05  | 01  | OUTPT | G_SCR0200-SCAN_LBL       | 11     | Char 11, Dynamic ('Scan HU/SU:' or 'Scan Batch:')
  06  | 01  | INPUT | G_SCR0200-EXIDV_SCAN     | 20     | Char 20, Barcode Scannable, Focus
  07  | 01  | TEXT  | TXT_BAT                  | 04     | Bat:
  07  | 06  | OUTPT | G_SCR0200-CHARG_DISP     | 10     | Char 10, Output only

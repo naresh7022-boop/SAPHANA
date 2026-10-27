@@ -1004,10 +1004,12 @@
       <div class="top-right">
         <span class="val-summary">Selected: &#8377;33,10,000.00 <span style="font-size:11px;font-weight:600;color:#b45309;">(+&#8377;50,000.00 Delivery = &#8377;33,60,000.00)</span></span>
         <div class="rate-box">
-          <span>Rate:</span>
-          <input type="number" id="inpRate" value="12.00" step="0.25" class="rate-input" />
-          <span>%</span>
-          <button onclick="alert('Rate applied: 12.00%')" class="btn-apply">Apply</button>
+          <label for="inpRate" style="font-weight:700;color:#334155;">Interest:</label>
+          <input type="number" id="inpRate" value="12.00" step="0.25" min="0" max="100" class="rate-input"
+                 oninput="onRateInput(this.value);" onchange="onRateInput(this.value);" onkeydown="if(event.key==='Enter'||event.keyCode===13){doApplyRate();return false;}" title="Enter manual interest rate percentage and press Enter or Apply" />
+          <span style="font-weight:700;color:#475569;">%</span>
+          <a id="btnApplyRate" href="javascript:void(0)" onclick="return applyRate(event);" class="btn-apply" title="Apply interest rate and recalculate">&#10003; Apply</a>
+          <span id="rateNotice" style="display:none;font-size:10.5px;font-weight:700;color:#047857;background:#d1fae5;padding:2px 8px;border-radius:4px;border:1px solid #a7f3d0;margin-left:4px;"></span>
         </div>
         <a href="https://172.27.100.32:44300/sap/bc/gui/sap/its/webgui?sap-client=220&amp;sap-user=DRATHOD&amp;~transaction=ZPQC_NEW" target="_blank" class="btn-refresh" style="background:#0284c7;color:#fff;border-color:#0369a1;text-decoration:none;" title="Open in SAP WebGUI as Approver (DRATHOD)">&#127760; WebGUI (Approver: DRATHOD)</a>
 
@@ -1263,6 +1265,50 @@
           <td class="tot-amt" style="font-weight: 800; font-size: 13px; color: #0f172a;">&#8377;34,20,000.00</td>
           <td class="tot-min" style="border-left: 2px solid #10b981; font-weight: 800; font-size: 13px; color: #15803d;">&#8377;33,10,000.00</td>
           <td class="tot-amt" style="border-left: 2px solid #3b82f6; font-weight: 800; font-size: 13px; color: #2563eb;">&#8377;33,60,000.00</td>
+        </tr>
+
+        <!-- Commercial Evaluation & Financing Section -->
+        <tr class="comm-sec-hdr" style="background:#f1f5f9; font-weight:800; border-top:2px solid #cbd5e1;">
+          <td colspan="6">Commercial Evaluation &amp; Financing Analysis (<span id="lblRateHeader">12.00</span>% Interest Rate)</td>
+          <td><strong>Tata Steel Ltd</strong><br><small style="font-weight: 500; color: #475569;">RFQ #6000001001</small></td>
+          <td><strong>Jindal Steel &amp; Power</strong><br><small style="font-weight: 500; color: #475569;">RFQ #6000001002</small></td>
+          <td style="text-align: right; background: #ecfdf5; color: #065f46; font-weight:700;">Lowest Landed</td>
+          <td style="text-align: center; color: #94a3b8;">—</td>
+        </tr>
+        <tr>
+          <td colspan="6" class="comm-param-label" style="font-weight:600; color:#475569;">Incoterms</td>
+          <td class="comm-param-val" style="text-align:center;">FOR Site</td>
+          <td class="comm-param-val" style="text-align:center;">Ex-Works</td>
+          <td class="comm-param-val" style="text-align: center; color: #94a3b8;">—</td>
+          <td class="comm-param-val" style="text-align: center; color: #94a3b8;">—</td>
+        </tr>
+        <tr>
+          <td colspan="6" class="comm-param-label" style="font-weight:600; color:#475569;">Payment Terms</td>
+          <td class="comm-param-val" style="text-align:center;">Within 30 Days</td>
+          <td class="comm-param-val" style="text-align:center;">Within 60 Days</td>
+          <td class="comm-param-val" style="text-align: center; color: #94a3b8;">—</td>
+          <td class="comm-param-val" style="text-align: center; color: #94a3b8;">—</td>
+        </tr>
+        <tr>
+          <td colspan="6" class="comm-param-label" style="font-weight:600; color:#475569;">Credit Days</td>
+          <td class="comm-param-val" style="text-align:center;">30 Days</td>
+          <td class="comm-param-val" style="text-align:center;">60 Days</td>
+          <td class="comm-param-val" style="text-align: center; color: #94a3b8;">—</td>
+          <td class="comm-param-val" style="text-align: center; color: #94a3b8;">—</td>
+        </tr>
+        <tr class="comm-row-hl" style="background:#fefce8;">
+          <td colspan="6" class="comm-param-label" style="font-weight: 700; color: #854d0e;">Financing / Interest Cost (<span id="lblRateRow">12.00</span>%)</td>
+          <td id="cellIntr_1" class="comm-param-val" style="text-align: right; font-weight: 600;">&#8377;20,991.78</td>
+          <td id="cellIntr_2" class="comm-param-val" style="text-align: right; font-weight: 600;">&#8377;0.00</td>
+          <td class="comm-param-val" style="text-align: center; color: #94a3b8;">—</td>
+          <td class="comm-param-val" style="text-align: center; color: #94a3b8;">—</td>
+        </tr>
+        <tr class="comm-row-eval" style="background:#f0fdf4; border-top:1.5px solid #86efac; border-bottom:2px solid #16a34a;">
+          <td colspan="6" class="comm-param-label" style="font-weight: 800; font-size: 12px; color: #166534;">Net Commercial Landed Evaluation</td>
+          <td id="cellLanded_1" class="comm-param-val" style="text-align: right; background: #dcfce7; color: #15803d; border: 2px solid #16a34a;"><strong>&#8377;21,50,991.78</strong></td>
+          <td id="cellLanded_2" class="comm-param-val" style="text-align: right;"><strong>&#8377;34,20,000.00</strong></td>
+          <td id="cellMinLanded" class="comm-param-val" style="text-align: right; font-weight: 800; color: #166534;">&#8377;21,50,991.78</td>
+          <td class="comm-param-val" style="text-align: center; color: #94a3b8;">—</td>
         </tr>
       </tfoot>
     </table>
@@ -1734,6 +1780,149 @@
   let currentItemState = 'PENDING'; // 'PENDING' or 'APPROVED'
   let currentView = 'HTML'; // 'HTML', 'ALV', or 'FIORI'
   let launchedFromFiori = false;
+
+  const gVendorData = [
+    { idx: 1, rfq: '6000001001', vendor: 'Tata Steel Ltd', creditDays: 30, totAmt: 2130000.00, hasPrice: true },
+    { idx: 2, rfq: '6000001002', vendor: 'Jindal Steel & Power', creditDays: 60, totAmt: 3420000.00, hasPrice: true }
+  ];
+
+  function formatInr(num) {
+    if (num === null || num === undefined || isNaN(num)) return "0.00";
+    var n = Number(num);
+    var sign = n < 0 ? "-" : "";
+    n = Math.abs(n);
+    var parts = n.toFixed(2).split(".");
+    var intPart = parts[0];
+    var decPart = parts[1];
+    if (intPart.length > 3) {
+      var last3 = intPart.substring(intPart.length - 3);
+      var rest = intPart.substring(0, intPart.length - 3);
+      rest = rest.replace(/\B(?=(\d{2})+(?!\d))/g, ",");
+      intPart = rest + "," + last3;
+    }
+    return sign + intPart + "." + decPart;
+  }
+
+  function recalculateInterestRuntime(rateVal) {
+    if (isNaN(rateVal) || rateVal < 0) return;
+    var maxCreditDays = 0;
+    var minCreditDays = 9999;
+    for (var i = 0; i < gVendorData.length; i++) {
+      if (gVendorData[i].hasPrice) {
+        if (gVendorData[i].creditDays > maxCreditDays) maxCreditDays = gVendorData[i].creditDays;
+        if (gVendorData[i].creditDays < minCreditDays) minCreditDays = gVendorData[i].creditDays;
+      }
+    }
+    if (minCreditDays === 9999) minCreditDays = 0;
+
+    var rateStr = Number(rateVal).toFixed(2);
+    var elHdr = document.getElementById("lblRateHeader");
+    if (elHdr) elHdr.textContent = rateStr;
+    var elRow = document.getElementById("lblRateRow");
+    if (elRow) elRow.textContent = rateStr;
+
+    var minLanded = 0;
+    var minIdx = -1;
+    var intDaysRate = rateVal / 100.0;
+
+    for (var i = 0; i < gVendorData.length; i++) {
+      var v = gVendorData[i];
+      var cIntr = document.getElementById("cellIntr_" + v.idx);
+      var cLand = document.getElementById("cellLanded_" + v.idx);
+
+      if (!v.hasPrice || v.totAmt <= 0) {
+        if (cIntr) cIntr.innerHTML = "<span style=\"color:#dc2626;\">No Price</span>";
+        if (cLand) cLand.innerHTML = "<strong style=\"color:#dc2626;\">No Price</strong>";
+      } else {
+        var effDays = 0;
+        if (maxCreditDays > minCreditDays) {
+          effDays = maxCreditDays - v.creditDays;
+        } else if (v.creditDays > 0) {
+          effDays = v.creditDays;
+        } else {
+          effDays = 30; // standard 30-day baseline
+        }
+
+        var intrAmt = (intDaysRate / 365.0) * effDays * v.totAmt;
+        var landAmt = v.totAmt + intrAmt;
+
+        if (minLanded === 0 || landAmt < minLanded) {
+          minLanded = landAmt;
+          minIdx = v.idx;
+        }
+
+        if (cIntr) {
+          cIntr.innerHTML = "&#8377;" + formatInr(intrAmt);
+        }
+        if (cLand) {
+          cLand.innerHTML = "<strong>&#8377;" + formatInr(landAmt) + "</strong>";
+        }
+      }
+    }
+
+    var cMin = document.getElementById("cellMinLanded");
+    if (cMin) {
+      cMin.innerHTML = minLanded > 0 ? "&#8377;" + formatInr(minLanded) : "—";
+    }
+
+    for (var i = 0; i < gVendorData.length; i++) {
+      var v = gVendorData[i];
+      var cLand = document.getElementById("cellLanded_" + v.idx);
+      if (cLand) {
+        if (v.idx === minIdx && minLanded > 0) {
+          cLand.style.background = "#dcfce7";
+          cLand.style.color = "#15803d";
+          cLand.style.border = "2px solid #16a34a";
+        } else {
+          cLand.style.background = "";
+          cLand.style.color = "";
+          cLand.style.border = "";
+        }
+      }
+    }
+
+    var notice = document.getElementById("rateNotice");
+    if (notice) {
+      notice.textContent = "Rate applied: " + rateStr + "%";
+      notice.style.display = "inline-block";
+      setTimeout(function() { notice.style.display = "none"; }, 3500);
+    }
+  }
+
+  function onRateInput(val) {
+    var v = parseFloat(val);
+    if (!isNaN(v) && v >= 0) {
+      recalculateInterestRuntime(v);
+    }
+  }
+
+  function updateApplyHref(val) {
+    // In standalone preview, no SAPEVENT required, but keeps state synced
+  }
+
+  function applyRate(e) {
+    if (e && e.preventDefault) e.preventDefault();
+    var inp = document.getElementById("inpRate");
+    if (!inp) return false;
+    var val = parseFloat(inp.value);
+    if (isNaN(val) || val < 0) {
+      alert("Please enter a valid interest rate percentage.");
+      return false;
+    }
+    recalculateInterestRuntime(val);
+    return false;
+  }
+
+  function doApplyRate() {
+    var inp = document.getElementById("inpRate");
+    if (!inp) return;
+    var val = parseFloat(inp.value);
+    if (isNaN(val) || val < 0) {
+      alert("Please enter a valid interest rate percentage.");
+      return;
+    }
+    recalculateInterestRuntime(val);
+  }
 
   function switchView(view, fromFiori = false) {
     currentView = view;

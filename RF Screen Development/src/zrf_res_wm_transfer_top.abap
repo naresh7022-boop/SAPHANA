@@ -34,6 +34,7 @@ TYPES:
     target_qty   TYPE menge_d,
     open_qty     TYPE menge_d,
     meins        TYPE meins,
+    scan_lbl     TYPE char10,
     exidv_scan   TYPE exidv,
     charg_disp   TYPE charg_d,
     ser_count    TYPE i,
@@ -61,7 +62,8 @@ DATA:
   gt_items       TYPE zcl_rf_auto_wm_im_transfer=>tt_rf_doc_item,
   gs_curr_item   TYPE zcl_rf_auto_wm_im_transfer=>ty_rf_doc_item,
   gs_hu_info     TYPE zcl_rf_auto_wm_im_transfer=>ty_hu_stock_info,
-  gv_item_idx    TYPE i VALUE 1.
+  gv_item_idx    TYPE i VALUE 1,
+  gt_scanned_hus TYPE STANDARD TABLE OF exidv WITH DEFAULT KEY.
 
 CONSTANTS:
   c_fcode_enter  TYPE sy-ucomm VALUE 'ENTR',
