@@ -1272,7 +1272,6 @@ CLASS ZCL_RF_AUTO_WM_IM_TRANSFER IMPLEMENTATION.
     " -------------------------------------------------------------
     " PATH 2: BAPI_GOODSMVT_CREATE
     " Handles:
-    "  - HU to Non-HU transfers (lv_dest_xhupf = space, resolves L9 610)
     "  - Standard Reservation / TR movements
     "  - Fallback from Path 1 if HU movement returned L9 610
     " -------------------------------------------------------------
@@ -1285,134 +1284,177 @@ CLASS ZCL_RF_AUTO_WM_IM_TRANSFER IMPLEMENTATION.
             ls_gm_serial TYPE bapi2017_gm_serialnumber,
             lt_gm_return TYPE TABLE OF bapiret2.
 
-      ls_gm_header-pstng_date = sy-datum.
-      ls_gm_header-doc_date   = sy-datum.
-      ls_gm_header-pr_uname   = sy-uname.
-      ls_gm_header-header_txt = |RF-HU:{ is_hu_info-exidv }|.
-
-      " GM_CODE '03' = Goods Issue, '04' = Transfer Posting
-      ls_gm_code-gm_code = COND #(
-        WHEN is_header-bwart = '311' THEN '04'
-        ELSE '03'
-      ).
-
-      ls_gm_item-material   = is_hu_info-matnr.
-      ls_gm_item-plant      = is_hu_info-werks.
-      ls_gm_item-stge_loc   = is_hu_info-lgort.
-      ls_gm_item-move_stloc = lv_dest_lgort.
-      ls_gm_item-move_plant = lv_dest_werks.
-      ls_gm_item-batch      = is_hu_info-charg.
-      ls_gm_item-move_batch = is_hu_info-charg.
-      ls_gm_item-move_type  = is_header-bwart.
-      ls_gm_item-entry_qnt  = lv_post_qty.
-      ls_gm_item-entry_uom  = is_hu_info-meins.
-
-      IF is_header-doc_type = 'RES'.
-        ls_gm_item-reserv_no = is_header-doc_num.
-        ls_gm_item-res_item  = is_item-item_no.
+      " Check if 1-step IM 311 is blocked by SAP LE-WM (SAP Note 1594558):
+      " If source is HU and destination is Non-HU under same warehouse,
+      " direct 311 IM posting triggers L9 610. In this scenario, we delegate
+      " stock transfer directly to LE-WM Transfer Order (Step B) to fulfill reservation.
+      DATA: lv_is_mixed_hu_311 TYPE abap_bool VALUE abap_false.
+      IF is_header-bwart = '311' AND lv_src_xhupf <> lv_dest_xhupf.
+        lv_is_mixed_hu_311 = abap_true.
+        me->log_application_message(
+          iv_doc_num = is_header-doc_num
+          iv_exidv   = is_hu_info-exidv
+          iv_msgty   = 'I'
+          iv_text    = 'HU/Non-HU 311 under same WH detected (L9 610). Transferring directly via LE-WM Transfer Order.'
+        ).
       ENDIF.
 
-      IF is_header-kostl IS NOT INITIAL.
-        ls_gm_item-costcenter = is_header-kostl.
-      ENDIF.
-      IF is_header-aufnr IS NOT INITIAL.
-        ls_gm_item-orderid = is_header-aufnr.
-      ENDIF.
+      IF lv_is_mixed_hu_311 = abap_false.
+        ls_gm_header-pstng_date = sy-datum.
+        ls_gm_header-doc_date   = sy-datum.
+        ls_gm_header-pr_uname   = sy-uname.
+        ls_gm_header-header_txt = |RF-HU:{ is_hu_info-exidv }|.
 
-      APPEND ls_gm_item TO lt_gm_items.
+        " GM_CODE '03' = Goods Issue, '04' = Transfer Posting
+        ls_gm_code-gm_code = COND #(
+          WHEN is_header-bwart = '311' THEN '04'
+          ELSE '03'
+        ).
 
-      " Populate Serial Numbers into BAPI table
-      IF is_item-is_serialized = abap_true AND is_hu_info-serials IS NOT INITIAL.
-        LOOP AT is_hu_info-serials INTO DATA(lv_sernr).
-          CLEAR ls_gm_serial.
-          ls_gm_serial-matdoc_itm = 1.
-          ls_gm_serial-serialno   = lv_sernr.
-          APPEND ls_gm_serial TO lt_gm_serial.
-        ENDLOOP.
-      ENDIF.
+        ls_gm_item-material   = is_hu_info-matnr.
+        ls_gm_item-plant      = is_hu_info-werks.
+        ls_gm_item-stge_loc   = is_hu_info-lgort.
+        IF is_header-bwart = '311'.
+          ls_gm_item-move_stloc = lv_dest_lgort.
+          ls_gm_item-move_plant = lv_dest_werks.
+          ls_gm_item-move_batch = is_hu_info-charg.
+        ENDIF.
+        ls_gm_item-batch      = is_hu_info-charg.
+        ls_gm_item-move_type  = is_header-bwart.
+        ls_gm_item-entry_qnt  = lv_post_qty.
+        ls_gm_item-entry_uom  = is_hu_info-meins.
 
-      CALL FUNCTION 'BAPI_GOODSMVT_CREATE'
-        EXPORTING
-          goodsmvt_header       = ls_gm_header
-          goodsmvt_code         = ls_gm_code
-        IMPORTING
-          materialdocument      = lv_mblnr
-          matdocumentyear       = lv_mjahr
-        TABLES
-          goodsmvt_item         = lt_gm_items
-          goodsmvt_serialnumber = lt_gm_serial
-          return                = lt_gm_return.
-
-      " Check for IM Posting Errors
-      READ TABLE lt_gm_return WITH KEY type = 'E' TRANSPORTING NO FIELDS.
-      IF sy-subrc = 0 OR lv_mblnr IS INITIAL.
-        " If blocked because material is in HU (HUGENERAL 053), unpack and retry
-        DATA: lv_needs_unpack TYPE abap_bool VALUE abap_false.
-        LOOP AT lt_gm_return INTO DATA(ls_bapi_chk) WHERE type CA 'EA'.
-          IF ls_bapi_chk-id = 'HUGENERAL' OR ls_bapi_chk-id = 'HUDIALOG'
-             OR ls_bapi_chk-id = 'L9' OR ls_bapi_chk-message CS 'Handling Unit'
-             OR ls_bapi_chk-message CS 'handling unit'.
-            lv_needs_unpack = abap_true.
-            EXIT.
-          ENDIF.
-        ENDLOOP.
-
-        IF lv_needs_unpack = abap_true AND is_hu_info-venum IS NOT INITIAL.
-          DATA: lt_itemunpack TYPE TABLE OF bapiuitunpack,
-                lt_unpack_ret TYPE TABLE OF bapiret2.
-          SELECT venum, vepos
-            FROM vepo
-            INTO TABLE @DATA(lt_unp_vepos)
-            WHERE venum = @is_hu_info-venum
-              AND matnr = @is_hu_info-matnr.
-          LOOP AT lt_unp_vepos INTO DATA(ls_unp_v).
-            APPEND VALUE bapiuitunpack( hu_item = ls_unp_v-vepos ) TO lt_itemunpack.
-          ENDLOOP.
-          IF lt_itemunpack IS NOT INITIAL.
-            CALL FUNCTION 'BAPI_HU_UNPACK'
-              EXPORTING
-                hukey      = is_hu_info-exidv
-              TABLES
-                itemunpack = lt_itemunpack
-                return     = lt_unpack_ret.
-            CALL FUNCTION 'HU_PACKING_REFRESH'.
-
-            CLEAR: lt_gm_return, lv_mblnr, lv_mjahr.
-            CALL FUNCTION 'BAPI_GOODSMVT_CREATE'
-              EXPORTING
-                goodsmvt_header       = ls_gm_header
-                goodsmvt_code         = ls_gm_code
-              IMPORTING
-                materialdocument      = lv_mblnr
-                matdocumentyear       = lv_mjahr
-              TABLES
-                goodsmvt_item         = lt_gm_items
-                goodsmvt_serialnumber = lt_gm_serial
-                return                = lt_gm_return.
-          ENDIF.
+        IF is_header-doc_type = 'RES'.
+          ls_gm_item-reserv_no = is_header-doc_num.
+          ls_gm_item-res_item  = is_item-item_no.
         ENDIF.
 
+        IF is_header-kostl IS NOT INITIAL.
+          ls_gm_item-costcenter = is_header-kostl.
+        ENDIF.
+        IF is_header-aufnr IS NOT INITIAL.
+          ls_gm_item-orderid = is_header-aufnr.
+        ENDIF.
+
+        APPEND ls_gm_item TO lt_gm_items.
+
+        " Populate Serial Numbers into BAPI table
+        IF is_item-is_serialized = abap_true AND is_hu_info-serials IS NOT INITIAL.
+          LOOP AT is_hu_info-serials INTO DATA(lv_sernr).
+            CLEAR ls_gm_serial.
+            ls_gm_serial-matdoc_itm = 1.
+            ls_gm_serial-serialno   = lv_sernr.
+            APPEND ls_gm_serial TO lt_gm_serial.
+          ENDLOOP.
+        ENDIF.
+
+        CALL FUNCTION 'BAPI_GOODSMVT_CREATE'
+          EXPORTING
+            goodsmvt_header       = ls_gm_header
+            goodsmvt_code         = ls_gm_code
+          IMPORTING
+            materialdocument      = lv_mblnr
+            matdocumentyear       = lv_mjahr
+          TABLES
+            goodsmvt_item         = lt_gm_items
+            goodsmvt_serialnumber = lt_gm_serial
+            return                = lt_gm_return.
+
+        " Check for IM Posting Errors
         READ TABLE lt_gm_return WITH KEY type = 'E' TRANSPORTING NO FIELDS.
         IF sy-subrc = 0 OR lv_mblnr IS INITIAL.
-          CALL FUNCTION 'BAPI_TRANSACTION_ROLLBACK'.
-          rs_result-success    = abap_false.
-          rs_result-return_tab = lt_gm_return.
-          rs_result-rf_message = me->format_rf_message(
-            it_return       = lt_gm_return
-            iv_default_text = 'IM MIGO Posting Failed'
-          ).
-          me->log_application_message(
-            iv_doc_num = is_header-doc_num
-            iv_exidv   = is_hu_info-exidv
-            iv_msgty   = 'E'
-            iv_text    = |IM MIGO Posting Failed: { rs_result-rf_message }|
-            it_return  = lt_gm_return
-          ).
-          RETURN.
+          " Check if error is L9 610 (Transfer posting with WM only possible if both storage locs subject to HU)
+          DATA: lv_is_l9610 TYPE abap_bool VALUE abap_false.
+          LOOP AT lt_gm_return INTO DATA(ls_err_chk) WHERE type CA 'EA'.
+            IF ( ls_err_chk-id = 'L9' AND ls_err_chk-number = '610' )
+               OR ls_err_chk-message CS 'Transfer posting with WM only possible'
+               OR ls_err_chk-message CS 'both storage locs subject to HU'.
+              lv_is_l9610 = abap_true.
+              EXIT.
+            ENDIF.
+          ENDLOOP.
+
+          IF lv_is_l9610 = abap_true.
+            " Fallback to Direct WM Transfer Order to fulfill the transfer & update reservation
+            me->log_application_message(
+              iv_doc_num = is_header-doc_num
+              iv_exidv   = is_hu_info-exidv
+              iv_msgty   = 'W'
+              iv_text    = 'BAPI 311 blocked by L9 610. Fulfilling via Direct LE-WM Transfer Order.'
+            ).
+            CLEAR: lt_gm_return, lv_mblnr, lv_mjahr.
+          ELSE.
+            " If blocked because material is in HU (HUGENERAL 053), unpack and retry
+            DATA: lv_needs_unpack TYPE abap_bool VALUE abap_false.
+            LOOP AT lt_gm_return INTO DATA(ls_bapi_chk) WHERE type CA 'EA'.
+              IF ls_bapi_chk-id = 'HUGENERAL' OR ls_bapi_chk-id = 'HUDIALOG'
+                 OR ls_bapi_chk-message CS 'Handling Unit'
+                 OR ls_bapi_chk-message CS 'handling unit'.
+                lv_needs_unpack = abap_true.
+                EXIT.
+              ENDIF.
+            ENDLOOP.
+
+            IF lv_needs_unpack = abap_true AND is_hu_info-venum IS NOT INITIAL.
+              DATA: lt_itemunpack TYPE TABLE OF bapiuitunpack,
+                    lt_unpack_ret TYPE TABLE OF bapiret2.
+              SELECT venum, vepos
+                FROM vepo
+                INTO TABLE @DATA(lt_unp_vepos)
+                WHERE venum = @is_hu_info-venum
+                  AND matnr = @is_hu_info-matnr.
+              LOOP AT lt_unp_vepos INTO DATA(ls_unp_v).
+                APPEND VALUE bapiuitunpack( hu_item = ls_unp_v-vepos ) TO lt_itemunpack.
+              ENDLOOP.
+              IF lt_itemunpack IS NOT INITIAL.
+                CALL FUNCTION 'BAPI_HU_UNPACK'
+                  EXPORTING
+                    hukey      = is_hu_info-exidv
+                  TABLES
+                    itemunpack = lt_itemunpack
+                    return     = lt_unpack_ret.
+                CALL FUNCTION 'HU_PACKING_REFRESH'.
+
+                CLEAR: lt_gm_return, lv_mblnr, lv_mjahr.
+                CALL FUNCTION 'BAPI_GOODSMVT_CREATE'
+                  EXPORTING
+                    goodsmvt_header       = ls_gm_header
+                    goodsmvt_code         = ls_gm_code
+                  IMPORTING
+                    materialdocument      = lv_mblnr
+                    matdocumentyear       = lv_mjahr
+                  TABLES
+                    goodsmvt_item         = lt_gm_items
+                    goodsmvt_serialnumber = lt_gm_serial
+                    return                = lt_gm_return.
+              ENDIF.
+            ENDIF.
+
+            READ TABLE lt_gm_return WITH KEY type = 'E' TRANSPORTING NO FIELDS.
+            IF sy-subrc = 0 OR lv_mblnr IS INITIAL.
+              CALL FUNCTION 'BAPI_TRANSACTION_ROLLBACK'.
+              rs_result-success    = abap_false.
+              rs_result-return_tab = lt_gm_return.
+              rs_result-rf_message = me->format_rf_message(
+                it_return       = lt_gm_return
+                iv_default_text = 'IM MIGO Posting Failed'
+              ).
+              me->log_application_message(
+                iv_doc_num = is_header-doc_num
+                iv_exidv   = is_hu_info-exidv
+                iv_msgty   = 'E'
+                iv_text    = |IM MIGO Posting Failed: { rs_result-rf_message }|
+                it_return  = lt_gm_return
+              ).
+              RETURN.
+            ENDIF.
+          ENDIF.
+        ENDIF.
+
+        IF lv_mblnr IS NOT INITIAL.
+          lv_im_posted = abap_true.
         ENDIF.
       ENDIF.
-
-      lv_im_posted = abap_true.
     ENDIF.
 
     " -------------------------------------------------------------
@@ -1531,13 +1573,22 @@ CLASS ZCL_RF_AUTO_WM_IM_TRANSFER IMPLEMENTATION.
 
     " 4. Priority 4: Direct single TO creation (L_TO_CREATE_SINGLE)
     IF lv_tanum IS INITIAL.
+      DATA: lv_bwlvs_use TYPE bwlvs VALUE '999'.
+      IF is_header-bwart IS NOT INITIAL.
+        SELECT SINGLE bwlvs FROM t333 INTO @DATA(lv_t333_chk)
+          WHERE lgnum = @is_header-lgnum AND bwlvs = @is_header-bwart.
+        IF sy-subrc = 0.
+          lv_bwlvs_use = is_header-bwart.
+        ENDIF.
+      ENDIF.
+
       CALL FUNCTION 'L_TO_CREATE_SINGLE'
         EXPORTING
           i_lgnum       = is_header-lgnum
-          i_bwlvs       = COND #( WHEN is_header-bwart IS NOT INITIAL THEN is_header-bwart ELSE '999' )
+          i_bwlvs       = lv_bwlvs_use
           i_matnr       = is_hu_info-matnr
           i_werks       = is_hu_info-werks
-          i_lgort       = lv_dest_lgort
+          i_lgort       = COND #( WHEN is_hu_info-lgort IS NOT INITIAL THEN is_hu_info-lgort ELSE lv_dest_lgort )
           i_charg       = is_hu_info-charg
           i_anfme       = lv_post_qty
           i_altme       = is_hu_info-meins
@@ -1566,37 +1617,48 @@ CLASS ZCL_RF_AUTO_WM_IM_TRANSFER IMPLEMENTATION.
     " Zero Orphan Stock in 9xx Interim Storage Types
     " -------------------------------------------------------------
     IF lv_tanum IS INITIAL.
-      " If TO creation failed, rollback IM posting to guarantee zero orphan stock in 922/921
-      DATA: ls_cancel_head   TYPE bapi2017_gm_head_ret,
-            lt_cancel_return TYPE TABLE OF bapiret2.
+      IF lv_mblnr IS NOT INITIAL.
+        " If TO creation failed after IM was posted, rollback IM to guarantee zero orphan stock in 922/921
+        DATA: ls_cancel_head   TYPE bapi2017_gm_head_ret,
+              lt_cancel_return TYPE TABLE OF bapiret2.
 
-      CALL FUNCTION 'BAPI_GOODSMVT_CANCEL'
-        EXPORTING
-          materialdocument    = lv_mblnr
-          matdocumentyear     = lv_mjahr
-          goodsmvt_pstng_date = sy-datum
-          goodsmvt_pr_uname   = sy-uname
-        IMPORTING
-          goodsmvt_headret    = ls_cancel_head
-        TABLES
-          return              = lt_cancel_return.
+        CALL FUNCTION 'BAPI_GOODSMVT_CANCEL'
+          EXPORTING
+            materialdocument    = lv_mblnr
+            matdocumentyear     = lv_mjahr
+            goodsmvt_pstng_date = sy-datum
+            goodsmvt_pr_uname   = sy-uname
+          IMPORTING
+            goodsmvt_headret    = ls_cancel_head
+          TABLES
+            return              = lt_cancel_return.
 
-      CALL FUNCTION 'BAPI_TRANSACTION_COMMIT'
-        EXPORTING
-          wait = 'X'.
+        CALL FUNCTION 'BAPI_TRANSACTION_COMMIT'
+          EXPORTING
+            wait = 'X'.
+
+        rs_result-rf_message = |WM TO Failed (rc={ lv_wm_subrc }). IM { lv_mblnr } Reversed.|.
+        me->log_application_message(
+          iv_doc_num = is_header-doc_num
+          iv_exidv   = is_hu_info-exidv
+          iv_msgty   = 'E'
+          iv_text    = |WM TO Failed (rc={ lv_wm_subrc }). MIGO { lv_mblnr } reversed automatically.|
+          it_return  = lt_cancel_return
+        ).
+      ELSE.
+        CALL FUNCTION 'BAPI_TRANSACTION_ROLLBACK'.
+        rs_result-rf_message = |WM TO Failed (rc={ lv_wm_subrc }).|.
+        me->log_application_message(
+          iv_doc_num = is_header-doc_num
+          iv_exidv   = is_hu_info-exidv
+          iv_msgty   = 'E'
+          iv_text    = |WM TO Failed (rc={ lv_wm_subrc }).|
+        ).
+      ENDIF.
 
       rs_result-success    = abap_false.
       rs_result-mblnr      = space.
       rs_result-mjahr      = space.
-      rs_result-rf_message = |WM TO Failed (rc={ lv_wm_subrc }). IM { lv_mblnr } Reversed.|.
-
-      me->log_application_message(
-        iv_doc_num = is_header-doc_num
-        iv_exidv   = is_hu_info-exidv
-        iv_msgty   = 'E'
-        iv_text    = |WM TO Failed (rc={ lv_wm_subrc }). MIGO { lv_mblnr } reversed automatically.|
-        it_return  = lt_cancel_return
-      ).
       RETURN.
     ENDIF.
 

@@ -95,3 +95,4 @@ START-OF-SELECTION.
   WRITE: / '• Fiori Launchpad Intent URL:'.
   WRITE: / '  https://172.27.100.32:44300/sap/bc/ui5_ui5/ui2/ushell/shells/abap/FioriLaunchpad.html?sap-client=220#RFTransfer-manage'.
   WRITE: / '--------------------------------------------------------------'.
+
