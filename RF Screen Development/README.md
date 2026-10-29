@@ -10,6 +10,24 @@ This directory contains the production-ready custom SAP RF (Radio Frequency) bar
 | :--- | :--- | :--- | :--- | :--- | :--- |
 | **`ZRF_RESWM`** | **`ZRF01`** | `SAPMZRF_RES_WM_TRANSFER` | `0100` | RF Reservation to WM Transfer | **Enabled** (`S_WEBGUI = '1'`, `S_WIN32 = 'X'`) |
 
+---
+
+## 🌐 Quick WebGUI & Mobile ITSmobile Links
+
+| Launch Mode | Target URL | Description |
+| :--- | :--- | :--- |
+| **Direct WebGUI (`ZRF_RESWM`)** | [`https://172.27.100.32:44300/sap/bc/gui/sap/its/webgui?sap-client=220&~transaction=ZRF_RESWM`](https://172.27.100.32:44300/sap/bc/gui/sap/its/webgui?sap-client=220&~transaction=ZRF_RESWM) | Primary RF reservation-to-WM scanner on Client 220 |
+| **Direct WebGUI (`ZRF_RESWM` NARESH)** | [`https://172.27.100.32:44300/sap/bc/gui/sap/its/webgui?sap-client=220&sap-user=NARESH&~transaction=ZRF_RESWM`](https://172.27.100.32:44300/sap/bc/gui/sap/its/webgui?sap-client=220&sap-user=NARESH&~transaction=ZRF_RESWM) | Pre-fills SAP user `NARESH` |
+| **Mobile Short Code (`ZRF01`)** | [`https://172.27.100.32:44300/sap/bc/gui/sap/its/webgui?sap-client=220&~transaction=ZRF01`](https://172.27.100.32:44300/sap/bc/gui/sap/its/webgui?sap-client=220&~transaction=ZRF01) | Handheld RF gun short transaction |
+| **SAP Fiori Launchpad (FLP)** | [`https://172.27.100.32:44300/sap/bc/ui5_ui5/ui2/ushell/shells/abap/FioriLaunchpad.html?sap-client=220#RFTransfer-manage`](https://172.27.100.32:44300/sap/bc/ui5_ui5/ui2/ushell/shells/abap/FioriLaunchpad.html?sap-client=220#RFTransfer-manage) | Launches inside Fiori Launchpad shell via intent `#RFTransfer-manage` |
+| **Interactive Web Cockpit & QR** | [`launch_rf_reswm_webgui.html`](file:///Users/naresh/Documents/Github%20Development/SAPHANA/RF%20Screen%20Development/launch_rf_reswm_webgui.html) | Interactive URL builder, one-click launcher, and QR Code scanner for Zebra/Honeywell |
+
+### 💻 Desktop Shortcuts Included:
+- **macOS Users:** Double-click [`ZRF_RESWM_WebGUI.webloc`](file:///Users/naresh/Documents/Github%20Development/SAPHANA/RF%20Screen%20Development/ZRF_RESWM_WebGUI.webloc) or [`ZRF01_Mobile_WebGUI.webloc`](file:///Users/naresh/Documents/Github%20Development/SAPHANA/RF%20Screen%20Development/ZRF01_Mobile_WebGUI.webloc) directly in Finder.
+- **Windows Users:** Double-click [`ZRF_RESWM_WebGUI.url`](file:///Users/naresh/Documents/Github%20Development/SAPHANA/RF%20Screen%20Development/ZRF_RESWM_WebGUI.url) or [`ZRF01_Mobile_WebGUI.url`](file:///Users/naresh/Documents/Github%20Development/SAPHANA/RF%20Screen%20Development/ZRF01_Mobile_WebGUI.url).
+
+---
+
 - **Primary TCODE**: `ZRF_RESWM`
 - **Short TCODE**: `ZRF01` (Quick entry for handheld virtual keyboards)
 - **Target System**: SAP S/4HANA (DS4/220)

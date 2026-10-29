@@ -1,0 +1,876 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SAP RF Scanner WebGUI & ITSmobile Launcher - ZRF_RESWM</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
+  <style>
+    :root {
+      --primary: #10b981;
+      --primary-hover: #059669;
+      --primary-glow: rgba(16, 185, 129, 0.25);
+      --bg: #090d16;
+      --bg-card: rgba(15, 23, 42, 0.85);
+      --bg-card-hover: rgba(30, 41, 59, 0.95);
+      --border: rgba(148, 163, 184, 0.15);
+      --border-highlight: rgba(16, 185, 129, 0.45);
+      --text: #f8fafc;
+      --text-muted: #94a3b8;
+      --text-dim: #64748b;
+      --accent-blue: #0ea5e9;
+      --accent-purple: #8b5cf6;
+      --accent-amber: #f59e0b;
+      --font-main: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      --font-mono: 'JetBrains Mono', monospace;
+      --radius-sm: 8px;
+      --radius-md: 12px;
+      --radius-lg: 16px;
+      --transition: all 0.22s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: var(--font-main);
+      background-color: var(--bg);
+      color: var(--text);
+      line-height: 1.5;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      position: relative;
+      background-image: 
+        radial-gradient(at 0% 0%, rgba(16, 185, 129, 0.12) 0px, transparent 50%),
+        radial-gradient(at 100% 100%, rgba(14, 165, 233, 0.1) 0px, transparent 50%);
+      background-attachment: fixed;
+    }
+
+    /* Ambient Background Glow */
+    .ambient-glow {
+      position: fixed;
+      width: 500px;
+      height: 500px;
+      border-radius: 50%;
+      pointer-events: none;
+      z-index: 0;
+      filter: blur(120px);
+      opacity: 0.35;
+      animation: pulse 8s ease-in-out infinite alternate;
+    }
+    .glow-1 { top: -100px; left: 10%; background: #10b981; }
+    .glow-2 { bottom: -100px; right: 10%; background: #0ea5e9; }
+
+    @keyframes pulse {
+      0% { transform: scale(1) translate(0, 0); opacity: 0.25; }
+      100% { transform: scale(1.15) translate(20px, -20px); opacity: 0.45; }
+    }
+
+    /* Header */
+    header {
+      position: sticky;
+      top: 0;
+      z-index: 50;
+      background: rgba(9, 13, 22, 0.85);
+      backdrop-filter: blur(16px);
+      border-bottom: 1px solid var(--border);
+      padding: 1rem 2rem;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 0.85rem;
+    }
+
+    .brand-icon {
+      width: 42px;
+      height: 42px;
+      background: linear-gradient(135deg, #10b981 0%, #0ea5e9 100%);
+      border-radius: var(--radius-sm);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 4px 16px var(--primary-glow);
+    }
+
+    .brand-icon svg {
+      width: 24px;
+      height: 24px;
+      color: #fff;
+    }
+
+    .brand-text h1 {
+      font-size: 1.15rem;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+    }
+
+    .brand-text p {
+      font-size: 0.78rem;
+      color: var(--text-muted);
+    }
+
+    .status-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.45rem;
+      padding: 0.35rem 0.85rem;
+      background: rgba(16, 185, 129, 0.12);
+      border: 1px solid rgba(16, 185, 129, 0.3);
+      border-radius: 9999px;
+      font-size: 0.78rem;
+      font-weight: 600;
+      color: #34d399;
+    }
+
+    .status-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background-color: #10b981;
+      box-shadow: 0 0 10px #10b981;
+      animation: blink 2s infinite;
+    }
+
+    @keyframes blink {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.4; }
+    }
+
+    /* Container */
+    main {
+      flex: 1;
+      max-width: 1200px;
+      width: 100%;
+      margin: 0 auto;
+      padding: 2.5rem 1.5rem;
+      z-index: 1;
+    }
+
+    .hero {
+      text-align: center;
+      margin-bottom: 2.5rem;
+    }
+
+    .hero-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+      padding: 0.35rem 1rem;
+      background: rgba(16, 185, 129, 0.1);
+      border: 1px solid rgba(16, 185, 129, 0.25);
+      border-radius: 9999px;
+      font-size: 0.8rem;
+      font-weight: 600;
+      color: #34d399;
+      margin-bottom: 1rem;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    .hero h2 {
+      font-size: 2.3rem;
+      font-weight: 800;
+      letter-spacing: -0.03em;
+      margin-bottom: 0.75rem;
+      background: linear-gradient(135deg, #fff 30%, #94a3b8 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .hero p {
+      font-size: 1.05rem;
+      color: var(--text-muted);
+      max-width: 680px;
+      margin: 0 auto;
+    }
+
+    /* Mode Grid */
+    .launch-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+      gap: 1.5rem;
+      margin-bottom: 2.5rem;
+    }
+
+    .card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      padding: 1.75rem;
+      transition: var(--transition);
+      display: flex;
+      flex-direction: column;
+      backdrop-filter: blur(12px);
+      position: relative;
+      overflow: hidden;
+    }
+
+    .card:hover {
+      background: var(--bg-card-hover);
+      border-color: var(--border-highlight);
+      transform: translateY(-4px);
+      box-shadow: 0 12px 30px rgba(0, 0, 0, 0.4);
+    }
+
+    .card-badge {
+      position: absolute;
+      top: 1.25rem;
+      right: 1.25rem;
+      font-size: 0.7rem;
+      font-weight: 700;
+      padding: 0.2rem 0.6rem;
+      border-radius: 4px;
+      text-transform: uppercase;
+    }
+
+    .badge-primary { background: rgba(16, 185, 129, 0.2); color: #34d399; border: 1px solid rgba(16, 185, 129, 0.4); }
+    .badge-blue { background: rgba(14, 165, 233, 0.2); color: #38bdf8; border: 1px solid rgba(14, 165, 233, 0.4); }
+    .badge-purple { background: rgba(139, 92, 246, 0.2); color: #c084fc; border: 1px solid rgba(139, 92, 246, 0.4); }
+
+    .card-icon {
+      width: 48px;
+      height: 48px;
+      border-radius: var(--radius-md);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-bottom: 1.25rem;
+    }
+
+    .icon-emerald { background: rgba(16, 185, 129, 0.15); color: #34d399; }
+    .icon-cyan { background: rgba(14, 165, 233, 0.15); color: #38bdf8; }
+    .icon-violet { background: rgba(139, 92, 246, 0.15); color: #c084fc; }
+
+    .card h3 {
+      font-size: 1.25rem;
+      font-weight: 700;
+      margin-bottom: 0.4rem;
+    }
+
+    .card p {
+      font-size: 0.88rem;
+      color: var(--text-muted);
+      margin-bottom: 1.25rem;
+      flex: 1;
+    }
+
+    .card-meta {
+      display: flex;
+      flex-direction: column;
+      gap: 0.4rem;
+      background: rgba(0, 0, 0, 0.35);
+      border-radius: var(--radius-sm);
+      padding: 0.75rem;
+      margin-bottom: 1.25rem;
+      font-family: var(--font-mono);
+      font-size: 0.78rem;
+    }
+
+    .meta-row {
+      display: flex;
+      justify-content: space-between;
+    }
+
+    .meta-label { color: var(--text-dim); }
+    .meta-val { color: #f1f5f9; font-weight: 500; }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.5rem;
+      padding: 0.75rem 1.25rem;
+      border-radius: var(--radius-sm);
+      font-size: 0.9rem;
+      font-weight: 600;
+      text-decoration: none;
+      cursor: pointer;
+      transition: var(--transition);
+      border: none;
+    }
+
+    .btn-primary {
+      background: var(--primary);
+      color: #042f2e;
+      box-shadow: 0 4px 14px var(--primary-glow);
+    }
+    .btn-primary:hover {
+      background: var(--primary-hover);
+      color: #fff;
+      transform: translateY(-1px);
+    }
+
+    .btn-secondary {
+      background: rgba(255, 255, 255, 0.08);
+      color: var(--text);
+      border: 1px solid var(--border);
+    }
+    .btn-secondary:hover {
+      background: rgba(255, 255, 255, 0.15);
+      border-color: rgba(255, 255, 255, 0.3);
+    }
+
+    /* Interactive Builder & QR Section */
+    .builder-section {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      padding: 2rem;
+      margin-bottom: 2.5rem;
+      backdrop-filter: blur(12px);
+    }
+
+    .section-title {
+      font-size: 1.35rem;
+      font-weight: 700;
+      margin-bottom: 0.5rem;
+      display: flex;
+      align-items: center;
+      gap: 0.6rem;
+    }
+
+    .section-subtitle {
+      font-size: 0.9rem;
+      color: var(--text-muted);
+      margin-bottom: 1.5rem;
+    }
+
+    .builder-layout {
+      display: grid;
+      grid-template-columns: 1.4fr 1fr;
+      gap: 2rem;
+    }
+
+    @media (max-width: 900px) {
+      .builder-layout {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .form-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 1rem;
+    }
+
+    .form-group {
+      display: flex;
+      flex-direction: column;
+      gap: 0.4rem;
+    }
+
+    .form-group.full {
+      grid-column: span 2;
+    }
+
+    label {
+      font-size: 0.8rem;
+      font-weight: 600;
+      color: var(--text-muted);
+    }
+
+    input, select {
+      background: rgba(0, 0, 0, 0.4);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      padding: 0.65rem 0.85rem;
+      color: #fff;
+      font-family: var(--font-mono);
+      font-size: 0.88rem;
+      outline: none;
+      transition: var(--transition);
+    }
+
+    input:focus, select:focus {
+      border-color: var(--primary);
+      box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.2);
+    }
+
+    /* Live Output Box */
+    .url-output-box {
+      margin-top: 1.25rem;
+      background: rgba(0, 0, 0, 0.5);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      padding: 1rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.75rem;
+    }
+
+    .url-label {
+      font-size: 0.75rem;
+      font-weight: 600;
+      color: var(--text-dim);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    .url-text {
+      font-family: var(--font-mono);
+      font-size: 0.85rem;
+      color: #34d399;
+      word-break: break-all;
+      line-height: 1.4;
+      background: rgba(0, 0, 0, 0.3);
+      padding: 0.65rem;
+      border-radius: 4px;
+      border: 1px dashed rgba(16, 185, 129, 0.3);
+    }
+
+    .action-row {
+      display: flex;
+      gap: 0.75rem;
+    }
+
+    /* QR Code Display Card */
+    .qr-card {
+      background: rgba(0, 0, 0, 0.45);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-md);
+      padding: 1.5rem;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      text-align: center;
+      justify-content: center;
+    }
+
+    .qr-container {
+      background: #ffffff;
+      padding: 14px;
+      border-radius: 12px;
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+      margin-bottom: 1rem;
+      display: inline-block;
+    }
+
+    .qr-desc {
+      font-size: 0.82rem;
+      color: var(--text-muted);
+      line-height: 1.4;
+    }
+
+    .qr-desc strong {
+      color: #34d399;
+    }
+
+    /* Instructions & Troubleshooting Table */
+    .doc-section {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      padding: 2rem;
+      backdrop-filter: blur(12px);
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 1rem;
+      font-size: 0.88rem;
+    }
+
+    th, td {
+      padding: 0.85rem 1rem;
+      text-align: left;
+      border-bottom: 1px solid var(--border);
+    }
+
+    th {
+      background: rgba(0, 0, 0, 0.3);
+      color: var(--text-muted);
+      font-weight: 600;
+      text-transform: uppercase;
+      font-size: 0.75rem;
+      letter-spacing: 0.05em;
+    }
+
+    td code {
+      font-family: var(--font-mono);
+      background: rgba(255, 255, 255, 0.08);
+      padding: 0.2rem 0.4rem;
+      border-radius: 4px;
+      color: #34d399;
+      font-size: 0.8rem;
+    }
+
+    /* Toast Notification */
+    .toast {
+      position: fixed;
+      bottom: 2rem;
+      right: 2rem;
+      background: #10b981;
+      color: #042f2e;
+      padding: 0.75rem 1.5rem;
+      border-radius: var(--radius-sm);
+      font-weight: 700;
+      font-size: 0.88rem;
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      transform: translateY(100px);
+      opacity: 0;
+      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+      z-index: 100;
+    }
+
+    .toast.show {
+      transform: translateY(0);
+      opacity: 1;
+    }
+
+    footer {
+      border-top: 1px solid var(--border);
+      padding: 1.5rem 2rem;
+      text-align: center;
+      font-size: 0.82rem;
+      color: var(--text-dim);
+      background: rgba(9, 13, 22, 0.75);
+    }
+  </style>
+</head>
+<body>
+  <div class="ambient-glow glow-1"></div>
+  <div class="ambient-glow glow-2"></div>
+
+  <!-- Header -->
+  <header>
+    <div class="brand">
+      <div class="brand-icon">
+        <svg fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z" />
+        </svg>
+      </div>
+      <div class="brand-text">
+        <h1>SAP RF Scanner Web Cockpit</h1>
+        <p>SAP S/4HANA (DS4 / 220) &bull; Module Pool SAPMZRF_RES_WM_TRANSFER</p>
+      </div>
+    </div>
+    <div class="status-pill">
+      <div class="status-dot"></div>
+      <span>SAP WebGUI Ready &bull; Port 44300</span>
+    </div>
+  </header>
+
+  <main>
+    <!-- Hero Banner -->
+    <div class="hero">
+      <div class="hero-badge">Mobile & Desktop Access</div>
+      <h2>Launch RF Reservation to WM Transfer</h2>
+      <p>Seamlessly access the rugged RF scanning module from standard desktop browsers, warehouse mobile terminals (Zebra, Honeywell), or SAP Fiori Launchpad.</p>
+    </div>
+
+    <!-- Quick Access Modes -->
+    <div class="launch-grid">
+      <!-- Card 1: Primary Transaction ZRF_RESWM -->
+      <div class="card">
+        <span class="card-badge badge-primary">Primary</span>
+        <div class="card-icon icon-emerald">
+          <svg width="24" height="24" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+          </svg>
+        </div>
+        <h3>Direct WebGUI &bull; ZRF_RESWM</h3>
+        <p>Full-screen browser version of the RF transfer scanner with dynpro rendering and keyboard barcode entry.</p>
+        <div class="card-meta">
+          <div class="meta-row"><span class="meta-label">Transaction:</span><span class="meta-val">ZRF_RESWM</span></div>
+          <div class="meta-row"><span class="meta-label">Client:</span><span class="meta-val">220 (DS4)</span></div>
+          <div class="meta-row"><span class="meta-label">Initial Screen:</span><span class="meta-val">0100 (Selection)</span></div>
+        </div>
+        <a id="btn-launch-reswm" href="https://172.27.100.32:44300/sap/bc/gui/sap/its/webgui?sap-client=220&~transaction=ZRF_RESWM" target="_blank" class="btn btn-primary">
+          <svg width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+          </svg>
+          Open ZRF_RESWM
+        </a>
+      </div>
+
+      <!-- Card 2: Short Code ZRF01 -->
+      <div class="card">
+        <span class="card-badge badge-blue">Mobile Gun</span>
+        <div class="card-icon icon-cyan">
+          <svg width="24" height="24" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z" />
+          </svg>
+        </div>
+        <h3>Short Code &bull; ZRF01</h3>
+        <p>Quick alphanumeric short transaction optimized for small-screen RF gun keypads and handheld barcode scanners.</p>
+        <div class="card-meta">
+          <div class="meta-row"><span class="meta-label">Transaction:</span><span class="meta-val">ZRF01</span></div>
+          <div class="meta-row"><span class="meta-label">Client:</span><span class="meta-val">220 (DS4)</span></div>
+          <div class="meta-row"><span class="meta-label">GUI Profile:</span><span class="meta-val">S_WEBGUI Enabled</span></div>
+        </div>
+        <a id="btn-launch-rf01" href="https://172.27.100.32:44300/sap/bc/gui/sap/its/webgui?sap-client=220&~transaction=ZRF01" target="_blank" class="btn btn-primary" style="background:#0ea5e9; color:#082f49;">
+          <svg width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+          </svg>
+          Open ZRF01 Mobile
+        </a>
+      </div>
+
+      <!-- Card 3: SAP Fiori Launchpad -->
+      <div class="card">
+        <span class="card-badge badge-purple">FLP Shell</span>
+        <div class="card-icon icon-violet">
+          <svg width="24" height="24" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" />
+          </svg>
+        </div>
+        <h3>Fiori Launchpad Intent</h3>
+        <p>Launches inside the SAP Fiori enterprise shell via registered semantic object <code>RFTransfer-manage</code>.</p>
+        <div class="card-meta">
+          <div class="meta-row"><span class="meta-label">Semantic Object:</span><span class="meta-val">RFTransfer</span></div>
+          <div class="meta-row"><span class="meta-label">Action:</span><span class="meta-val">manage</span></div>
+          <div class="meta-row"><span class="meta-label">Intent:</span><span class="meta-val">#RFTransfer-manage</span></div>
+        </div>
+        <a id="btn-launch-flp" href="https://172.27.100.32:44300/sap/bc/ui5_ui5/ui2/ushell/shells/abap/FioriLaunchpad.html?sap-client=220#RFTransfer-manage" target="_blank" class="btn btn-primary" style="background:#8b5cf6; color:#2e1065;">
+          <svg width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+          </svg>
+          Open Fiori Launchpad
+        </a>
+      </div>
+    </div>
+
+    <!-- Interactive URL Builder & Barcode Generator Section -->
+    <div class="builder-section">
+      <h3 class="section-title">
+        <svg width="22" height="22" fill="none" viewBox="0 0 24 24" stroke="currentColor" style="color:#10b981;">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 4a2 2 0 114 0v1a1 1 0 001 1h3a1 1 0 011 1v3a1 1 0 01-1 1h-1a2 2 0 100 4h1a1 1 0 011 1v3a1 1 0 01-1 1h-3a1 1 0 01-1-1v-1a2 2 0 10-4 0v1a1 1 0 01-1 1H7a1 1 0 01-1-1v-3a1 1 0 00-1-1H4a2 2 0 110-4h1a1 1 0 001-1V7a1 1 0 011-1h3a1 1 0 001-1V4z" />
+        </svg>
+        Interactive WebUI Link Builder & Barcode Scanner QR
+      </h3>
+      <p class="section-subtitle">Customize parameters to pre-fill Warehouse, Document numbers, or pre-authenticate your user session.</p>
+
+      <div class="builder-layout">
+        <!-- Form Controls -->
+        <div>
+          <div class="form-grid">
+            <div class="form-group">
+              <label for="input-tcode">Transaction Code</label>
+              <select id="input-tcode" onchange="updateGeneratedUrl()">
+                <option value="ZRF_RESWM">ZRF_RESWM (Full)</option>
+                <option value="ZRF01">ZRF01 (Short Code)</option>
+              </select>
+            </div>
+
+            <div class="form-group">
+              <label for="input-client">SAP Client</label>
+              <input type="text" id="input-client" value="220" oninput="updateGeneratedUrl()" />
+            </div>
+
+            <div class="form-group">
+              <label for="input-user">Prefill SAP User (Optional)</label>
+              <input type="text" id="input-user" value="NARESH" placeholder="e.g. NARESH" oninput="updateGeneratedUrl()" />
+            </div>
+
+            <div class="form-group">
+              <label for="input-lgnum">Warehouse Number (LGNUM)</label>
+              <input type="text" id="input-lgnum" value="W01" placeholder="e.g. W01 or 100" oninput="updateGeneratedUrl()" />
+            </div>
+
+            <div class="form-group">
+              <label for="input-doctype">Document Type</label>
+              <select id="input-doctype" onchange="updateGeneratedUrl()">
+                <option value="RES">Reservation (RES)</option>
+                <option value="TR">Transfer Requirement (TR)</option>
+              </select>
+            </div>
+
+            <div class="form-group">
+              <label for="input-docnum">Document Number (Optional)</label>
+              <input type="text" id="input-docnum" value="0000534044" placeholder="e.g. 0000534044" oninput="updateGeneratedUrl()" />
+            </div>
+
+            <div class="form-group full">
+              <label style="display:flex; align-items:center; gap:0.5rem; cursor:pointer;">
+                <input type="checkbox" id="chk-skip-scr" onchange="updateGeneratedUrl()" style="width:16px; height:16px;" checked />
+                <span>Auto-execute and navigate directly to Item Screen 0200 (Prefix <code>*</code>)</span>
+              </label>
+            </div>
+          </div>
+
+          <!-- Live Generated URL -->
+          <div class="url-output-box">
+            <div class="url-label">Generated WebUI Link</div>
+            <div class="url-text" id="display-url">https://172.27.100.32:44300/sap/bc/gui/sap/its/webgui?sap-client=220&~transaction=ZRF_RESWM</div>
+            <div class="action-row">
+              <button class="btn btn-primary" onclick="copyUrlToClipboard()">
+                <svg width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3" />
+                </svg>
+                Copy WebUI Link
+              </button>
+              <a id="btn-open-generated" href="#" target="_blank" class="btn btn-secondary">
+                <svg width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                </svg>
+                Launch in Browser
+              </a>
+            </div>
+          </div>
+        </div>
+
+        <!-- QR Code Column -->
+        <div class="qr-card">
+          <div class="qr-container" id="qrcode"></div>
+          <div class="qr-desc">
+            Aim your <strong>Zebra / Honeywell Android Scanner Gun</strong> at this QR code to launch the WebGUI session directly on your handheld terminal!
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Reference Documentation -->
+    <div class="doc-section">
+      <h3 class="section-title">
+        <svg width="22" height="22" fill="none" viewBox="0 0 24 24" stroke="currentColor" style="color:#0ea5e9;">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+        </svg>
+        Quick Reference & Dynpro Parameter Mapping
+      </h3>
+      <table>
+        <thead>
+          <tr>
+            <th>Parameter Key</th>
+            <th>Dynpro Field</th>
+            <th>Sample Value</th>
+            <th>Description</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><code>LGNUM</code></td>
+            <td><code>G_SCR0100-LGNUM</code></td>
+            <td><code>W01</code></td>
+            <td>Warehouse Number for LE-WM stock management</td>
+          </tr>
+          <tr>
+            <td><code>RAD_RES</code></td>
+            <td><code>G_SCR0100-RAD_RES</code></td>
+            <td><code>X</code></td>
+            <td>Radio button: Mode = Material Reservation</td>
+          </tr>
+          <tr>
+            <td><code>RAD_TR</code></td>
+            <td><code>G_SCR0100-RAD_TR</code></td>
+            <td><code>X</code></td>
+            <td>Radio button: Mode = Transfer Requirement</td>
+          </tr>
+          <tr>
+            <td><code>DOC_NUM</code></td>
+            <td><code>G_SCR0100-DOC_NUM</code></td>
+            <td><code>0000534044</code></td>
+            <td>Reservation Number (RSNUM) or TR Number (TBNUM)</td>
+          </tr>
+          <tr>
+            <td><code>* Prefix</code></td>
+            <td><code>*ZRF_RESWM</code></td>
+            <td><code>*ZRF_RESWM</code></td>
+            <td>Skips screen 0100 and opens screen 0200 directly</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </main>
+
+  <!-- Toast Notification -->
+  <div class="toast" id="toast">
+    <svg width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+    </svg>
+    <span>Link copied to clipboard!</span>
+  </div>
+
+  <footer>
+    SAP S/4HANA DS4/220 &bull; RF Scanner Mobile WebGUI &bull; Built for Rugged Logistics Execution
+  </footer>
+
+  <script>
+    let qrInstance = null;
+
+    function buildUrl() {
+      const baseUrl = "https://172.27.100.32:44300/sap/bc/gui/sap/its/webgui";
+      const tcode = document.getElementById("input-tcode").value;
+      const client = document.getElementById("input-client").value.trim() || "220";
+      const user = document.getElementById("input-user").value.trim();
+      const lgnum = document.getElementById("input-lgnum").value.trim();
+      const docType = document.getElementById("input-doctype").value;
+      const docNum = document.getElementById("input-docnum").value.trim();
+      const skipScr = document.getElementById("chk-skip-scr").checked;
+
+      let tx = tcode;
+      if (skipScr && (lgnum || docNum)) {
+        tx = "*" + tcode;
+      }
+
+      let params = [];
+      if (lgnum) params.push(`G_SCR0100-LGNUM=${lgnum}`);
+      if (docType === "RES") {
+        params.push("G_SCR0100-RAD_RES=X");
+      } else {
+        params.push("G_SCR0100-RAD_TR=X");
+      }
+      if (docNum) params.push(`G_SCR0100-DOC_NUM=${docNum}`);
+
+      let txString = tx;
+      if (params.length > 0 && skipScr) {
+        txString += " " + params.join(";");
+      }
+
+      let finalUrl = `${baseUrl}?sap-client=${client}`;
+      if (user) {
+        finalUrl += `&sap-user=${encodeURIComponent(user)}`;
+      }
+      finalUrl += `&~transaction=${encodeURIComponent(txString)}`;
+      return finalUrl;
+    }
+
+    function updateGeneratedUrl() {
+      const url = buildUrl();
+      document.getElementById("display-url").innerText = url;
+      document.getElementById("btn-open-generated").href = url;
+
+      // Update QR Code
+      const qrEl = document.getElementById("qrcode");
+      qrEl.innerHTML = "";
+      qrInstance = new QRCode(qrEl, {
+        text: url,
+        width: 170,
+        height: 170,
+        colorDark : "#090d16",
+        colorLight : "#ffffff",
+        correctLevel : QRCode.CorrectLevel.M
+      });
+    }
+
+    function copyUrlToClipboard() {
+      const url = document.getElementById("display-url").innerText;
+      navigator.clipboard.writeText(url).then(() => {
+        const toast = document.getElementById("toast");
+        toast.classList.add("show");
+        setTimeout(() => toast.classList.remove("show"), 2800);
+      });
+    }
+
+    // Initialize on page load
+    window.onload = function() {
+      updateGeneratedUrl();
+    };
+  </script>
+</body>
+</html>
