@@ -218,22 +218,10 @@ MODULE status_0200 OUTPUT.
     g_scr0200-target_qty = |{ gs_curr_item-target_qty DECIMALS = 3 }|.
     g_scr0200-meins      = gs_curr_item-meins.
 
-    " Dynamic Scan Label and Guidance based on Material Management
-    IF gs_curr_item-is_serialized = abap_true.
-      g_scr0200-scan_lbl = 'Scan HU/SU:'.
-      IF g_scr0200-status_msg IS INITIAL.
-        g_scr0200-status_msg = 'Serial material: Scan HU or SU barcode'.
-      ENDIF.
-    ELSEIF gs_curr_item-is_batch_managed = abap_true.
-      g_scr0200-scan_lbl = 'Scan Batch:'.
-      IF g_scr0200-status_msg IS INITIAL.
-        g_scr0200-status_msg = 'Batch material: Scan Batch number'.
-      ENDIF.
-    ELSE.
-      g_scr0200-scan_lbl = 'Scan HU/SU:'.
-      IF g_scr0200-status_msg IS INITIAL.
-        g_scr0200-status_msg = 'Scan HU or SU barcode'.
-      ENDIF.
+    " Allow scanning both HU and SU across all material types
+    g_scr0200-scan_lbl = 'Scan HU/SU:'.
+    IF g_scr0200-status_msg IS INITIAL.
+      g_scr0200-status_msg = 'Scan HU or SU barcode'.
     ENDIF.
   ENDIF.
 
@@ -357,11 +345,7 @@ MODULE user_command_0200 INPUT.
 
     WHEN c_fcode_enter OR space OR '/00'.
       IF g_scr0200-exidv_scan IS INITIAL.
-        IF gs_curr_item-is_batch_managed = abap_true AND gs_curr_item-is_serialized = abap_false.
-          g_scr0200-status_msg = 'Please scan Batch Number'.
-        ELSE.
-          g_scr0200-status_msg = 'Please scan Handling Unit (HU) or SU'.
-        ENDIF.
+        g_scr0200-status_msg = 'Please scan Handling Unit (HU) or SU'.
         RETURN.
       ENDIF.
 
@@ -679,33 +663,25 @@ FORM validate_scanned_hu.
   g_scr0200-open_qty = |{ lv_rem_qty DECIMALS = 3 }|.
   g_scr0200-post_qty = |{ lv_fetch_qty DECIMALS = 3 }|.
 
-  IF gs_curr_item-is_batch_managed = abap_true AND gs_curr_item-is_serialized = abap_false.
-    IF lv_rem_qty > 0.
-      g_scr0200-status_msg = |Batch { gs_hu_info-charg } valid. Rem: { lv_rem_qty DECIMALS = 3 } { gs_curr_item-meins }. Press Post|.
-    ELSE.
-      g_scr0200-status_msg = |Batch { gs_hu_info-charg } valid ({ lv_fetch_qty DECIMALS = 3 } { gs_curr_item-meins }). Press Post|.
-    ENDIF.
+  DATA(lv_disp_id) = COND exidv( WHEN gs_hu_info-exidv IS NOT INITIAL THEN gs_hu_info-exidv ELSE gs_hu_info-lenum ).
+  IF lv_disp_id IS INITIAL.
+    lv_disp_id = gs_hu_info-charg.
+  ENDIF.
+  IF lv_rem_qty > 0.
+    g_scr0200-status_msg = |HU/SU { lv_disp_id } valid. Rem: { lv_rem_qty DECIMALS = 3 } { gs_curr_item-meins }. Press Post (F1)|.
   ELSE.
-    IF lv_rem_qty > 0.
-      g_scr0200-status_msg = |HU/SU { gs_hu_info-exidv } valid. Rem: { lv_rem_qty DECIMALS = 3 } { gs_curr_item-meins }. Press Post|.
-    ELSE.
-      g_scr0200-status_msg = |HU/SU { gs_hu_info-exidv } valid ({ lv_fetch_qty DECIMALS = 3 } { gs_curr_item-meins }). Press Post|.
-    ENDIF.
+    g_scr0200-status_msg = |HU/SU { lv_disp_id } valid ({ lv_fetch_qty DECIMALS = 3 } { gs_curr_item-meins }). Press Post (F1)|.
   ENDIF.
 ENDFORM.
 
 FORM execute_posting.
   IF g_scr0200-exidv_scan IS INITIAL.
-    IF gs_curr_item-is_batch_managed = abap_true AND gs_curr_item-is_serialized = abap_false.
-      g_scr0200-status_msg = 'Please scan Batch Number'.
-    ELSE.
-      g_scr0200-status_msg = 'Please scan Handling Unit (HU) or SU'.
-    ENDIF.
+    g_scr0200-status_msg = 'Please scan Handling Unit (HU) or SU'.
     RETURN.
   ENDIF.
 
   IF gs_hu_info IS INITIAL OR gs_hu_info-is_valid = abap_false
-     OR gs_hu_info-exidv <> g_scr0200-exidv_scan.
+     OR ( gs_hu_info-exidv <> g_scr0200-exidv_scan AND gs_hu_info-lenum <> g_scr0200-exidv_scan ).
     PERFORM validate_scanned_hu.
     IF gs_hu_info-is_valid = abap_false.
       RETURN.
@@ -747,11 +723,7 @@ FORM execute_posting.
 
   " Rule: Cannot post more than available in the scanned HU/SU or Batch
   IF lv_qty > gs_hu_info-menge.
-    IF gs_curr_item-is_batch_managed = abap_true AND gs_curr_item-is_serialized = abap_false.
-      g_scr0200-status_msg = |Qty exceeds Batch stock ({ gs_hu_info-menge DECIMALS = 3 })|.
-    ELSE.
-      g_scr0200-status_msg = |Qty exceeds HU/SU qty ({ gs_hu_info-menge DECIMALS = 3 })|.
-    ENDIF.
+    g_scr0200-status_msg = |Qty exceeds HU/SU qty ({ gs_hu_info-menge DECIMALS = 3 })|.
     RETURN.
   ENDIF.
 

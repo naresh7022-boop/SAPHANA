@@ -223,18 +223,14 @@ FORM validate_scanned_hu.
   g_scr0200-open_qty = lv_rem_qty.
   g_scr0200-post_qty = lv_fetch_qty.
 
-  IF gs_curr_item-is_batch_managed = abap_true AND gs_curr_item-is_serialized = abap_false.
-    IF lv_rem_qty > 0.
-      g_scr0200-status_msg = |Batch { gs_hu_info-charg } valid. Rem: { lv_rem_qty DECIMALS = 3 } { gs_curr_item-meins }. Press Post (F1)|.
-    ELSE.
-      g_scr0200-status_msg = |Batch { gs_hu_info-charg } valid ({ lv_fetch_qty DECIMALS = 3 } { gs_curr_item-meins }). Press Post (F1)|.
-    ENDIF.
+  DATA(lv_disp_id) = COND exidv( WHEN gs_hu_info-exidv IS NOT INITIAL THEN gs_hu_info-exidv ELSE gs_hu_info-lenum ).
+  IF lv_disp_id IS INITIAL.
+    lv_disp_id = gs_hu_info-charg.
+  ENDIF.
+  IF lv_rem_qty > 0.
+    g_scr0200-status_msg = |HU/SU { lv_disp_id } valid. Rem: { lv_rem_qty DECIMALS = 3 } { gs_curr_item-meins }. Press Post (F1)|.
   ELSE.
-    IF lv_rem_qty > 0.
-      g_scr0200-status_msg = |HU/SU { gs_hu_info-exidv } valid. Rem: { lv_rem_qty DECIMALS = 3 } { gs_curr_item-meins }. Press Post (F1)|.
-    ELSE.
-      g_scr0200-status_msg = |HU/SU { gs_hu_info-exidv } valid ({ lv_fetch_qty DECIMALS = 3 } { gs_curr_item-meins }). Press Post (F1)|.
-    ENDIF.
+    g_scr0200-status_msg = |HU/SU { lv_disp_id } valid ({ lv_fetch_qty DECIMALS = 3 } { gs_curr_item-meins }). Press Post (F1)|.
   ENDIF.
 ENDFORM.
 
@@ -244,11 +240,7 @@ ENDFORM.
 *&---------------------------------------------------------------------*
 FORM execute_posting.
   IF gs_hu_info IS INITIAL OR gs_hu_info-is_valid = abap_false.
-    IF gs_curr_item-is_batch_managed = abap_true AND gs_curr_item-is_serialized = abap_false.
-      g_scr0200-status_msg = 'Please scan & validate Batch first'.
-    ELSE.
-      g_scr0200-status_msg = 'Please scan & validate HU first'.
-    ENDIF.
+    g_scr0200-status_msg = 'Please scan & validate HU or SU first'.
     RETURN.
   ENDIF.
 

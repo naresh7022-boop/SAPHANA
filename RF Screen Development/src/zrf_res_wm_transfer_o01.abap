@@ -60,22 +60,10 @@ MODULE status_0200 OUTPUT.
     g_scr0200-target_qty = gs_curr_item-target_qty.
     g_scr0200-meins      = gs_curr_item-meins.
 
-    " Dynamic Scan Label and Guidance based on Material Management
-    IF gs_curr_item-is_serialized = abap_true.
-      g_scr0200-scan_lbl = 'Scan HU/SU:'.
-      IF g_scr0200-status_msg IS INITIAL.
-        g_scr0200-status_msg = 'Serial material: Scan HU or SU barcode'.
-      ENDIF.
-    ELSEIF gs_curr_item-is_batch_managed = abap_true.
-      g_scr0200-scan_lbl = 'Scan Batch:'.
-      IF g_scr0200-status_msg IS INITIAL.
-        g_scr0200-status_msg = 'Batch material: Scan Batch number'.
-      ENDIF.
-    ELSE.
-      g_scr0200-scan_lbl = 'Scan HU/SU:'.
-      IF g_scr0200-status_msg IS INITIAL.
-        g_scr0200-status_msg = 'Scan HU or SU barcode'.
-      ENDIF.
+    " Allow scanning both HU and SU across all material types
+    g_scr0200-scan_lbl = 'Scan HU/SU:'.
+    IF g_scr0200-status_msg IS INITIAL.
+      g_scr0200-status_msg = 'Scan HU or SU barcode'.
     ENDIF.
   ENDIF.
 

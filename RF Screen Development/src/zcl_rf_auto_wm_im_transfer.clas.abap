@@ -586,17 +586,54 @@ CLASS ZCL_RF_AUTO_WM_IM_TRANSFER IMPLEMENTATION.
   ENDMETHOD.
 
   METHOD validate_hu_and_stock.
-    " Comprehensive validation supporting:
-    " 1. Serial-Managed materials: HU or SU number scan (VEKP/VEPO/LQUA/OBJK)
-    " 2. Batch-Managed materials: Batch number scan (MCHA/MCH1/MCHB/LQUA)
-    " 3. Standard materials: HU, SU, or Bin scan
+    " Comprehensive validation for ZRF01 / ZRF_RESWM supporting:
+    " 1. Priority 1: Handling Unit (HU) scan (VEKP/VEPO)
+    " 2. Priority 2: Storage Unit (SU) scan (LQUA/LEIN)
+    " 3. Priority 3 (Fallback): Batch number scan (MCHA/MCH1/MCHB/LQUA)
     CLEAR: es_hu_info, et_return.
+
+    " -------------------------------------------------------------
+    " Format and Clean scanned input barcode
+    " -------------------------------------------------------------
+    DATA: lv_scan_raw    TYPE exidv,
+          lv_scan_clean  TYPE string,
+          lv_scan_strip  TYPE exidv,
+          lv_pad20       TYPE exidv,
+          lv_pad10       TYPE char10,
+          lv_pad18       TYPE char18.
+
+    lv_scan_raw = iv_exidv.
+    CONDENSE lv_scan_raw NO-GAPS.
+    lv_scan_clean = lv_scan_raw.
+
+    " Strip barcode symbology identifiers if scanned with AIM prefix
+    IF strlen( lv_scan_clean ) >= 3 AND ( lv_scan_clean(3) = ']C1' OR lv_scan_clean(3) = ']e0' OR lv_scan_clean(3) = ']d2' ).
+      lv_scan_clean = lv_scan_clean+3.
+    ENDIF.
+    " Strip GS1 Application Identifier (00) for SSCC / HU
+    IF strlen( lv_scan_clean ) >= 4 AND ( lv_scan_clean(4) = '(00)' OR lv_scan_clean(4) = '(01)' ).
+      lv_scan_clean = lv_scan_clean+4.
+    ENDIF.
+    CONDENSE lv_scan_clean NO-GAPS.
+
+    lv_scan_strip = lv_scan_clean.
+    SHIFT lv_scan_strip LEFT DELETING LEADING ' 0'.
+    IF lv_scan_strip IS INITIAL.
+      lv_scan_strip = lv_scan_clean.
+    ENDIF.
+
+    lv_pad20 = |{ lv_scan_strip ALPHA = IN WIDTH = 20 }|.
+    lv_pad10 = |{ lv_scan_strip ALPHA = IN WIDTH = 10 }|.
+    lv_pad18 = |{ lv_scan_strip ALPHA = IN WIDTH = 18 }|.
 
     " -------------------------------------------------------------
     " Check if HU or SU was already scanned/posted for this request
     " -------------------------------------------------------------
     IF iv_doc_num IS NOT INITIAL AND iv_exidv IS NOT INITIAL.
-      IF me->is_hu_already_scanned( iv_doc_num = iv_doc_num iv_exidv = iv_exidv ) = abap_true.
+      IF me->is_hu_already_scanned( iv_doc_num = iv_doc_num iv_exidv = iv_exidv ) = abap_true
+         OR me->is_hu_already_scanned( iv_doc_num = iv_doc_num iv_exidv = lv_scan_strip ) = abap_true
+         OR me->is_hu_already_scanned( iv_doc_num = iv_doc_num iv_exidv = lv_pad20 ) = abap_true
+         OR me->is_hu_already_scanned( iv_doc_num = iv_doc_num iv_exidv = lv_pad10 ) = abap_true.
         APPEND VALUE #(
           type    = 'E'
           id      = 'ZRF'
@@ -607,485 +644,502 @@ CLASS ZCL_RF_AUTO_WM_IM_TRANSFER IMPLEMENTATION.
       ENDIF.
     ENDIF.
 
-    " Check if Material is Serial-Managed vs Batch-Managed
-    DATA: lv_is_serial TYPE abap_bool,
-          lv_is_batch  TYPE abap_bool.
-
-    SELECT SINGLE sernp, xchpf
-      FROM marc
-      INTO (@DATA(lv_chk_sernp), @DATA(lv_chk_xchpf))
-      WHERE matnr = @iv_matnr
-        AND werks = @iv_werks.
-
-    IF lv_chk_sernp IS NOT INITIAL.
-      lv_is_serial = abap_true.
-    ENDIF.
-
-    IF lv_chk_xchpf = 'X'.
-      lv_is_batch = abap_true.
-    ELSE.
-      SELECT SINGLE xchpf FROM mara INTO @DATA(lv_chk_mara_xchpf) WHERE matnr = @iv_matnr.
-      IF lv_chk_mara_xchpf = 'X'.
-        lv_is_batch = abap_true.
-      ENDIF.
-    ENDIF.
-
-    DATA: lv_clean_exidv TYPE exidv.
-    lv_clean_exidv = |{ iv_exidv ALPHA = IN }|.
-
     " -------------------------------------------------------------
-    " SCENARIO B: Batch-Managed Material (and NOT Serialized)
-    " Store team scans Batch Number (CHARG)
+    " PRIORITY 1: HANDLING UNIT (HU) SCAN (VEKP / VEPO)
     " -------------------------------------------------------------
-    IF lv_is_batch = abap_true AND lv_is_serial = abap_false.
-      DATA: lv_batch_scan TYPE charg_d.
-      lv_batch_scan = iv_exidv.
-
-      " 1. Check if scanned barcode is an existing Batch in MCHA or MCH1
-      SELECT SINGLE * FROM mcha INTO @DATA(ls_mcha)
-        WHERE matnr = @iv_matnr
-          AND werks = @iv_werks
-          AND charg = @lv_batch_scan.
-      IF sy-subrc <> 0.
-        SELECT SINGLE * FROM mch1 INTO @DATA(ls_mch1)
-          WHERE matnr = @iv_matnr
-            AND charg = @lv_batch_scan.
-      ENDIF.
-
-      IF sy-subrc = 0.
-        " Valid Batch Number identified for this material!
-        " If reservation or TR pre-assigned a specific batch, verify match
-        IF iv_charg IS NOT INITIAL AND iv_charg <> lv_batch_scan.
-          APPEND VALUE #(
-            type    = 'E'
-            id      = 'ZRF'
-            number  = '031'
-            message = |Scanned Batch { lv_batch_scan } <> Required Batch { iv_charg }|
-          ) TO et_return.
-          RETURN.
-        ENDIF.
-
-        " Check MCHB stock (Unrestricted stock in SLoc)
-        DATA: lv_batch_clabs TYPE menge_d.
-        SELECT SINGLE clabs FROM mchb INTO @lv_batch_clabs
-          WHERE matnr = @iv_matnr
-            AND werks = @iv_werks
-            AND lgort = @iv_lgort
-            AND charg = @lv_batch_scan.
-
-        IF lv_batch_clabs <= 0.
-          APPEND VALUE #(
-            type    = 'E'
-            id      = 'ZRF'
-            number  = '032'
-            message = |Batch { lv_batch_scan } has no stock in SLoc { iv_lgort }|
-          ) TO et_return.
-          RETURN.
-        ENDIF.
-
-        " Query active quants in LQUA for this batch
-        SELECT * FROM lqua
-          INTO TABLE @DATA(lt_batch_quants)
-          WHERE lgnum = @iv_lgnum
-            AND matnr = @iv_matnr
-            AND werks = @iv_werks
-            AND lgort = @iv_lgort
-            AND charg = @lv_batch_scan
-            AND skzua = @space
-            AND skzue = @space
-            AND verme > 0
-          ORDER BY lgtyp, lgpla.
-
-        DATA: lv_sum_wm_qty  TYPE menge_d VALUE 0,
-              ls_best_bquant TYPE lqua.
-
-        LOOP AT lt_batch_quants INTO DATA(ls_bq).
-          lv_sum_wm_qty = lv_sum_wm_qty + ls_bq-verme.
-          IF ls_best_bquant IS INITIAL.
-            ls_best_bquant = ls_bq.
-          ENDIF.
-        ENDLOOP.
-
-        es_hu_info-exidv        = lv_batch_scan.
-        es_hu_info-charg        = lv_batch_scan.
-        es_hu_info-matnr        = iv_matnr.
-        es_hu_info-werks        = iv_werks.
-        es_hu_info-lgort        = iv_lgort.
-        es_hu_info-lgnum        = iv_lgnum.
-        es_hu_info-im_avail_qty = lv_batch_clabs.
-
-        IF ls_best_bquant IS NOT INITIAL.
-          es_hu_info-lgtyp        = ls_best_bquant-lgtyp.
-          es_hu_info-lgpla        = ls_best_bquant-lgpla.
-          es_hu_info-lenum        = ls_best_bquant-lenum.
-          es_hu_info-lqnum        = ls_best_bquant-lqnum.
-          es_hu_info-meins        = ls_best_bquant-meins.
-          es_hu_info-wm_avail_qty = lv_sum_wm_qty.
-          es_hu_info-menge        = lv_sum_wm_qty.
-
-          " If quant belongs to an HU in VEKP, link it
-          IF ls_best_bquant-lenum IS NOT INITIAL.
-            SELECT SINGLE venum, exidv FROM vekp
-              INTO (@es_hu_info-venum, @DATA(lv_linked_exidv))
-              WHERE exidv = @ls_best_bquant-lenum OR venum = @ls_best_bquant-lenum.
-          ENDIF.
-        ELSE.
-          SELECT SINGLE meins FROM mara INTO @es_hu_info-meins WHERE matnr = @iv_matnr.
-          es_hu_info-wm_avail_qty = lv_batch_clabs.
-          es_hu_info-menge        = lv_batch_clabs.
-        ENDIF.
-
-        SELECT SINGLE maktx FROM makt INTO @es_hu_info-maktx
-          WHERE matnr = @iv_matnr AND spras = @sy-langu.
-
-        es_hu_info-is_valid = abap_true.
-        RETURN.
-      ENDIF.
-    ENDIF.
-
-    " -------------------------------------------------------------
-    " SCENARIO A: Serial-Managed Materials (or fallback HU/SU scan)
-    " User scans Handling Unit (HU) or Storage Unit (SU)
-    " -------------------------------------------------------------
-    " 1. Read Handling Unit Header (VEKP)
+    DATA: ls_vekp TYPE vekp.
     SELECT SINGLE *
       FROM vekp
-      INTO @DATA(ls_vekp)
-      WHERE exidv = @iv_exidv.
-    IF sy-subrc <> 0.
-      " Try with ALPHA conversion if alphanumeric
-      SELECT SINGLE *
-        FROM vekp
-        INTO @ls_vekp
-        WHERE exidv = @lv_clean_exidv.
-      IF sy-subrc <> 0.
-        " If not found in VEKP (Handling Units), check LQUA for Storage Unit (SU)
-        SELECT SINGLE *
-          FROM lqua
-          INTO @DATA(ls_lqua_su)
-          WHERE lgnum = @iv_lgnum
-            AND ( lenum = @iv_exidv OR lenum = @lv_clean_exidv )
-            AND skzua = @space
-            AND skzue = @space
-            AND einme = @space.
-        IF sy-subrc = 0.
-          " Valid Storage Unit (SU) located in Warehouse
-          IF ls_lqua_su-matnr <> iv_matnr.
-            APPEND VALUE #(
-              type    = 'E'
-              id      = 'ZRF'
-              number  = '013'
-              message = |SU { iv_exidv } material { ls_lqua_su-matnr } <> Req { iv_matnr }|
-            ) TO et_return.
-            RETURN.
-          ENDIF.
+      INTO @ls_vekp
+      WHERE exidv = @lv_scan_raw
+         OR exidv = @lv_pad20
+         OR exidv = @lv_pad18
+         OR exidv = @lv_pad10
+         OR exidv = @lv_scan_strip
+         OR venum = @lv_pad10
+         OR venum = @lv_pad20
+         OR venum = @lv_scan_strip.
 
-          IF iv_werks IS NOT INITIAL AND ls_lqua_su-werks <> iv_werks.
-            APPEND VALUE #(
-              type    = 'E'
-              id      = 'ZRF'
-              number  = '014'
-              message = |SU Plant { ls_lqua_su-werks } <> Req Plant { iv_werks }|
-            ) TO et_return.
-            RETURN.
-          ENDIF.
-
-          IF iv_lgort IS NOT INITIAL AND ls_lqua_su-lgort <> iv_lgort.
-            APPEND VALUE #(
-              type    = 'E'
-              id      = 'ZRF'
-              number  = '015'
-              message = |SU SLoc { ls_lqua_su-lgort } <> Req SLoc { iv_lgort }|
-            ) TO et_return.
-            RETURN.
-          ENDIF.
-
-          IF iv_charg IS NOT INITIAL AND ls_lqua_su-charg <> iv_charg.
-            APPEND VALUE #(
-              type    = 'E'
-              id      = 'ZRF'
-              number  = '016'
-              message = |SU Batch { ls_lqua_su-charg } <> Req Batch { iv_charg }|
-            ) TO et_return.
-            RETURN.
-          ENDIF.
-
-          IF ls_lqua_su-lgtyp(1) = '9'.
-            APPEND VALUE #(
-              type    = 'E'
-              id      = 'ZRF'
-              number  = '018'
-              message = |SU is in interim storage { ls_lqua_su-lgtyp }/{ ls_lqua_su-lgpla }|
-            ) TO et_return.
-            RETURN.
-          ENDIF.
-
-          es_hu_info-exidv        = ls_lqua_su-lenum.
-          es_hu_info-venum        = space.
-          es_hu_info-matnr        = ls_lqua_su-matnr.
-          es_hu_info-werks        = ls_lqua_su-werks.
-          es_hu_info-lgort        = ls_lqua_su-lgort.
-          es_hu_info-charg        = ls_lqua_su-charg.
-          es_hu_info-menge        = ls_lqua_su-verme.
-          es_hu_info-meins        = ls_lqua_su-meins.
-          es_hu_info-lgnum        = ls_lqua_su-lgnum.
-          es_hu_info-lgtyp        = ls_lqua_su-lgtyp.
-          es_hu_info-lgpla        = ls_lqua_su-lgpla.
-          es_hu_info-lenum        = ls_lqua_su-lenum.
-          es_hu_info-lqnum        = ls_lqua_su-lqnum.
-          es_hu_info-wm_avail_qty = ls_lqua_su-verme.
-
-          SELECT SINGLE maktx
-            FROM makt
-            INTO @es_hu_info-maktx
-            WHERE matnr = @es_hu_info-matnr
-              AND spras = @sy-langu.
-
-          IF iv_doc_num IS NOT INITIAL.
-            IF ( es_hu_info-exidv IS NOT INITIAL AND me->is_hu_already_scanned( iv_doc_num = iv_doc_num iv_exidv = es_hu_info-exidv ) = abap_true )
-               OR ( es_hu_info-lenum IS NOT INITIAL AND me->is_hu_already_scanned( iv_doc_num = iv_doc_num iv_exidv = es_hu_info-lenum ) = abap_true ).
-              CLEAR es_hu_info.
-              APPEND VALUE #(
-                type    = 'E'
-                id      = 'ZRF'
-                number  = '033'
-                message = 'HU or SU is already scan'
-              ) TO et_return.
-              RETURN.
-            ENDIF.
-          ENDIF.
-
-          es_hu_info-is_valid = abap_true.
-          RETURN.
-        ENDIF.
-
-        IF lv_is_serial = abap_true.
-          APPEND VALUE #(
-            type       = 'E'
-            id         = 'ZRF'
-            number     = '010'
-            message    = |Serial material: Scan valid HU or SU. '{ iv_exidv }' not found.|
-          ) TO et_return.
-        ELSEIF lv_is_batch = abap_true.
-          APPEND VALUE #(
-            type       = 'E'
-            id         = 'ZRF'
-            number     = '010'
-            message    = |Batch material: Scan valid Batch number. '{ iv_exidv }' not found.|
-          ) TO et_return.
-        ELSE.
-          APPEND VALUE #(
-            type       = 'E'
-            id         = 'ZRF'
-            number     = '010'
-            message    = |HU or SU { iv_exidv } does not exist|
-          ) TO et_return.
-        ENDIF.
+    IF sy-subrc = 0.
+      " Check HU status: not deleted/archived
+      IF ls_vekp-status = '0060'. " Inactive / archived
+        APPEND VALUE #(
+          type       = 'E'
+          id         = 'ZRF'
+          number     = '011'
+          message    = |HU { iv_exidv } is archived/inactive|
+        ) TO et_return.
         RETURN.
       ENDIF.
-    ENDIF.
 
-    " Check HU status: not deleted/archived
-    IF ls_vekp-status = '0060'. " Inactive / archived
-      APPEND VALUE #(
-        type       = 'E'
-        id         = 'ZRF'
-        number     = '011'
-        message    = |HU { iv_exidv } is archived/inactive|
-      ) TO et_return.
-      RETURN.
-    ENDIF.
+      es_hu_info-exidv = ls_vekp-exidv.
+      es_hu_info-venum = ls_vekp-venum.
 
-    es_hu_info-exidv = ls_vekp-exidv.
-    es_hu_info-venum = ls_vekp-venum.
+      " Read Handling Unit Item Contents (VEPO)
+      SELECT *
+        FROM vepo
+        INTO TABLE @DATA(lt_vepo)
+        WHERE venum = @ls_vekp-venum.
+      IF sy-subrc <> 0 OR lt_vepo IS INITIAL.
+        APPEND VALUE #(
+          type       = 'E'
+          id         = 'ZRF'
+          number     = '012'
+          message    = |Handling Unit { iv_exidv } is empty|
+        ) TO et_return.
+        RETURN.
+      ENDIF.
 
-    " 2. Read Handling Unit Item Contents (VEPO)
-    SELECT *
-      FROM vepo
-      INTO TABLE @DATA(lt_vepo)
-      WHERE venum = @ls_vekp-venum.
-    IF sy-subrc <> 0 OR lt_vepo IS INITIAL.
-      APPEND VALUE #(
-        type       = 'E'
-        id         = 'ZRF'
-        number     = '012'
-        message    = |Handling Unit { iv_exidv } is empty|
-      ) TO et_return.
-      RETURN.
-    ENDIF.
-
-    " 3. Material Match Validation
-    READ TABLE lt_vepo INTO DATA(ls_vepo) WITH KEY matnr = iv_matnr.
-    IF sy-subrc <> 0.
-      APPEND VALUE #(
-        type       = 'E'
-        id         = 'ZRF'
-        number     = '013'
-        message    = |HU { iv_exidv } does not contain Material { iv_matnr }|
-      ) TO et_return.
-      RETURN.
-    ENDIF.
-
-    es_hu_info-matnr = ls_vepo-matnr.
-    es_hu_info-werks = ls_vepo-werks.
-    es_hu_info-lgort = ls_vepo-lgort.
-    es_hu_info-charg = ls_vepo-charg.
-    es_hu_info-menge = ls_vepo-vemng.
-    es_hu_info-meins = ls_vepo-vemeh.
-
-    " Material Short Text
-    SELECT SINGLE maktx
-      FROM makt
-      INTO @es_hu_info-maktx
-      WHERE matnr = @es_hu_info-matnr
-        AND spras = @sy-langu.
-
-    " Validate Plant & SLoc Match
-    IF iv_werks IS NOT INITIAL AND es_hu_info-werks <> iv_werks.
-      APPEND VALUE #(
-        type       = 'E'
-        id         = 'ZRF'
-        number     = '014'
-        message    = |HU Plant { es_hu_info-werks } <> Reservation Plant { iv_werks }|
-      ) TO et_return.
-      RETURN.
-    ENDIF.
-
-    IF iv_lgort IS NOT INITIAL AND es_hu_info-lgort <> iv_lgort.
-      APPEND VALUE #(
-        type       = 'E'
-        id         = 'ZRF'
-        number     = '015'
-        message    = |HU SLoc { es_hu_info-lgort } <> Reservation SLoc { iv_lgort }|
-      ) TO et_return.
-      RETURN.
-    ENDIF.
-
-    " Validate Batch Match if pre-assigned
-    IF iv_charg IS NOT INITIAL AND es_hu_info-charg <> iv_charg.
-      APPEND VALUE #(
-        type       = 'E'
-        id         = 'ZRF'
-        number     = '016'
-        message    = |Scanned Batch { es_hu_info-charg } <> Required Batch { iv_charg }|
-      ) TO et_return.
-      RETURN.
-    ENDIF.
-
-    " 4. Extract Serial Numbers for Serialized Materials
-    es_hu_info-serials = me->get_serial_numbers_for_hu(
-      iv_venum = ls_vekp-venum
-      iv_matnr = es_hu_info-matnr
-    ).
-
-    " 5. LE-WM Quant and Bin Verification (LQUA)
-    SELECT SINGLE *
-      FROM lqua
-      INTO @DATA(ls_lqua)
-      WHERE lgnum = @iv_lgnum
-        AND matnr = @es_hu_info-matnr
-        AND ( charg = @es_hu_info-charg OR charg = @space )
-        AND ( lenum = @ls_vekp-exidv OR lenum = @lv_clean_exidv OR lqnum = @ls_vekp-venum )
-        AND skzua = @space     " Not blocked for stock removal
-        AND skzue = @space     " Not blocked for stock placement
-        AND einme = @space.    " Not in inventory
-    IF sy-subrc <> 0.
-      " If not found by Storage Unit, check quant by plant and sloc in WM
-      SELECT SINGLE *
-        FROM lqua
-        INTO @ls_lqua
-        WHERE lgnum = @iv_lgnum
-          AND matnr = @es_hu_info-matnr
-          AND werks = @es_hu_info-werks
-          AND lgort = @es_hu_info-lgort
-          AND ( charg = @es_hu_info-charg OR charg = @space )
-          AND skzua = @space
-          AND skzue = @space.
+      " Material Match Validation
+      READ TABLE lt_vepo INTO DATA(ls_vepo) WITH KEY matnr = iv_matnr.
       IF sy-subrc <> 0.
         APPEND VALUE #(
           type       = 'E'
           id         = 'ZRF'
-          number     = '017'
-          message    = |No active LE-WM Quant found for HU { iv_exidv } in WH { iv_lgnum }|
+          number     = '013'
+          message    = |HU { iv_exidv } does not contain Material { iv_matnr }|
         ) TO et_return.
         RETURN.
       ENDIF.
-    ENDIF.
 
-    es_hu_info-lgnum        = ls_lqua-lgnum.
-    es_hu_info-lgtyp        = ls_lqua-lgtyp.
-    es_hu_info-lgpla        = ls_lqua-lgpla.
-    es_hu_info-lenum        = ls_lqua-lenum.
-    es_hu_info-lqnum        = ls_lqua-lqnum.
-    es_hu_info-wm_avail_qty = ls_lqua-verme.
+      es_hu_info-matnr = ls_vepo-matnr.
+      es_hu_info-werks = ls_vepo-werks.
+      es_hu_info-lgort = ls_vepo-lgort.
+      es_hu_info-charg = ls_vepo-charg.
+      es_hu_info-menge = ls_vepo-vemng.
+      es_hu_info-meins = ls_vepo-vemeh.
 
-    " Ensure WM Storage Type is not an Interim Storage Type (e.g. 9xx)
-    IF ls_lqua-lgtyp(1) = '9'.
-      APPEND VALUE #(
-        type       = 'E'
-        id         = 'ZRF'
-        number     = '018'
-        message    = |HU is currently in interim storage { ls_lqua-lgtyp }/{ ls_lqua-lgpla }|
-      ) TO et_return.
-      RETURN.
-    ENDIF.
-
-    " Available WM Quant Stock Verification (Allows partial quantity for multi-HU scanning)
-    IF ls_lqua-verme <= 0.
-      APPEND VALUE #(
-        type       = 'E'
-        id         = 'ZRF'
-        number     = '019'
-        message    = |WM Quant has zero stock available|
-      ) TO et_return.
-      RETURN.
-    ENDIF.
-
-    " 6. IM Stock Verification (MARD / MCHB)
-    IF es_hu_info-charg IS NOT INITIAL.
-      SELECT SINGLE clabs
-        FROM mchb
-        INTO @DATA(lv_clabs)
+      SELECT SINGLE maktx
+        FROM makt
+        INTO @es_hu_info-maktx
         WHERE matnr = @es_hu_info-matnr
-          AND werks = @es_hu_info-werks
-          AND lgort = @es_hu_info-lgort
-          AND charg = @es_hu_info-charg.
-      es_hu_info-im_avail_qty = lv_clabs.
-    ELSE.
-      SELECT SINGLE labst
-        FROM mard
-        INTO @DATA(lv_labst)
-        WHERE matnr = @es_hu_info-matnr
-          AND werks = @es_hu_info-werks
-          AND lgort = @es_hu_info-lgort.
-      es_hu_info-im_avail_qty = lv_labst.
-    ENDIF.
+          AND spras = @sy-langu.
 
-    IF es_hu_info-im_avail_qty <= 0.
-      APPEND VALUE #(
-        type       = 'E'
-        id         = 'ZRF'
-        number     = '020'
-        message    = |IM unrestricted stock ({ es_hu_info-im_avail_qty }) is zero|
-      ) TO et_return.
+      IF iv_werks IS NOT INITIAL AND es_hu_info-werks <> iv_werks.
+        APPEND VALUE #(
+          type       = 'E'
+          id         = 'ZRF'
+          number     = '014'
+          message    = |HU Plant { es_hu_info-werks } <> Reservation Plant { iv_werks }|
+        ) TO et_return.
+        RETURN.
+      ENDIF.
+
+      IF iv_lgort IS NOT INITIAL AND es_hu_info-lgort <> iv_lgort.
+        APPEND VALUE #(
+          type       = 'E'
+          id         = 'ZRF'
+          number     = '015'
+          message    = |HU SLoc { es_hu_info-lgort } <> Reservation SLoc { iv_lgort }|
+        ) TO et_return.
+        RETURN.
+      ENDIF.
+
+      IF iv_charg IS NOT INITIAL AND es_hu_info-charg <> iv_charg.
+        APPEND VALUE #(
+          type       = 'E'
+          id         = 'ZRF'
+          number     = '016'
+          message    = |Scanned Batch { es_hu_info-charg } <> Required Batch { iv_charg }|
+        ) TO et_return.
+        RETURN.
+      ENDIF.
+
+      " Extract Serial Numbers for Serialized Materials
+      es_hu_info-serials = me->get_serial_numbers_for_hu(
+        iv_venum = ls_vekp-venum
+        iv_matnr = es_hu_info-matnr
+      ).
+
+      " LE-WM Quant and Bin Verification (LQUA)
+      SELECT SINGLE *
+        FROM lqua
+        INTO @DATA(ls_lqua)
+        WHERE lgnum = @iv_lgnum
+          AND matnr = @es_hu_info-matnr
+          AND ( charg = @es_hu_info-charg OR charg = @space )
+          AND ( lenum = @ls_vekp-exidv OR lenum = @lv_pad20 OR lenum = @lv_pad10
+             OR lenum = @lv_scan_raw OR lenum = @lv_scan_strip OR lqnum = @ls_vekp-venum )
+          AND skzua = @space
+          AND skzue = @space
+          AND einme = @space.
+      IF sy-subrc <> 0.
+        SELECT SINGLE *
+          FROM lqua
+          INTO @ls_lqua
+          WHERE lgnum = @iv_lgnum
+            AND matnr = @es_hu_info-matnr
+            AND werks = @es_hu_info-werks
+            AND lgort = @es_hu_info-lgort
+            AND ( charg = @es_hu_info-charg OR charg = @space )
+            AND skzua = @space
+            AND skzue = @space.
+        IF sy-subrc <> 0.
+          APPEND VALUE #(
+            type       = 'E'
+            id         = 'ZRF'
+            number     = '017'
+            message    = |No active LE-WM Quant found for HU { iv_exidv } in WH { iv_lgnum }|
+          ) TO et_return.
+          RETURN.
+        ENDIF.
+      ENDIF.
+
+      es_hu_info-lgnum        = ls_lqua-lgnum.
+      es_hu_info-lgtyp        = ls_lqua-lgtyp.
+      es_hu_info-lgpla        = ls_lqua-lgpla.
+      es_hu_info-lenum        = ls_lqua-lenum.
+      es_hu_info-lqnum        = ls_lqua-lqnum.
+      es_hu_info-wm_avail_qty = ls_lqua-verme.
+
+      IF es_hu_info-lenum IS INITIAL.
+        SELECT SINGLE lenum FROM lein INTO @es_hu_info-lenum
+          WHERE lenum = @ls_vekp-exidv OR lenum = @lv_pad20 OR lenum = @lv_pad10.
+      ENDIF.
+
+      IF ls_lqua-lgtyp(1) = '9'.
+        APPEND VALUE #(
+          type       = 'E'
+          id         = 'ZRF'
+          number     = '018'
+          message    = |HU is currently in interim storage { ls_lqua-lgtyp }/{ ls_lqua-lgpla }|
+        ) TO et_return.
+        RETURN.
+      ENDIF.
+
+      IF ls_lqua-verme <= 0.
+        APPEND VALUE #(
+          type       = 'E'
+          id         = 'ZRF'
+          number     = '019'
+          message    = |WM Quant has zero stock available|
+        ) TO et_return.
+        RETURN.
+      ENDIF.
+
+      " IM Stock Verification (MARD / MCHB)
+      IF es_hu_info-charg IS NOT INITIAL.
+        SELECT SINGLE clabs
+          FROM mchb
+          INTO @DATA(lv_clabs)
+          WHERE matnr = @es_hu_info-matnr
+            AND werks = @es_hu_info-werks
+            AND lgort = @es_hu_info-lgort
+            AND charg = @es_hu_info-charg.
+        es_hu_info-im_avail_qty = lv_clabs.
+      ELSE.
+        SELECT SINGLE labst
+          FROM mard
+          INTO @DATA(lv_labst)
+          WHERE matnr = @es_hu_info-matnr
+            AND werks = @es_hu_info-werks
+            AND lgort = @es_hu_info-lgort.
+        es_hu_info-im_avail_qty = lv_labst.
+      ENDIF.
+
+      IF es_hu_info-im_avail_qty <= 0.
+        APPEND VALUE #(
+          type       = 'E'
+          id         = 'ZRF'
+          number     = '020'
+          message    = |IM unrestricted stock ({ es_hu_info-im_avail_qty }) is zero|
+        ) TO et_return.
+        RETURN.
+      ENDIF.
+
+      IF iv_doc_num IS NOT INITIAL.
+        IF ( es_hu_info-exidv IS NOT INITIAL AND me->is_hu_already_scanned( iv_doc_num = iv_doc_num iv_exidv = es_hu_info-exidv ) = abap_true )
+           OR ( es_hu_info-lenum IS NOT INITIAL AND me->is_hu_already_scanned( iv_doc_num = iv_doc_num iv_exidv = es_hu_info-lenum ) = abap_true ).
+          CLEAR es_hu_info.
+          APPEND VALUE #(
+            type    = 'E'
+            id      = 'ZRF'
+            number  = '033'
+            message = 'HU or SU is already scan'
+          ) TO et_return.
+          RETURN.
+        ENDIF.
+      ENDIF.
+
+      es_hu_info-is_valid = abap_true.
       RETURN.
     ENDIF.
 
-    IF iv_doc_num IS NOT INITIAL.
-      IF ( es_hu_info-exidv IS NOT INITIAL AND me->is_hu_already_scanned( iv_doc_num = iv_doc_num iv_exidv = es_hu_info-exidv ) = abap_true )
-         OR ( es_hu_info-lenum IS NOT INITIAL AND me->is_hu_already_scanned( iv_doc_num = iv_doc_num iv_exidv = es_hu_info-lenum ) = abap_true ).
-        CLEAR es_hu_info.
+    " -------------------------------------------------------------
+    " PRIORITY 2: STORAGE UNIT (SU) SCAN (LQUA / LEIN)
+    " Allows scanning pure Storage Units or SU-managed pallets
+    " -------------------------------------------------------------
+    SELECT *
+      FROM lqua
+      INTO TABLE @DATA(lt_lqua_su)
+      WHERE lgnum = @iv_lgnum
+        AND ( lenum = @lv_pad20
+           OR lenum = @lv_pad10
+           OR lenum = @lv_scan_raw
+           OR lenum = @lv_scan_strip )
+        AND skzua = @space
+        AND skzue = @space
+        AND einme = @space.
+
+    IF sy-subrc = 0 AND lt_lqua_su IS NOT INITIAL.
+      " Storage Unit found in Warehouse! Verify Material
+      READ TABLE lt_lqua_su INTO DATA(ls_lqua_su) WITH KEY matnr = iv_matnr.
+      IF sy-subrc <> 0.
+        DATA(ls_wrong_su) = lt_lqua_su[ 1 ].
         APPEND VALUE #(
           type    = 'E'
           id      = 'ZRF'
-          number  = '033'
-          message = 'HU or SU is already scan'
+          number  = '013'
+          message = |SU { iv_exidv } material { ls_wrong_su-matnr } <> Req { iv_matnr }|
+        ) TO et_return.
+        RETURN.
+      ENDIF.
+
+      IF iv_werks IS NOT INITIAL AND ls_lqua_su-werks <> iv_werks.
+        APPEND VALUE #(
+          type    = 'E'
+          id      = 'ZRF'
+          number  = '014'
+          message = |SU Plant { ls_lqua_su-werks } <> Req Plant { iv_werks }|
+        ) TO et_return.
+        RETURN.
+      ENDIF.
+
+      IF iv_lgort IS NOT INITIAL AND ls_lqua_su-lgort <> iv_lgort.
+        APPEND VALUE #(
+          type    = 'E'
+          id      = 'ZRF'
+          number  = '015'
+          message = |SU SLoc { ls_lqua_su-lgort } <> Req SLoc { iv_lgort }|
+        ) TO et_return.
+        RETURN.
+      ENDIF.
+
+      IF iv_charg IS NOT INITIAL AND ls_lqua_su-charg <> iv_charg.
+        " If this SU has multiple quants, see if another quant matches iv_charg
+        READ TABLE lt_lqua_su INTO ls_lqua_su
+          WITH KEY matnr = iv_matnr charg = iv_charg.
+        IF sy-subrc <> 0.
+          APPEND VALUE #(
+            type    = 'E'
+            id      = 'ZRF'
+            number  = '016'
+            message = |SU Batch { ls_lqua_su-charg } <> Req Batch { iv_charg }|
+          ) TO et_return.
+          RETURN.
+        ENDIF.
+      ENDIF.
+
+      IF ls_lqua_su-lgtyp(1) = '9'.
+        APPEND VALUE #(
+          type    = 'E'
+          id      = 'ZRF'
+          number  = '018'
+          message = |SU is in interim storage { ls_lqua_su-lgtyp }/{ ls_lqua_su-lgpla }|
+        ) TO et_return.
+        RETURN.
+      ENDIF.
+
+      " Calculate total quantity on this SU for this material/batch
+      DATA: lv_su_mat_qty TYPE menge_d VALUE 0.
+      LOOP AT lt_lqua_su INTO DATA(ls_su_q) WHERE matnr = iv_matnr.
+        IF iv_charg IS INITIAL OR ls_su_q-charg = iv_charg.
+          lv_su_mat_qty = lv_su_mat_qty + ls_su_q-verme.
+        ENDIF.
+      ENDLOOP.
+      IF lv_su_mat_qty <= 0.
+        lv_su_mat_qty = ls_lqua_su-verme.
+      ENDIF.
+
+      " Check if this Storage Unit is linked to a Handling Unit in VEKP
+      DATA: lv_su_venum TYPE venum,
+            lv_su_exidv TYPE exidv.
+      SELECT SINGLE venum, exidv FROM vekp
+        INTO (@lv_su_venum, @lv_su_exidv)
+        WHERE exidv = @ls_lqua_su-lenum OR venum = @ls_lqua_su-lenum
+           OR exidv = @lv_pad20 OR exidv = @lv_pad10.
+      IF sy-subrc = 0.
+        es_hu_info-venum   = lv_su_venum.
+        es_hu_info-exidv   = COND #( WHEN lv_su_exidv IS NOT INITIAL THEN lv_su_exidv ELSE ls_lqua_su-lenum ).
+        es_hu_info-serials = me->get_serial_numbers_for_hu( iv_venum = lv_su_venum iv_matnr = iv_matnr ).
+      ELSE.
+        es_hu_info-exidv   = ls_lqua_su-lenum.
+        es_hu_info-venum   = space.
+      ENDIF.
+
+      es_hu_info-lenum        = ls_lqua_su-lenum.
+      es_hu_info-matnr        = ls_lqua_su-matnr.
+      es_hu_info-werks        = ls_lqua_su-werks.
+      es_hu_info-lgort        = ls_lqua_su-lgort.
+      es_hu_info-charg        = ls_lqua_su-charg.
+      es_hu_info-menge        = lv_su_mat_qty.
+      es_hu_info-meins        = ls_lqua_su-meins.
+      es_hu_info-lgnum        = ls_lqua_su-lgnum.
+      es_hu_info-lgtyp        = ls_lqua_su-lgtyp.
+      es_hu_info-lgpla        = ls_lqua_su-lgpla.
+      es_hu_info-lqnum        = ls_lqua_su-lqnum.
+      es_hu_info-wm_avail_qty = lv_su_mat_qty.
+
+      IF ls_lqua_su-charg IS NOT INITIAL.
+        SELECT SINGLE clabs FROM mchb INTO @es_hu_info-im_avail_qty
+          WHERE matnr = @ls_lqua_su-matnr AND werks = @ls_lqua_su-werks
+            AND lgort = @ls_lqua_su-lgort AND charg = @ls_lqua_su-charg.
+      ELSE.
+        SELECT SINGLE labst FROM mard INTO @es_hu_info-im_avail_qty
+          WHERE matnr = @ls_lqua_su-matnr AND werks = @ls_lqua_su-werks
+            AND lgort = @ls_lqua_su-lgort.
+      ENDIF.
+
+      SELECT SINGLE maktx
+        FROM makt
+        INTO @es_hu_info-maktx
+        WHERE matnr = @es_hu_info-matnr
+          AND spras = @sy-langu.
+
+      IF iv_doc_num IS NOT INITIAL.
+        IF ( es_hu_info-exidv IS NOT INITIAL AND me->is_hu_already_scanned( iv_doc_num = iv_doc_num iv_exidv = es_hu_info-exidv ) = abap_true )
+           OR ( es_hu_info-lenum IS NOT INITIAL AND me->is_hu_already_scanned( iv_doc_num = iv_doc_num iv_exidv = es_hu_info-lenum ) = abap_true ).
+          CLEAR es_hu_info.
+          APPEND VALUE #(
+            type    = 'E'
+            id      = 'ZRF'
+            number  = '033'
+            message = 'HU or SU is already scan'
+          ) TO et_return.
+          RETURN.
+        ENDIF.
+      ENDIF.
+
+      es_hu_info-is_valid = abap_true.
+      RETURN.
+    ELSE.
+      " Check if SU header exists in LEIN but no quants
+      SELECT SINGLE * FROM lein INTO @DATA(ls_lein_only)
+        WHERE lenum = @lv_pad20 OR lenum = @lv_pad10
+           OR lenum = @lv_scan_raw OR lenum = @lv_scan_strip.
+      IF sy-subrc = 0.
+        APPEND VALUE #(
+          type    = 'E'
+          id      = 'ZRF'
+          number  = '012'
+          message = |Storage Unit { iv_exidv } has no available stock|
         ) TO et_return.
         RETURN.
       ENDIF.
     ENDIF.
 
-    es_hu_info-is_valid = abap_true.
+    " -------------------------------------------------------------
+    " PRIORITY 3 (FALLBACK): BATCH NUMBER SCAN (MCHA / MCH1 / MCHB)
+    " Store team scans Batch Number (CHARG) directly
+    " -------------------------------------------------------------
+    DATA: lv_batch_scan TYPE charg_d.
+    lv_batch_scan = iv_exidv.
+
+    SELECT SINGLE * FROM mcha INTO @DATA(ls_mcha)
+      WHERE matnr = @iv_matnr
+        AND werks = @iv_werks
+        AND ( charg = @lv_batch_scan OR charg = @lv_scan_strip ).
+    IF sy-subrc <> 0.
+      SELECT SINGLE * FROM mch1 INTO @DATA(ls_mch1)
+        WHERE matnr = @iv_matnr
+          AND ( charg = @lv_batch_scan OR charg = @lv_scan_strip ).
+    ENDIF.
+
+    IF sy-subrc = 0.
+      DATA(lv_matched_batch) = COND charg_d( WHEN ls_mcha-charg IS NOT INITIAL THEN ls_mcha-charg ELSE ls_mch1-charg ).
+      IF iv_charg IS NOT INITIAL AND iv_charg <> lv_matched_batch.
+        APPEND VALUE #(
+          type    = 'E'
+          id      = 'ZRF'
+          number  = '031'
+          message = |Scanned Batch { lv_matched_batch } <> Required Batch { iv_charg }|
+        ) TO et_return.
+        RETURN.
+      ENDIF.
+
+      DATA: lv_batch_clabs TYPE menge_d.
+      SELECT SINGLE clabs FROM mchb INTO @lv_batch_clabs
+        WHERE matnr = @iv_matnr
+          AND werks = @iv_werks
+          AND lgort = @iv_lgort
+          AND charg = @lv_matched_batch.
+
+      IF lv_batch_clabs <= 0.
+        APPEND VALUE #(
+          type    = 'E'
+          id      = 'ZRF'
+          number  = '032'
+          message = |Batch { lv_matched_batch } has no stock in SLoc { iv_lgort }|
+        ) TO et_return.
+        RETURN.
+      ENDIF.
+
+      SELECT * FROM lqua
+        INTO TABLE @DATA(lt_batch_quants)
+        WHERE lgnum = @iv_lgnum
+          AND matnr = @iv_matnr
+          AND werks = @iv_werks
+          AND lgort = @iv_lgort
+          AND charg = @lv_matched_batch
+          AND skzua = @space
+          AND skzue = @space
+          AND verme > 0
+        ORDER BY lgtyp, lgpla.
+
+      DATA: lv_sum_wm_qty  TYPE menge_d VALUE 0,
+            ls_best_bquant TYPE lqua.
+
+      LOOP AT lt_batch_quants INTO DATA(ls_bq).
+        lv_sum_wm_qty = lv_sum_wm_qty + ls_bq-verme.
+        IF ls_best_bquant IS INITIAL.
+          ls_best_bquant = ls_bq.
+        ENDIF.
+      ENDLOOP.
+
+      es_hu_info-exidv        = lv_matched_batch.
+      es_hu_info-charg        = lv_matched_batch.
+      es_hu_info-matnr        = iv_matnr.
+      es_hu_info-werks        = iv_werks.
+      es_hu_info-lgort        = iv_lgort.
+      es_hu_info-lgnum        = iv_lgnum.
+      es_hu_info-im_avail_qty = lv_batch_clabs.
+
+      IF ls_best_bquant IS NOT INITIAL.
+        es_hu_info-lgtyp        = ls_best_bquant-lgtyp.
+        es_hu_info-lgpla        = ls_best_bquant-lgpla.
+        es_hu_info-lenum        = ls_best_bquant-lenum.
+        es_hu_info-lqnum        = ls_best_bquant-lqnum.
+        es_hu_info-meins        = ls_best_bquant-meins.
+        es_hu_info-wm_avail_qty = lv_sum_wm_qty.
+        es_hu_info-menge        = lv_sum_wm_qty.
+
+        IF ls_best_bquant-lenum IS NOT INITIAL.
+          SELECT SINGLE venum, exidv FROM vekp
+            INTO (@es_hu_info-venum, @DATA(lv_linked_exidv2))
+            WHERE exidv = @ls_best_bquant-lenum OR venum = @ls_best_bquant-lenum.
+        ENDIF.
+      ELSE.
+        SELECT SINGLE meins FROM mara INTO @es_hu_info-meins WHERE matnr = @iv_matnr.
+        es_hu_info-wm_avail_qty = lv_batch_clabs.
+        es_hu_info-menge        = lv_batch_clabs.
+      ENDIF.
+
+      SELECT SINGLE maktx FROM makt INTO @es_hu_info-maktx
+        WHERE matnr = @iv_matnr AND spras = @sy-langu.
+
+      es_hu_info-is_valid = abap_true.
+      RETURN.
+    ENDIF.
+
+    " -------------------------------------------------------------
+    " NEITHER HU, SU, NOR BATCH FOUND
+    " -------------------------------------------------------------
+    APPEND VALUE #(
+      type       = 'E'
+      id         = 'ZRF'
+      number     = '010'
+      message    = |HU or SU '{ iv_exidv }' does not exist in WH { iv_lgnum }|
+    ) TO et_return.
   ENDMETHOD.
 
   METHOD get_serial_numbers_for_hu.

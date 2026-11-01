@@ -242,36 +242,25 @@ node deploy/deploy_rf_program.cjs
     - **TO Created**: Transfer Order `0001037366` created and confirmed automatically.
     - **After**: `LQUA` quant and `LX02` stock overview immediately updated to destination Storage Type **`EN1`**, Storage Bin **`0-L0001-01`**.
 
-### 7. Dynamic Scanning Scenarios: Serial-Managed vs. Batch-Managed Materials
+### 7. Dual Scanning Support for ZRF01 / ZRF_RESWM: HU & SU Scanning
 - **Business Requirement**:
-  - **Serial-Managed Materials**: Handheld terminal scanning must strictly be of **Handling Unit (HU)** or **Storage Unit (SU)** numbers containing serial items.
-  - **Batch-Managed Materials (Non-Serialized)**: Store team scans the physical **Batch Number** barcode directly from the item.
-- **Dynamic Detection & Validation Architecture**:
-  1. **Automatic Material Classification (`get_document_details`)**:
-     - Serial Managed: `MARC-SERNP IS NOT INITIAL` $\rightarrow$ `is_serialized = abap_true`.
-     - Batch Managed: `MARC-XCHPF = 'X'` or `MARA-XCHPF = 'X'` $\rightarrow$ `is_batch_managed = abap_true`.
-  2. **Adaptive Dynpro 0200 UI**:
-     - Dynamic Scan Label (`G_SCR0200-SCAN_LBL`) automatically toggles:
-       - Serial Materials: Displays `Scan HU/SU:`
-       - Batch Materials: Displays `Scan Batch:`
-     - Contextual Operator Guidance:
-       - Serial Materials: Prompt displays `Serial material: Scan HU or SU barcode`.
-       - Batch Materials: Prompt displays `Batch material: Scan Batch number`.
-  3. **Verification Logic (`validate_hu_and_stock`)**:
-     - **Serial Materials (Scenario A)**:
-       - Must match a valid Handling Unit in `VEKP` or Storage Unit in `LQUA`.
-       - Scanned plain batch numbers are rejected with: `Serial material: Scan valid HU or SU. '<scan>' not found.`
-       - Serials are retrieved via `SER06` / `OBJK` for traceability.
-     - **Batch Materials (Scenario B)**:
-       - User scans the batch barcode (`CHARG`).
-       - Validates batch master record in `MCHA` / `MCH1`.
-       - Verifies unrestricted stock availability in `MCHB-CLABS`.
-       - Locates active quants in `LQUA` (`LGNUM = lgnum`, `MATNR = matnr`, `CHARG = scan`, `VERME > 0`).
-       - Auto-fills Source Storage Type (`VLTYP`), Source Storage Bin (`VLPLA`), Storage Unit (`LENUM`), Batch (`CHARG`), and Available Quantity (`MENGE`), capping to reservation open requirement.
-  4. **Single-Step Posting Routing**:
-     - For Handling Units (`venum IS NOT INITIAL`), invokes `HU_CREATE_GOODS_MOVEMENT`.
-     - For Pure Batch movements (`venum IS INITIAL`), invokes `BAPI_GOODSMVT_CREATE` with `bapi2017_gm_item_create-batch = is_hu_info-charg`.
-     - Followed immediately by destination putaway bin determination (`determine_destination_bin`) and auto-confirmed Transfer Order creation (`L_TO_CREATE_SINGLE`), ensuring zero orphan quants in interim storage `922`.
+  - In transaction **`ZRF01`** (and `ZRF_RESWM`), operators are permitted to scan **both Handling Units (HU)** and **Storage Units (SU)** across all material types (batch-managed, serial-managed, and standard).
+  - The system dynamically detects whether the barcode is an HU (`VEKP`/`VEPO`) or an SU (`LQUA`/`LEIN`) and retrieves all associated stock details (Material, Batch, Storage Bin, Quant, Serials).
+- **Validation Hierarchy (`validate_hu_and_stock`)**:
+  1. **Priority 1: Handling Unit (HU) Scan**:
+     - Resolves `VEKP-EXIDV` / `VEKP-VENUM` across all number formats (20-digit padded, 10-digit padded, raw, stripped, and GS1 Application Identifier `(00)` / `(01)` SSCC barcodes).
+     - Verifies `VEPO` contents match the requested reservation material.
+     - Automatically matches active LE-WM quant in `LQUA` and extracts serial numbers from `SER06`/`OBJK` if serialized.
+  2. **Priority 2: Storage Unit (SU) Scan**:
+     - Resolves `LQUA-LENUM` / `LEIN-LENUM` across 10-digit and 20-digit representations.
+     - Locates active quants on the storage unit matching the requested material and batch.
+     - Aggregates available quantity on the SU and checks whether the SU is linked to an HU in `VEKP`.
+  3. **Priority 3 (Fallback): Batch Number Scan**:
+     - If the scanned barcode is neither an HU nor an SU, checks if it is a valid Batch number in `MCHA`/`MCH1`/`MCHB` with stock in the source storage location.
+  4. **Single-Step Posting Execution**:
+     - For Handling Units (`venum IS NOT INITIAL`), invokes `HU_CREATE_GOODS_MOVEMENT` (or direct confirmed LE-WM TO for HU to Non-HU movements).
+     - For Storage Units (`lenum IS NOT INITIAL`), executes confirmed Storage Unit Move via `L_TO_CREATE_MOVE_SU` or `L_TO_CREATE_SINGLE`.
+     - Automatically decrements reservation open quantity `RESB-ENMNG` and sets final delivery flag `KZEAR = 'X'`.
   5. **Dynamic Open Quantity Calculation (Pending / Remaining Quantity)**:
      - **Before Scan**: `Open:` displays the full unposted open requirement (e.g. `2.000 NOS`).
      - **After Scan & Verification ("Material OK")**: `Open:` instantly recalculates to display the **projected remaining balance** (`Pending Open = Current Open - Scanned Quantity`).

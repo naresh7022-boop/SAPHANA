@@ -1,0 +1,424 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 56;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		B10010012CCB100000000001 /* SAPHANAApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012CCB100000000001 /* SAPHANAApp.swift */; };
+		B10010022CCB100000000002 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000022CCB100000000002 /* AppDelegate.swift */; };
+		B10010032CCB100000000003 /* SAPServerConfig.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000032CCB100000000003 /* SAPServerConfig.swift */; };
+		B10010042CCB100000000004 /* SAPConnectionManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000042CCB100000000004 /* SAPConnectionManager.swift */; };
+		B10010052CCB100000000005 /* SelfSignedCertificateHandler.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000052CCB100000000005 /* SelfSignedCertificateHandler.swift */; };
+		B10010062CCB100000000006 /* CredentialStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000062CCB100000000006 /* CredentialStore.swift */; };
+		B10010072CCB100000000007 /* ODataQueryBuilder.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000072CCB100000000007 /* ODataQueryBuilder.swift */; };
+		B10010082CCB100000000008 /* ODataServiceLayer.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000082CCB100000000008 /* ODataServiceLayer.swift */; };
+		B10010092CCB100000000009 /* SAPDataRepository.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000092CCB100000000009 /* SAPDataRepository.swift */; };
+		B10010102CCB100000000010 /* SAPNotificationManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000102CCB100000000010 /* SAPNotificationManager.swift */; };
+		B10010112CCB100000000011 /* SalesModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000112CCB100000000011 /* SalesModels.swift */; };
+		B10010122CCB100000000012 /* PurchasingModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000122CCB100000000012 /* PurchasingModels.swift */; };
+		B10010132CCB100000000013 /* MasterDataModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000132CCB100000000013 /* MasterDataModels.swift */; };
+		B10010142CCB100000000014 /* CRMModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000142CCB100000000014 /* CRMModels.swift */; };
+		B10010152CCB100000000015 /* ApprovalModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000152CCB100000000015 /* ApprovalModels.swift */; };
+		B10010162CCB100000000016 /* DashboardViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000162CCB100000000016 /* DashboardViewModel.swift */; };
+		B10010172CCB100000000017 /* CreateOrderViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000172CCB100000000017 /* CreateOrderViewModel.swift */; };
+		B10010182CCB100000000018 /* CreatePurchaseOrderViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000182CCB100000000018 /* CreatePurchaseOrderViewModel.swift */; };
+		B10010192CCB100000000019 /* MasterDataPickerViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000192CCB100000000019 /* MasterDataPickerViewModel.swift */; };
+		B10010202CCB100000000020 /* ApprovalInboxViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000202CCB100000000020 /* ApprovalInboxViewModel.swift */; };
+		B10010212CCB100000000021 /* FioriComponents.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000212CCB100000000021 /* FioriComponents.swift */; };
+		B10010222CCB100000000022 /* MasterDataViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000222CCB100000000022 /* MasterDataViews.swift */; };
+		B10010232CCB100000000023 /* CreateOrderView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000232CCB100000000023 /* CreateOrderView.swift */; };
+		B10010242CCB100000000024 /* SalesListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000242CCB100000000024 /* SalesListView.swift */; };
+		B10010252CCB100000000025 /* QuotationCompareView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000252CCB100000000025 /* QuotationCompareView.swift */; };
+		B10010262CCB100000000026 /* PurchasingListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000262CCB100000000026 /* PurchasingListView.swift */; };
+		B10010272CCB100000000027 /* CRMViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000272CCB100000000027 /* CRMViews.swift */; };
+		B10010282CCB100000000028 /* SAPSettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000282CCB100000000028 /* SAPSettingsView.swift */; };
+		B10010292CCB100000000029 /* DashboardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000292CCB100000000029 /* DashboardView.swift */; };
+		B10010302CCB100000000030 /* ApprovalInboxView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000302CCB100000000030 /* ApprovalInboxView.swift */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXFileReference section */
+		B10000002CCB100000000000 /* SAPHANAApp.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = SAPHANAApp.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		B10000012CCB100000000001 /* SAPHANAApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SAPHANAApp.swift; sourceTree = "<group>"; };
+		B10000022CCB100000000002 /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
+		B10000032CCB100000000003 /* SAPServerConfig.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SAPServerConfig.swift; sourceTree = "<group>"; };
+		B10000042CCB100000000004 /* SAPConnectionManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SAPConnectionManager.swift; sourceTree = "<group>"; };
+		B10000052CCB100000000005 /* SelfSignedCertificateHandler.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SelfSignedCertificateHandler.swift; sourceTree = "<group>"; };
+		B10000062CCB100000000006 /* CredentialStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CredentialStore.swift; sourceTree = "<group>"; };
+		B10000072CCB100000000007 /* ODataQueryBuilder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ODataQueryBuilder.swift; sourceTree = "<group>"; };
+		B10000082CCB100000000008 /* ODataServiceLayer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ODataServiceLayer.swift; sourceTree = "<group>"; };
+		B10000092CCB100000000009 /* SAPDataRepository.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SAPDataRepository.swift; sourceTree = "<group>"; };
+		B10000102CCB100000000010 /* SAPNotificationManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SAPNotificationManager.swift; sourceTree = "<group>"; };
+		B10000112CCB100000000011 /* SalesModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SalesModels.swift; sourceTree = "<group>"; };
+		B10000122CCB100000000012 /* PurchasingModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PurchasingModels.swift; sourceTree = "<group>"; };
+		B10000132CCB100000000013 /* MasterDataModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MasterDataModels.swift; sourceTree = "<group>"; };
+		B10000142CCB100000000014 /* CRMModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CRMModels.swift; sourceTree = "<group>"; };
+		B10000152CCB100000000015 /* ApprovalModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ApprovalModels.swift; sourceTree = "<group>"; };
+		B10000162CCB100000000016 /* DashboardViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DashboardViewModel.swift; sourceTree = "<group>"; };
+		B10000172CCB100000000017 /* CreateOrderViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CreateOrderViewModel.swift; sourceTree = "<group>"; };
+		B10000182CCB100000000018 /* CreatePurchaseOrderViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CreatePurchaseOrderViewModel.swift; sourceTree = "<group>"; };
+		B10000192CCB100000000019 /* MasterDataPickerViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MasterDataPickerViewModel.swift; sourceTree = "<group>"; };
+		B10000202CCB100000000020 /* ApprovalInboxViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ApprovalInboxViewModel.swift; sourceTree = "<group>"; };
+		B10000212CCB100000000021 /* FioriComponents.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FioriComponents.swift; sourceTree = "<group>"; };
+		B10000222CCB100000000022 /* MasterDataViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MasterDataViews.swift; sourceTree = "<group>"; };
+		B10000232CCB100000000023 /* CreateOrderView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CreateOrderView.swift; sourceTree = "<group>"; };
+		B10000242CCB100000000024 /* SalesListView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SalesListView.swift; sourceTree = "<group>"; };
+		B10000252CCB100000000025 /* QuotationCompareView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QuotationCompareView.swift; sourceTree = "<group>"; };
+		B10000262CCB100000000026 /* PurchasingListView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PurchasingListView.swift; sourceTree = "<group>"; };
+		B10000272CCB100000000027 /* CRMViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CRMViews.swift; sourceTree = "<group>"; };
+		B10000282CCB100000000028 /* SAPSettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SAPSettingsView.swift; sourceTree = "<group>"; };
+		B10000292CCB100000000029 /* DashboardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DashboardView.swift; sourceTree = "<group>"; };
+		B10000302CCB100000000030 /* ApprovalInboxView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ApprovalInboxView.swift; sourceTree = "<group>"; };
+		B10000312CCB100000000031 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		B10000402CCB100000000040 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		B10000502CCB100000000050 = {
+			isa = PBXGroup;
+			children = (
+				B10000512CCB100000000051 /* App */,
+				B10000522CCB100000000052 /* Configuration */,
+				B10000532CCB100000000053 /* Core */,
+				B10000542CCB100000000054 /* Models */,
+				B10000552CCB100000000055 /* ViewModels */,
+				B10000562CCB100000000056 /* Views */,
+				B10000572CCB100000000057 /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		B10000512CCB100000000051 /* App */ = {
+			isa = PBXGroup;
+			children = (
+				B10000012CCB100000000001 /* SAPHANAApp.swift */,
+				B10000022CCB100000000002 /* AppDelegate.swift */,
+				B10000312CCB100000000031 /* Info.plist */,
+			);
+			path = App;
+			sourceTree = "<group>";
+		};
+		B10000522CCB100000000052 /* Configuration */ = {
+			isa = PBXGroup;
+			children = (
+				B10000032CCB100000000003 /* SAPServerConfig.swift */,
+			);
+			path = Configuration;
+			sourceTree = "<group>";
+		};
+		B10000532CCB100000000053 /* Core */ = {
+			isa = PBXGroup;
+			children = (
+				B10000042CCB100000000004 /* SAPConnectionManager.swift */,
+				B10000052CCB100000000005 /* SelfSignedCertificateHandler.swift */,
+				B10000062CCB100000000006 /* CredentialStore.swift */,
+				B10000072CCB100000000007 /* ODataQueryBuilder.swift */,
+				B10000082CCB100000000008 /* ODataServiceLayer.swift */,
+				B10000092CCB100000000009 /* SAPDataRepository.swift */,
+				B10000102CCB100000000010 /* SAPNotificationManager.swift */,
+			);
+			path = Core;
+			sourceTree = "<group>";
+		};
+		B10000542CCB100000000054 /* Models */ = {
+			isa = PBXGroup;
+			children = (
+				B10000112CCB100000000011 /* SalesModels.swift */,
+				B10000122CCB100000000012 /* PurchasingModels.swift */,
+				B10000132CCB100000000013 /* MasterDataModels.swift */,
+				B10000142CCB100000000014 /* CRMModels.swift */,
+				B10000152CCB100000000015 /* ApprovalModels.swift */,
+			);
+			path = Models;
+			sourceTree = "<group>";
+		};
+		B10000552CCB100000000055 /* ViewModels */ = {
+			isa = PBXGroup;
+			children = (
+				B10000162CCB100000000016 /* DashboardViewModel.swift */,
+				B10000172CCB100000000017 /* CreateOrderViewModel.swift */,
+				B10000182CCB100000000018 /* CreatePurchaseOrderViewModel.swift */,
+				B10000192CCB100000000019 /* MasterDataPickerViewModel.swift */,
+				B10000202CCB100000000020 /* ApprovalInboxViewModel.swift */,
+			);
+			path = ViewModels;
+			sourceTree = "<group>";
+		};
+		B10000562CCB100000000056 /* Views */ = {
+			isa = PBXGroup;
+			children = (
+				B10000212CCB100000000021 /* FioriComponents.swift */,
+				B10000222CCB100000000022 /* MasterDataViews.swift */,
+				B10000232CCB100000000023 /* CreateOrderView.swift */,
+				B10000242CCB100000000024 /* SalesListView.swift */,
+				B10000252CCB100000000025 /* QuotationCompareView.swift */,
+				B10000262CCB100000000026 /* PurchasingListView.swift */,
+				B10000272CCB100000000027 /* CRMViews.swift */,
+				B10000282CCB100000000028 /* SAPSettingsView.swift */,
+				B10000292CCB100000000029 /* DashboardView.swift */,
+				B10000302CCB100000000030 /* ApprovalInboxView.swift */,
+			);
+			path = Views;
+			sourceTree = "<group>";
+		};
+		B10000572CCB100000000057 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				B10000002CCB100000000000 /* SAPHANAApp.app */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		B10000602CCB100000000060 /* SAPHANAApp */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = B10000702CCB100000000070 /* Build configuration list for PBXNativeTarget "SAPHANAApp" */;
+			buildPhases = (
+				B10000612CCB100000000061 /* Sources */,
+				B10000402CCB100000000040 /* Frameworks */,
+				B10000622CCB100000000062 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = SAPHANAApp;
+			productName = SAPHANAApp;
+			productReference = B10000002CCB100000000000 /* SAPHANAApp.app */;
+			productType = "com.apple.product-type.application";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		B10000802CCB100000000080 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = 1;
+				LastSwiftUpdateCheck = 1600;
+				LastUpgradeCheck = 1600;
+				TargetAttributes = {
+					B10000602CCB100000000060 = {
+						CreatedOnToolsVersion = 16.0;
+					};
+				};
+			};
+			buildConfigurationList = B10000902CCB100000000090 /* Build configuration list for PBXProject "SAPHANAApp" */;
+			compatibilityVersion = "Xcode 14.0";
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				en,
+				Base,
+			);
+			mainGroup = B10000502CCB100000000050;
+			productRefGroup = B10000572CCB100000000057 /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				B10000602CCB100000000060 /* SAPHANAApp */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		B10000622CCB100000000062 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		B10000612CCB100000000061 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				B10010012CCB100000000001 /* SAPHANAApp.swift in Sources */,
+				B10010022CCB100000000002 /* AppDelegate.swift in Sources */,
+				B10010032CCB100000000003 /* SAPServerConfig.swift in Sources */,
+				B10010042CCB100000000004 /* SAPConnectionManager.swift in Sources */,
+				B10010052CCB100000000005 /* SelfSignedCertificateHandler.swift in Sources */,
+				B10010062CCB100000000006 /* CredentialStore.swift in Sources */,
+				B10010072CCB100000000007 /* ODataQueryBuilder.swift in Sources */,
+				B10010082CCB100000000008 /* ODataServiceLayer.swift in Sources */,
+				B10010092CCB100000000009 /* SAPDataRepository.swift in Sources */,
+				B10010102CCB100000000010 /* SAPNotificationManager.swift in Sources */,
+				B10010112CCB100000000011 /* SalesModels.swift in Sources */,
+				B10010122CCB100000000012 /* PurchasingModels.swift in Sources */,
+				B10010132CCB100000000013 /* MasterDataModels.swift in Sources */,
+				B10010142CCB100000000014 /* CRMModels.swift in Sources */,
+				B10010152CCB100000000015 /* ApprovalModels.swift in Sources */,
+				B10010162CCB100000000016 /* DashboardViewModel.swift in Sources */,
+				B10010172CCB100000000017 /* CreateOrderViewModel.swift in Sources */,
+				B10010182CCB100000000018 /* CreatePurchaseOrderViewModel.swift in Sources */,
+				B10010192CCB100000000019 /* MasterDataPickerViewModel.swift in Sources */,
+				B10010202CCB100000000020 /* ApprovalInboxViewModel.swift in Sources */,
+				B10010212CCB100000000021 /* FioriComponents.swift in Sources */,
+				B10010222CCB100000000022 /* MasterDataViews.swift in Sources */,
+				B10010232CCB100000000023 /* CreateOrderView.swift in Sources */,
+				B10010242CCB100000000024 /* SalesListView.swift in Sources */,
+				B10010252CCB100000000025 /* QuotationCompareView.swift in Sources */,
+				B10010262CCB100000000026 /* PurchasingListView.swift in Sources */,
+				B10010272CCB100000000027 /* CRMViews.swift in Sources */,
+				B10010282CCB100000000028 /* SAPSettingsView.swift in Sources */,
+				B10010292CCB100000000029 /* DashboardView.swift in Sources */,
+				B10010302CCB100000000030 /* ApprovalInboxView.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin XCBuildConfiguration section */
+		B10000712CCB100000000071 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = "";
+				ENABLE_PREVIEWS = YES;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = "App/Info.plist";
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 1.0.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.sap.hana.enterprise.SAPHANAApp;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 6.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		B10000722CCB100000000072 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = "";
+				ENABLE_PREVIEWS = YES;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = "App/Info.plist";
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 1.0.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.sap.hana.enterprise.SAPHANAApp;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 6.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
+		B10000912CCB100000000091 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"DEBUG=1",
+					"$(inherited)",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				SDKROOT = iphoneos;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG $(inherited)";
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+			};
+			name = Debug;
+		};
+		B10000922CCB100000000092 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				SDKROOT = iphoneos;
+				SWIFT_COMPILATION_MODE = wholemodule;
+				SWIFT_OPTIMIZATION_LEVEL = "-O";
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		B10000702CCB100000000070 /* Build configuration list for PBXNativeTarget "SAPHANAApp" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				B10000712CCB100000000071 /* Debug */,
+				B10000722CCB100000000072 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		B10000902CCB100000000090 /* Build configuration list for PBXProject "SAPHANAApp" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				B10000912CCB100000000091 /* Debug */,
+				B10000922CCB100000000092 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = B10000802CCB100000000080 /* Project object */;
+}
+

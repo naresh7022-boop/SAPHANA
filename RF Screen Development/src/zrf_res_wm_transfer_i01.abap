@@ -47,11 +47,7 @@ MODULE user_command_0200 INPUT.
 
     WHEN c_fcode_enter.
       IF g_scr0200-exidv_scan IS INITIAL.
-        IF gs_curr_item-is_batch_managed = abap_true AND gs_curr_item-is_serialized = abap_false.
-          g_scr0200-status_msg = 'Please scan Batch Number'.
-        ELSE.
-          g_scr0200-status_msg = 'Please scan Handling Unit (HU) or SU'.
-        ENDIF.
+        g_scr0200-status_msg = 'Please scan Handling Unit (HU) or SU'.
         RETURN.
       ENDIF.
 
