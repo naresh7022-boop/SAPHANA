@@ -89,7 +89,7 @@ public section.
       EXPORTING
         es_header      TYPE ty_rf_doc_header
         et_items       TYPE tt_rf_doc_item
-        et_scanned_hus TYPE tt_exidv OPTIONAL
+        et_scanned_hus TYPE tt_exidv
         et_return      TYPE bapiret2_t.
 
     METHODS is_hu_already_scanned
@@ -367,6 +367,16 @@ CLASS ZCL_RF_AUTO_WM_IM_TRANSFER IMPLEMENTATION.
         es_header-doc_num     = ls_ltbk-tbnum.
         es_header-lgnum       = ls_ltbk-lgnum.
         es_header-bwart       = ls_ltbk-bwart.
+        IF es_header-bwart IS INITIAL AND ls_ltbk-bwlvs IS NOT INITIAL.
+          es_header-bwart     = ls_ltbk-bwlvs.
+        ENDIF.
+        IF ls_ltbk-rsnum IS NOT INITIAL.
+          SELECT SINGLE bwart FROM resb INTO @DATA(lv_tr_hdr_bwart)
+            WHERE rsnum = @ls_ltbk-rsnum.
+          IF sy-subrc = 0 AND lv_tr_hdr_bwart IS NOT INITIAL.
+            es_header-bwart = lv_tr_hdr_bwart.
+          ENDIF.
+        ENDIF.
         es_header-total_items = lines( lt_ltbp ).
         es_header-werks       = VALUE #( lt_ltbp[ 1 ]-werks OPTIONAL ).
         es_header-lgort       = VALUE #( lt_ltbp[ 1 ]-lgort OPTIONAL ).
@@ -461,18 +471,11 @@ CLASS ZCL_RF_AUTO_WM_IM_TRANSFER IMPLEMENTATION.
         CATCH cx_root.
       ENDTRY.
 
-      " 2. Query SAP Standard VBEH (Handling unit history) via MSEG
-      SELECT DISTINCT v~exidv
-        FROM mseg AS m
-        INNER JOIN vbeh AS v ON v~mblnr = m~mblnr AND v~mjahr = m~mjahr
-        WHERE ( m~rsnum = @lv_scan_doc_alpha OR m~rsnum = @iv_doc_num )
-          AND v~exidv IS NOT INITIAL
-        APPENDING TABLE @mt_scanned_hus.
-
-      " 3. Query SAP Standard LTBK (TR) -> LTAP (TO) for this reservation
+      " 2. Query SAP Standard LTBK (TR) -> LTAK -> LTAP (TO) for this reservation
       SELECT DISTINCT p~vlenr
         FROM ltbk AS k
-        INNER JOIN ltap AS p ON p~lgnum = k~lgnum AND p~tbnum = k~tbnum
+        INNER JOIN ltak AS a ON a~lgnum = k~lgnum AND a~tbnum = k~tbnum
+        INNER JOIN ltap AS p ON p~lgnum = a~lgnum AND p~tanum = a~tanum
         WHERE ( k~rsnum = @lv_scan_doc_alpha OR k~rsnum = @iv_doc_num
              OR ( k~betyp = 'P' AND ( k~benum = @lv_scan_doc_alpha OR k~benum = @iv_doc_num ) ) )
           AND p~vlenr IS NOT INITIAL
@@ -480,19 +483,20 @@ CLASS ZCL_RF_AUTO_WM_IM_TRANSFER IMPLEMENTATION.
 
       SELECT DISTINCT p~nlenr
         FROM ltbk AS k
-        INNER JOIN ltap AS p ON p~lgnum = k~lgnum AND p~tbnum = k~tbnum
+        INNER JOIN ltak AS a ON a~lgnum = k~lgnum AND a~tbnum = k~tbnum
+        INNER JOIN ltap AS p ON p~lgnum = a~lgnum AND p~tanum = a~tanum
         WHERE ( k~rsnum = @lv_scan_doc_alpha OR k~rsnum = @iv_doc_num
              OR ( k~betyp = 'P' AND ( k~benum = @lv_scan_doc_alpha OR k~benum = @iv_doc_num ) ) )
           AND p~nlenr IS NOT INITIAL
         APPENDING TABLE @mt_scanned_hus.
 
-      " 4. Query Serial numbers / HUs via SER06 + OBJK + MSEG
-      SELECT DISTINCT o~exidv
+      " 3. Query Serial numbers / HUs via SER03 + OBJK + MSEG
+      SELECT DISTINCT o~sernr
         FROM mseg AS m
-        INNER JOIN ser06 AS s ON s~mblnr = m~mblnr AND s~mjahr = m~mjahr
+        INNER JOIN ser03 AS s ON s~mblnr = m~mblnr AND s~mjahr = m~mjahr
         INNER JOIN objk AS o ON o~obknr = s~obknr
         WHERE ( m~rsnum = @lv_scan_doc_alpha OR m~rsnum = @iv_doc_num )
-          AND o~exidv IS NOT INITIAL
+          AND o~sernr IS NOT INITIAL
         APPENDING TABLE @mt_scanned_hus.
 
       " 5. Normalize and expand all variations (raw, stripped, alpha-padded)
@@ -502,7 +506,7 @@ CLASS ZCL_RF_AUTO_WM_IM_TRANSFER IMPLEMENTATION.
         DATA: lv_h_raw   TYPE exidv,
               lv_h_strip TYPE exidv,
               lv_h_pad20 TYPE exidv,
-              lv_h_pad10 TYPE char10.
+              lv_h_pad10 TYPE exidv.
         lv_h_raw = lv_raw_hu.
         CONDENSE lv_h_raw NO-GAPS.
         lv_h_strip = lv_h_raw.
@@ -599,7 +603,7 @@ CLASS ZCL_RF_AUTO_WM_IM_TRANSFER IMPLEMENTATION.
           lv_scan_clean  TYPE string,
           lv_scan_strip  TYPE exidv,
           lv_pad20       TYPE exidv,
-          lv_pad10       TYPE char10,
+          lv_pad10       TYPE exidv,
           lv_pad18       TYPE char18.
 
     lv_scan_raw = iv_exidv.
@@ -1190,24 +1194,52 @@ CLASS ZCL_RF_AUTO_WM_IM_TRANSFER IMPLEMENTATION.
     " Determine Receiving / Destination Storage Location
     DATA: lv_dest_lgort TYPE lgort_d,
           lv_dest_werks TYPE werks_d,
+          lv_dest_parlg TYPE lgort_d,
           lv_src_xhupf  TYPE xhupf,
           lv_dest_xhupf TYPE xhupf.
 
     lv_dest_werks = is_header-werks.
-    IF is_header-bwart = '311' AND is_header-doc_type = 'RES'.
-      SELECT SINGLE umlgo FROM resb INTO @lv_dest_lgort
-        WHERE rsnum = @is_header-doc_num AND rspos = @is_item-item_no.
+    IF is_header-doc_type = 'RES'.
+      DATA(lv_res_rspos) = CONV rspos( is_item-item_no ).
+      SELECT SINGLE umlgo, umwrk FROM resb INTO (@lv_dest_lgort, @lv_dest_werks)
+        WHERE rsnum = @is_header-doc_num AND rspos = @lv_res_rspos.
+    ELSEIF is_header-doc_type = 'TR'.
+      SELECT SINGLE rsnum, benum FROM ltbk INTO (@DATA(lv_tr_hdr_rsnum), @DATA(lv_tr_hdr_benum))
+        WHERE lgnum = @is_header-lgnum AND tbnum = @is_header-doc_num.
+      IF lv_tr_hdr_rsnum IS NOT INITIAL.
+        SELECT SINGLE umlgo, umwrk FROM resb INTO (@lv_dest_lgort, @lv_dest_werks)
+          WHERE rsnum = @lv_tr_hdr_rsnum.
+      ELSEIF lv_tr_hdr_benum IS NOT INITIAL.
+        SELECT SINGLE umlgo, umwrk FROM resb INTO (@lv_dest_lgort, @lv_dest_werks)
+          WHERE rsnum = @lv_tr_hdr_benum.
+      ENDIF.
     ENDIF.
     IF lv_dest_lgort IS INITIAL.
       lv_dest_lgort = is_header-lgort.
+    ENDIF.
+    IF lv_dest_werks IS INITIAL.
+      lv_dest_werks = is_header-werks.
     ENDIF.
 
     " Check HU management indicator for source and destination storage locations
     SELECT SINGLE xhupf FROM t001l INTO @lv_src_xhupf
       WHERE werks = @is_hu_info-werks AND lgort = @is_hu_info-lgort.
 
-    SELECT SINGLE xhupf FROM t001l INTO @lv_dest_xhupf
+    SELECT SINGLE xhupf, parlg FROM t001l INTO (@lv_dest_xhupf, @lv_dest_parlg)
       WHERE werks = @lv_dest_werks AND lgort = @lv_dest_lgort.
+
+    " Determine target TR number for Transfer Order and cross-referencing
+    DATA(lv_tr_target) = is_item-tbnum.
+    IF lv_tr_target IS INITIAL.
+      IF is_header-doc_type = 'TR'.
+        lv_tr_target = is_header-doc_num.
+      ELSE.
+        SELECT SINGLE tbnum FROM ltbk INTO @lv_tr_target
+          WHERE lgnum = @is_header-lgnum
+            AND ( rsnum = @is_header-doc_num OR ( betyp = 'P' AND benum = @is_header-doc_num ) )
+            AND statu <> 'E'.
+      ENDIF.
+    ENDIF.
 
     DATA: lv_im_posted  TYPE abap_bool VALUE abap_false,
           lv_mblnr      TYPE mblnr,
@@ -1338,176 +1370,122 @@ CLASS ZCL_RF_AUTO_WM_IM_TRANSFER IMPLEMENTATION.
             ls_gm_serial TYPE bapi2017_gm_serialnumber,
             lt_gm_return TYPE TABLE OF bapiret2.
 
-      " Check if 1-step IM 311 is blocked by SAP LE-WM (SAP Note 1594558):
-      " If source is HU and destination is Non-HU under same warehouse,
-      " direct 311 IM posting triggers L9 610. In this scenario, we delegate
-      " stock transfer directly to LE-WM Transfer Order (Step B) to fulfill reservation.
-      DATA: lv_is_mixed_hu_311 TYPE abap_bool VALUE abap_false.
-      IF is_header-bwart = '311' AND lv_src_xhupf <> lv_dest_xhupf.
-        lv_is_mixed_hu_311 = abap_true.
-        me->log_application_message(
-          iv_doc_num = is_header-doc_num
-          iv_exidv   = is_hu_info-exidv
-          iv_msgty   = 'I'
-          iv_text    = 'HU/Non-HU 311 under same WH detected (L9 610). Transferring directly via LE-WM Transfer Order.'
-        ).
+      DATA: lv_bwart_post TYPE bwart.
+      lv_bwart_post = COND #( WHEN is_header-bwart IS NOT INITIAL THEN is_header-bwart ELSE '311' ).
+
+      ls_gm_header-pstng_date = sy-datum.
+      ls_gm_header-doc_date   = sy-datum.
+      ls_gm_header-pr_uname   = sy-uname.
+      ls_gm_header-header_txt = COND #(
+        WHEN lv_tr_target IS NOT INITIAL THEN |TR:{ lv_tr_target }|
+        ELSE |RF-HU:{ is_hu_info-exidv }|
+      ).
+      ls_gm_header-ref_doc_no = COND #(
+        WHEN is_header-doc_type = 'RES' THEN is_header-doc_num
+        ELSE lv_tr_target
+      ).
+
+      ls_gm_code-gm_code = COND #(
+        WHEN lv_bwart_post = '311' THEN '04'
+        ELSE '03'
+      ).
+
+      ls_gm_item-material   = is_hu_info-matnr.
+      ls_gm_item-plant      = is_hu_info-werks.
+      ls_gm_item-stge_loc   = is_hu_info-lgort.
+      ls_gm_item-batch      = is_hu_info-charg.
+      ls_gm_item-move_type  = lv_bwart_post.
+      ls_gm_item-entry_qnt  = lv_post_qty.
+      ls_gm_item-entry_uom  = is_hu_info-meins.
+      ls_gm_item-item_text  = |TR:{ lv_tr_target } Pos:{ is_item-tbpos }|.
+
+      IF lv_bwart_post = '311'.
+        ls_gm_item-move_plant = lv_dest_werks.
+        ls_gm_item-move_batch = is_hu_info-charg.
+        IF lv_src_xhupf <> lv_dest_xhupf AND lv_dest_xhupf = 'X' AND lv_dest_parlg IS NOT INITIAL.
+          ls_gm_item-move_stloc = lv_dest_parlg.
+        ELSE.
+          ls_gm_item-move_stloc = lv_dest_lgort.
+        ENDIF.
       ENDIF.
 
-      IF lv_is_mixed_hu_311 = abap_false.
-        ls_gm_header-pstng_date = sy-datum.
-        ls_gm_header-doc_date   = sy-datum.
-        ls_gm_header-pr_uname   = sy-uname.
-        ls_gm_header-header_txt = |RF-HU:{ is_hu_info-exidv }|.
+      " If not mixed HU, reference reservation directly
+      IF is_header-doc_type = 'RES' AND ( lv_src_xhupf = lv_dest_xhupf OR lv_dest_xhupf <> 'X' ).
+        ls_gm_item-reserv_no = is_header-doc_num.
+        ls_gm_item-res_item  = is_item-item_no.
+      ENDIF.
 
-        " GM_CODE '03' = Goods Issue, '04' = Transfer Posting
-        ls_gm_code-gm_code = COND #(
-          WHEN is_header-bwart = '311' THEN '04'
-          ELSE '03'
-        ).
+      IF is_header-kostl IS NOT INITIAL.
+        ls_gm_item-costcenter = is_header-kostl.
+      ENDIF.
+      IF is_header-aufnr IS NOT INITIAL.
+        ls_gm_item-orderid = is_header-aufnr.
+      ENDIF.
 
-        ls_gm_item-material   = is_hu_info-matnr.
-        ls_gm_item-plant      = is_hu_info-werks.
-        ls_gm_item-stge_loc   = is_hu_info-lgort.
-        IF is_header-bwart = '311'.
-          ls_gm_item-move_stloc = lv_dest_lgort.
-          ls_gm_item-move_plant = lv_dest_werks.
-          ls_gm_item-move_batch = is_hu_info-charg.
-        ENDIF.
-        ls_gm_item-batch      = is_hu_info-charg.
-        ls_gm_item-move_type  = is_header-bwart.
-        ls_gm_item-entry_qnt  = lv_post_qty.
-        ls_gm_item-entry_uom  = is_hu_info-meins.
+      APPEND ls_gm_item TO lt_gm_items.
 
-        IF is_header-doc_type = 'RES'.
-          ls_gm_item-reserv_no = is_header-doc_num.
-          ls_gm_item-res_item  = is_item-item_no.
-        ENDIF.
-
-        IF is_header-kostl IS NOT INITIAL.
-          ls_gm_item-costcenter = is_header-kostl.
-        ENDIF.
-        IF is_header-aufnr IS NOT INITIAL.
-          ls_gm_item-orderid = is_header-aufnr.
-        ENDIF.
-
-        APPEND ls_gm_item TO lt_gm_items.
-
-        " Populate Serial Numbers into BAPI table
-        IF is_item-is_serialized = abap_true AND is_hu_info-serials IS NOT INITIAL.
+      " Populate Serial Numbers into BAPI table
+      IF is_item-is_serialized = abap_true.
+        IF is_hu_info-serials IS NOT INITIAL.
           LOOP AT is_hu_info-serials INTO DATA(lv_sernr).
             CLEAR ls_gm_serial.
             ls_gm_serial-matdoc_itm = 1.
             ls_gm_serial-serialno   = lv_sernr.
             APPEND ls_gm_serial TO lt_gm_serial.
           ENDLOOP.
-        ENDIF.
-
-        CALL FUNCTION 'BAPI_GOODSMVT_CREATE'
-          EXPORTING
-            goodsmvt_header       = ls_gm_header
-            goodsmvt_code         = ls_gm_code
-          IMPORTING
-            materialdocument      = lv_mblnr
-            matdocumentyear       = lv_mjahr
-          TABLES
-            goodsmvt_item         = lt_gm_items
-            goodsmvt_serialnumber = lt_gm_serial
-            return                = lt_gm_return.
-
-        " Check for IM Posting Errors
-        READ TABLE lt_gm_return WITH KEY type = 'E' TRANSPORTING NO FIELDS.
-        IF sy-subrc = 0 OR lv_mblnr IS INITIAL.
-          " Check if error is L9 610 (Transfer posting with WM only possible if both storage locs subject to HU)
-          DATA: lv_is_l9610 TYPE abap_bool VALUE abap_false.
-          LOOP AT lt_gm_return INTO DATA(ls_err_chk) WHERE type CA 'EA'.
-            IF ( ls_err_chk-id = 'L9' AND ls_err_chk-number = '610' )
-               OR ls_err_chk-message CS 'Transfer posting with WM only possible'
-               OR ls_err_chk-message CS 'both storage locs subject to HU'.
-              lv_is_l9610 = abap_true.
-              EXIT.
-            ENDIF.
+        ELSE.
+          SELECT e~sernr
+            FROM equi AS e
+            INNER JOIN eqbs AS b ON b~equnr = e~equnr
+            WHERE e~matnr = @is_hu_info-matnr
+              AND b~b_werk = @is_hu_info-werks
+              AND b~b_lager = @is_hu_info-lgort
+            ORDER BY e~sernr
+            INTO TABLE @DATA(lt_auto_ser)
+            UP TO @lv_post_qty ROWS.
+          LOOP AT lt_auto_ser INTO DATA(ls_ser_line).
+            CLEAR ls_gm_serial.
+            ls_gm_serial-matdoc_itm = 1.
+            ls_gm_serial-serialno   = ls_ser_line-sernr.
+            APPEND ls_gm_serial TO lt_gm_serial.
           ENDLOOP.
-
-          IF lv_is_l9610 = abap_true.
-            " Fallback to Direct WM Transfer Order to fulfill the transfer & update reservation
-            me->log_application_message(
-              iv_doc_num = is_header-doc_num
-              iv_exidv   = is_hu_info-exidv
-              iv_msgty   = 'W'
-              iv_text    = 'BAPI 311 blocked by L9 610. Fulfilling via Direct LE-WM Transfer Order.'
-            ).
-            CLEAR: lt_gm_return, lv_mblnr, lv_mjahr.
-          ELSE.
-            " If blocked because material is in HU (HUGENERAL 053), unpack and retry
-            DATA: lv_needs_unpack TYPE abap_bool VALUE abap_false.
-            LOOP AT lt_gm_return INTO DATA(ls_bapi_chk) WHERE type CA 'EA'.
-              IF ls_bapi_chk-id = 'HUGENERAL' OR ls_bapi_chk-id = 'HUDIALOG'
-                 OR ls_bapi_chk-message CS 'Handling Unit'
-                 OR ls_bapi_chk-message CS 'handling unit'.
-                lv_needs_unpack = abap_true.
-                EXIT.
-              ENDIF.
-            ENDLOOP.
-
-            IF lv_needs_unpack = abap_true AND is_hu_info-venum IS NOT INITIAL.
-              DATA: lt_itemunpack TYPE TABLE OF bapiuitunpack,
-                    lt_unpack_ret TYPE TABLE OF bapiret2.
-              SELECT venum, vepos
-                FROM vepo
-                INTO TABLE @DATA(lt_unp_vepos)
-                WHERE venum = @is_hu_info-venum
-                  AND matnr = @is_hu_info-matnr.
-              LOOP AT lt_unp_vepos INTO DATA(ls_unp_v).
-                APPEND VALUE bapiuitunpack( hu_item = ls_unp_v-vepos ) TO lt_itemunpack.
-              ENDLOOP.
-              IF lt_itemunpack IS NOT INITIAL.
-                CALL FUNCTION 'BAPI_HU_UNPACK'
-                  EXPORTING
-                    hukey      = is_hu_info-exidv
-                  TABLES
-                    itemunpack = lt_itemunpack
-                    return     = lt_unpack_ret.
-                CALL FUNCTION 'HU_PACKING_REFRESH'.
-
-                CLEAR: lt_gm_return, lv_mblnr, lv_mjahr.
-                CALL FUNCTION 'BAPI_GOODSMVT_CREATE'
-                  EXPORTING
-                    goodsmvt_header       = ls_gm_header
-                    goodsmvt_code         = ls_gm_code
-                  IMPORTING
-                    materialdocument      = lv_mblnr
-                    matdocumentyear       = lv_mjahr
-                  TABLES
-                    goodsmvt_item         = lt_gm_items
-                    goodsmvt_serialnumber = lt_gm_serial
-                    return                = lt_gm_return.
-              ENDIF.
-            ENDIF.
-
-            READ TABLE lt_gm_return WITH KEY type = 'E' TRANSPORTING NO FIELDS.
-            IF sy-subrc = 0 OR lv_mblnr IS INITIAL.
-              CALL FUNCTION 'BAPI_TRANSACTION_ROLLBACK'.
-              rs_result-success    = abap_false.
-              rs_result-return_tab = lt_gm_return.
-              rs_result-rf_message = me->format_rf_message(
-                it_return       = lt_gm_return
-                iv_default_text = 'IM MIGO Posting Failed'
-              ).
-              me->log_application_message(
-                iv_doc_num = is_header-doc_num
-                iv_exidv   = is_hu_info-exidv
-                iv_msgty   = 'E'
-                iv_text    = |IM MIGO Posting Failed: { rs_result-rf_message }|
-                it_return  = lt_gm_return
-              ).
-              RETURN.
-            ENDIF.
-          ENDIF.
         ENDIF.
+      ENDIF.
 
-        IF lv_mblnr IS NOT INITIAL.
-          lv_im_posted = abap_true.
-        ENDIF.
+      CALL FUNCTION 'BAPI_GOODSMVT_CREATE'
+        EXPORTING
+          goodsmvt_header       = ls_gm_header
+          goodsmvt_code         = ls_gm_code
+        IMPORTING
+          materialdocument      = lv_mblnr
+          matdocumentyear       = lv_mjahr
+        TABLES
+          goodsmvt_item         = lt_gm_items
+          goodsmvt_serialnumber = lt_gm_serial
+          return                = lt_gm_return.
+
+      " Check for IM Posting Errors
+      READ TABLE lt_gm_return WITH KEY type = 'E' TRANSPORTING NO FIELDS.
+      IF sy-subrc = 0 OR lv_mblnr IS INITIAL.
+        CALL FUNCTION 'BAPI_TRANSACTION_ROLLBACK'.
+        rs_result-success    = abap_false.
+        rs_result-return_tab = lt_gm_return.
+        rs_result-rf_message = me->format_rf_message(
+          it_return       = lt_gm_return
+          iv_default_text = 'IM MIGO Posting Failed'
+        ).
+        me->log_application_message(
+          iv_doc_num = is_header-doc_num
+          iv_exidv   = is_hu_info-exidv
+          iv_msgty   = 'E'
+          iv_text    = |IM MIGO Posting Failed: { rs_result-rf_message }|
+          it_return  = lt_gm_return
+        ).
+        RETURN.
+      ENDIF.
+
+      IF lv_mblnr IS NOT INITIAL.
+        lv_im_posted = abap_true.
       ENDIF.
     ENDIF.
 
@@ -1561,7 +1539,6 @@ CLASS ZCL_RF_AUTO_WM_IM_TRANSFER IMPLEMENTATION.
 
     " 2. Priority 2: Check if TR exists or was generated for the reservation
     IF lv_tanum IS INITIAL.
-      DATA(lv_tr_target) = is_item-tbnum.
       IF lv_tr_target IS INITIAL.
         SELECT SINGLE tbnum FROM ltbk INTO @lv_tr_target
           WHERE lgnum = @is_header-lgnum AND mblnr = @lv_mblnr AND mjahr = @lv_mjahr.
@@ -1576,8 +1553,8 @@ CLASS ZCL_RF_AUTO_WM_IM_TRANSFER IMPLEMENTATION.
         ls_trite-vltyp = is_hu_info-lgtyp.
         ls_trite-vlpla = is_hu_info-lgpla.
         ls_trite-vlenr = is_hu_info-lenum.
-        ls_trite-nltyp = lv_final_dest_lgtyp.
-        ls_trite-nlpla = lv_final_dest_lgpla.
+        ls_trite-nltyp = '921'.
+        ls_trite-nlpla = 'TRANSFER'.
         APPEND ls_trite TO lt_trite.
 
         CALL FUNCTION 'L_TO_CREATE_TR'
@@ -1585,9 +1562,11 @@ CLASS ZCL_RF_AUTO_WM_IM_TRANSFER IMPLEMENTATION.
             i_lgnum        = is_header-lgnum
             i_tbnum        = lv_tr_target
             it_trite       = lt_trite
-            i_squit        = 'X'                  " Automatic confirmation
-            i_commit_work  = ' '                  " Handled in current LUW
+            i_squit        = ' '                  " Immediate confirmation not allowed for 311 in W01
+            i_commit_work  = 'X'
             i_bname        = sy-uname
+          IMPORTING
+            e_tanum        = lv_tanum
           TABLES
             t_ltak         = lt_ltak
             t_ltap_vb      = lt_ltap
@@ -1600,8 +1579,36 @@ CLASS ZCL_RF_AUTO_WM_IM_TRANSFER IMPLEMENTATION.
             error_message  = 6
             OTHERS         = 7.
         lv_wm_subrc = sy-subrc.
-        IF lv_wm_subrc = 0 AND lt_ltak IS NOT INITIAL.
-          lv_tanum = lt_ltak[ 1 ]-tanum.
+        IF lv_wm_subrc = 0 AND ( lv_tanum IS NOT INITIAL OR lt_ltak IS NOT INITIAL ).
+          IF lv_tanum IS INITIAL AND lt_ltak IS NOT INITIAL.
+            lv_tanum = lt_ltak[ 1 ]-tanum.
+          ENDIF.
+
+          " Confirm the TO immediately to adjust LX02
+          DATA: lt_ltap_conf TYPE TABLE OF ltap_conf,
+                ls_ltap_conf TYPE ltap_conf.
+          LOOP AT lt_ltap INTO DATA(ls_vb).
+            CLEAR ls_ltap_conf.
+            ls_ltap_conf-tanum = ls_vb-tanum.
+            ls_ltap_conf-tapos = ls_vb-tapos.
+            ls_ltap_conf-squit = 'X'.
+            APPEND ls_ltap_conf TO lt_ltap_conf.
+          ENDLOOP.
+
+          CALL FUNCTION 'L_TO_CONFIRM'
+            EXPORTING
+              i_lgnum             = is_header-lgnum
+              i_tanum             = lv_tanum
+              i_squit             = ' '
+              i_commit_work       = 'X'
+            TABLES
+              t_ltap_conf         = lt_ltap_conf
+            EXCEPTIONS
+              to_confirmed        = 1
+              to_doesnt_exist     = 2
+              item_confirmed      = 3
+              squit_or_quantities = 4
+              OTHERS              = 5.
         ENDIF.
       ENDIF.
     ENDIF.
@@ -1722,7 +1729,7 @@ CLASS ZCL_RF_AUTO_WM_IM_TRANSFER IMPLEMENTATION.
       is_item     = is_item
       iv_post_qty = lv_post_qty
       iv_mblnr    = lv_mblnr
-      iv_mjahr    = sy-datum(4)
+      iv_mjahr    = lv_mjahr
     ).
 
     " Both IM and WM Successful: Commit the LUW
@@ -1736,7 +1743,7 @@ CLASS ZCL_RF_AUTO_WM_IM_TRANSFER IMPLEMENTATION.
     rs_result-tanum      = lv_tanum.
     rs_result-dest_lgtyp = lv_final_dest_lgtyp.
     rs_result-dest_lgpla = lv_final_dest_lgpla.
-    rs_result-rf_message = |Success! MIGO:{ lv_mblnr } TO:{ lv_tanum } Bin:{ lv_final_dest_lgtyp }/{ lv_final_dest_lgpla }|.
+    rs_result-rf_message = |MIGO:{ lv_mblnr } TO:{ lv_tanum } TR:{ lv_tr_target }|.
     APPEND is_hu_info-exidv TO mt_scanned_hus.
     IF is_hu_info-lenum IS NOT INITIAL AND is_hu_info-lenum <> is_hu_info-exidv.
       APPEND is_hu_info-lenum TO mt_scanned_hus.
@@ -1859,7 +1866,8 @@ CLASS ZCL_RF_AUTO_WM_IM_TRANSFER IMPLEMENTATION.
 
   METHOD update_reservation_and_tr.
     DATA: lv_rsnum_lead TYPE rsnum,
-          lv_tbnum_lead TYPE tbnum.
+          lv_tbnum_lead TYPE tbnum,
+          lv_rspos_lead TYPE rspos.
 
     " ------------------------------------------------------------------
     " 1. UPDATE RESERVATION (RESB)
@@ -1878,11 +1886,23 @@ CLASS ZCL_RF_AUTO_WM_IM_TRANSFER IMPLEMENTATION.
       ENDIF.
     ENDIF.
 
+    IF is_item-tbnum IS NOT INITIAL.
+      SELECT SINGLE rspos FROM ltbp INTO @DATA(lv_tr_rspos)
+        WHERE lgnum = @is_header-lgnum AND tbnum = @is_item-tbnum AND tbpos = @is_item-tbpos.
+      IF sy-subrc = 0 AND lv_tr_rspos IS NOT INITIAL.
+        lv_rspos_lead = lv_tr_rspos.
+      ENDIF.
+    ENDIF.
+
+    IF lv_rspos_lead IS INITIAL AND is_item-item_no IS NOT INITIAL.
+      lv_rspos_lead = CONV rspos( is_item-item_no ).
+    ENDIF.
+
     DATA: lv_is_res_closed TYPE abap_bool VALUE abap_false.
 
-    IF lv_rsnum_lead IS NOT INITIAL.
+    IF lv_rsnum_lead IS NOT INITIAL AND lv_rspos_lead IS NOT INITIAL.
       SELECT SINGLE bdmng, enmng FROM resb INTO (@DATA(lv_bdmng), @DATA(lv_enmng))
-        WHERE rsnum = @lv_rsnum_lead AND rspos = @is_item-item_no.
+        WHERE rsnum = @lv_rsnum_lead AND rspos = @lv_rspos_lead.
       IF sy-subrc = 0.
         DATA(lv_new_enmng) = lv_enmng + iv_post_qty.
         DATA(lv_kzear) = COND char1( WHEN lv_new_enmng >= lv_bdmng THEN 'X' ELSE space ).
@@ -1890,7 +1910,7 @@ CLASS ZCL_RF_AUTO_WM_IM_TRANSFER IMPLEMENTATION.
           lv_is_res_closed = abap_true.
         ENDIF.
         UPDATE resb SET enmng = @lv_new_enmng, kzear = @lv_kzear
-          WHERE rsnum = @lv_rsnum_lead AND rspos = @is_item-item_no.
+          WHERE rsnum = @lv_rsnum_lead AND rspos = @lv_rspos_lead.
       ENDIF.
     ENDIF.
 
@@ -1928,7 +1948,7 @@ CLASS ZCL_RF_AUTO_WM_IM_TRANSFER IMPLEMENTATION.
         APPENDING TABLE @lt_targets
         WHERE k~lgnum = @is_header-lgnum
           AND ( k~rsnum = @lv_rsnum_lead OR ( k~betyp = 'P' AND k~benum = @lv_rsnum_lead ) )
-          AND ( p~rspos = @is_item-item_no OR p~matnr = @is_item-matnr ).
+          AND ( p~rspos = @lv_rspos_lead OR p~matnr = @is_item-matnr ).
     ENDIF.
 
     SORT lt_targets BY lgnum tbnum tbpos.
@@ -2084,97 +2104,56 @@ CLASS ZCL_RF_AUTO_WM_IM_TRANSFER IMPLEMENTATION.
   ENDMETHOD.
 
   METHOD if_oo_adt_classrun~main.
-    " Test destination bin determination for various receiving SLocs
-    DATA: lv_t_typ TYPE lgtyp,
-          lv_t_pla TYPE lgpla.
+    out->write( |--- ZCL_RF_AUTO_WM_IM_TRANSFER Status Check ---| ).
 
-    me->determine_destination_bin(
+    DATA: ls_header TYPE ty_rf_doc_header,
+          lt_items  TYPE tt_rf_doc_item,
+          lt_ret    TYPE bapiret2_t.
+
+    " 1. Check TR 0001000918
+    me->get_document_details(
       EXPORTING
-        iv_lgnum        = 'W01'
-        iv_werks        = '1120'
-        iv_dest_lgort   = 'CS02'
-        iv_matnr        = '000000008000009754'
-        iv_source_lgtyp = 'EN1'
-        iv_source_lgpla = '1-L0001-04'
+        iv_lgnum    = 'W01'
+        iv_doc_type = 'TR'
+        iv_doc_num  = '0001000918'
       IMPORTING
-        ev_dest_lgtyp   = lv_t_typ
-        ev_dest_lgpla   = lv_t_pla
+        es_header   = ls_header
+        et_items    = lt_items
+        et_return   = lt_ret
     ).
-    out->write( |Determined Destination for CS02: { lv_t_typ } / { lv_t_pla }| ).
+    out->write( |TR 0001000918: Header doc_num={ ls_header-doc_num } bwart={ ls_header-bwart } items={ lines( lt_items ) }| ).
+    LOOP AT lt_items INTO DATA(ls_it).
+      out->write( |Item { ls_it-item_no }: matnr={ ls_it-matnr } target={ ls_it-target_qty } picked={ ls_it-picked_qty } open={ ls_it-open_qty }| ).
+    ENDLOOP.
 
-    me->determine_destination_bin(
+    " 2. Check Reservation 0000534044
+    me->get_document_details(
       EXPORTING
-        iv_lgnum        = 'W01'
-        iv_werks        = '1120'
-        iv_dest_lgort   = 'OH01'
-        iv_matnr        = '000000008000009754'
-        iv_source_lgtyp = 'EN1'
-        iv_source_lgpla = '1-L0001-04'
+        iv_lgnum    = 'W01'
+        iv_doc_type = 'RES'
+        iv_doc_num  = '0000534044'
       IMPORTING
-        ev_dest_lgtyp   = lv_t_typ
-        ev_dest_lgpla   = lv_t_pla
+        es_header   = ls_header
+        et_items    = lt_items
+        et_return   = lt_ret
     ).
-    out->write( |Determined Destination for OH01: { lv_t_typ } / { lv_t_pla }| ).
+    out->write( |RES 0000534044: Header doc_num={ ls_header-doc_num } bwart={ ls_header-bwart } items={ lines( lt_items ) }| ).
+    LOOP AT lt_items INTO DATA(ls_rit).
+      out->write( |Item { ls_rit-item_no }: matnr={ ls_rit-matnr } target={ ls_rit-target_qty } picked={ ls_rit-picked_qty } open={ ls_rit-open_qty }| ).
+    ENDLOOP.
 
-    me->determine_destination_bin(
-      EXPORTING
-        iv_lgnum        = 'W01'
-        iv_werks        = '1120'
-        iv_dest_lgort   = 'CS01'
-        iv_matnr        = '000000008000009754'
-        iv_source_lgtyp = 'EN1'
-        iv_source_lgpla = '1-L0001-04'
-      IMPORTING
-        ev_dest_lgtyp   = lv_t_typ
-        ev_dest_lgpla   = lv_t_pla
+    " 3. Check Duplicate Scan Protection for SU 59692 & 59693
+    DATA(lv_already_92) = me->is_hu_already_scanned(
+      iv_exidv   = '00000000001000059692'
+      iv_doc_num = '0000534044'
     ).
-    out->write( |Determined Destination for CS01: { lv_t_typ } / { lv_t_pla }| ).
+    out->write( |SU 59692 Duplicate Scanned Check: { lv_already_92 }| ).
 
-    " Test move SU 00000000002000020327 using the determined destination for CS02
-    me->determine_destination_bin(
-      EXPORTING
-        iv_lgnum        = 'W01'
-        iv_werks        = '1120'
-        iv_dest_lgort   = 'CS02'
-        iv_matnr        = '000000008000009754'
-        iv_source_lgtyp = 'EN1'
-        iv_source_lgpla = '1-L0001-04'
-      IMPORTING
-        ev_dest_lgtyp   = lv_t_typ
-        ev_dest_lgpla   = lv_t_pla
+    DATA(lv_already_93) = me->is_hu_already_scanned(
+      iv_exidv   = '00000000001000059693'
+      iv_doc_num = '0000534044'
     ).
-
-    DATA: lv_test_tanum TYPE tanum,
-          lv_test_nltyp TYPE ltap_nltyp,
-          lv_test_nlber TYPE ltap_nlber,
-          lv_test_nlpla TYPE ltap_nlpla,
-          lt_test_ltak  TYPE TABLE OF ltak_vb,
-          lt_test_ltap  TYPE TABLE OF ltap_vb.
-
-    CALL FUNCTION 'L_TO_CREATE_MOVE_SU'
-      EXPORTING
-        i_lenum         = '00000000002000020327'
-        i_bwlvs         = '999'
-        i_nltyp         = lv_t_typ
-        i_nlpla         = lv_t_pla
-        i_squit         = 'X'
-        i_commit_work   = 'X'
-      IMPORTING
-        e_tanum         = lv_test_tanum
-        e_nltyp         = lv_test_nltyp
-        e_nlber         = lv_test_nlber
-        e_nlpla         = lv_test_nlpla
-      TABLES
-        t_ltak          = lt_test_ltak
-        t_ltap_vb       = lt_test_ltap
-      EXCEPTIONS
-        OTHERS          = 1.
-
-    COMMIT WORK AND WAIT.
-    out->write( |L_TO_CREATE_MOVE_SU: rc={ sy-subrc } tanum={ lv_test_tanum } dest={ lv_test_nltyp }/{ lv_test_nlpla }| ).
-    IF sy-subrc <> 0.
-      out->write( |Error msg: ID={ sy-msgid } NO={ sy-msgno } V1={ sy-msgv1 } V2={ sy-msgv2 }| ).
-    ENDIF.
+    out->write( |SU 59693 Duplicate Scanned Check: { lv_already_93 }| ).
   ENDMETHOD.
 
   METHOD is_hu_already_scanned.
@@ -2184,7 +2163,7 @@ CLASS ZCL_RF_AUTO_WM_IM_TRANSFER IMPLEMENTATION.
     DATA: lv_raw       TYPE exidv,
           lv_stripped  TYPE exidv,
           lv_pad20     TYPE exidv,
-          lv_pad10     TYPE char10,
+          lv_pad10     TYPE exidv,
           lv_alpha_doc TYPE char10.
 
     lv_raw = iv_exidv.
@@ -2200,7 +2179,7 @@ CLASS ZCL_RF_AUTO_WM_IM_TRANSFER IMPLEMENTATION.
       DATA: lv_prev_raw   TYPE exidv,
             lv_prev_strip TYPE exidv,
             lv_prev_pad20 TYPE exidv,
-            lv_prev_pad10 TYPE char10.
+            lv_prev_pad10 TYPE exidv.
 
       lv_prev_raw = lv_prev_hu.
       CONDENSE lv_prev_raw NO-GAPS.
@@ -2227,7 +2206,7 @@ CLASS ZCL_RF_AUTO_WM_IM_TRANSFER IMPLEMENTATION.
             DATA: lv_c_raw   TYPE exidv,
                   lv_c_strip TYPE exidv,
                   lv_c_pad20 TYPE exidv,
-                  lv_c_pad10 TYPE char10.
+                  lv_c_pad10 TYPE exidv.
             lv_c_raw = lv_c_hu.
             CONDENSE lv_c_raw NO-GAPS.
             lv_c_strip = lv_c_raw.
@@ -2245,23 +2224,11 @@ CLASS ZCL_RF_AUTO_WM_IM_TRANSFER IMPLEMENTATION.
         CATCH cx_root.
       ENDTRY.
 
-      " 3. Check SAP Standard VBEH (Handling unit history) via MSEG
-      SELECT SINGLE @abap_true
-        FROM mseg AS m
-        INNER JOIN vbeh AS v ON v~mblnr = m~mblnr AND v~mjahr = m~mjahr
-        INTO @DATA(lv_found_vbeh)
-        WHERE ( m~rsnum = @lv_alpha_doc OR m~rsnum = @iv_doc_num )
-          AND ( v~exidv = @lv_raw OR v~exidv = @lv_pad20 OR v~exidv = @lv_stripped ).
-      IF lv_found_vbeh = abap_true.
-        rv_scanned = abap_true.
-        APPEND iv_exidv TO mt_scanned_hus.
-        RETURN.
-      ENDIF.
-
-      " 4. Check LE-WM Transfer Orders created for this reservation/TR
+      " 3. Check LE-WM Transfer Orders created for this reservation/TR
       SELECT SINGLE @abap_true
         FROM ltbk AS k
-        INNER JOIN ltap AS p ON p~lgnum = k~lgnum AND p~tbnum = k~tbnum
+        INNER JOIN ltak AS a ON a~lgnum = k~lgnum AND a~tbnum = k~tbnum
+        INNER JOIN ltap AS p ON p~lgnum = a~lgnum AND p~tanum = a~tanum
         INTO @DATA(lv_found_ltap)
         WHERE ( k~rsnum = @lv_alpha_doc OR k~rsnum = @iv_doc_num
              OR ( k~betyp = 'P' AND ( k~benum = @lv_alpha_doc OR k~benum = @iv_doc_num ) ) )
@@ -2276,12 +2243,11 @@ CLASS ZCL_RF_AUTO_WM_IM_TRANSFER IMPLEMENTATION.
       " 5. Check Serial numbers / OBJK posted in goods movement for this reservation
       SELECT SINGLE @abap_true
         FROM mseg AS m
-        INNER JOIN ser06 AS s ON s~mblnr = m~mblnr AND s~mjahr = m~mjahr
+        INNER JOIN ser03 AS s ON s~mblnr = m~mblnr AND s~mjahr = m~mjahr
         INNER JOIN objk AS o ON o~obknr = s~obknr
         INTO @DATA(lv_found_ser)
         WHERE ( m~rsnum = @lv_alpha_doc OR m~rsnum = @iv_doc_num )
-          AND ( o~exidv = @lv_raw OR o~exidv = @lv_pad20 OR o~exidv = @lv_stripped
-             OR o~sernr = @lv_raw OR o~sernr = @lv_pad20 OR o~sernr = @lv_stripped ).
+          AND ( o~sernr = @lv_raw OR o~sernr = @lv_pad20 OR o~sernr = @lv_stripped ).
       IF lv_found_ser = abap_true.
         rv_scanned = abap_true.
         APPEND iv_exidv TO mt_scanned_hus.
