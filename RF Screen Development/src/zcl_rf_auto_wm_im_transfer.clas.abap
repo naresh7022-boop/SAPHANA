@@ -1931,15 +1931,15 @@ CLASS ZCL_RF_AUTO_WM_IM_TRANSFER IMPLEMENTATION.
     DATA: lv_is_res_closed TYPE abap_bool VALUE abap_false.
 
     IF lv_rsnum_lead IS NOT INITIAL AND lv_rspos_lead IS NOT INITIAL.
-      SELECT SINGLE bdmng, enmng FROM resb INTO (@DATA(lv_bdmng), @DATA(lv_enmng))
+      SELECT SINGLE bdmng, enmng, kzear FROM resb INTO (@DATA(lv_bdmng), @DATA(lv_enmng), @DATA(lv_curr_kzear))
         WHERE rsnum = @lv_rsnum_lead AND rspos = @lv_rspos_lead.
       IF sy-subrc = 0.
-        DATA(lv_new_enmng) = lv_enmng + iv_post_qty.
-        DATA(lv_kzear) = COND char1( WHEN lv_new_enmng >= lv_bdmng THEN 'X' ELSE space ).
-        IF lv_kzear = 'X'.
+        " Standard BAPI_GOODSMVT_CREATE already updates RESB-ENMNG via update task.
+        " Only ensure Final Issue indicator KZEAR is set to 'X' to clear the reservation.
+        IF lv_enmng >= lv_bdmng OR lv_curr_kzear = 'X'.
           lv_is_res_closed = abap_true.
         ENDIF.
-        UPDATE resb SET enmng = @lv_new_enmng, kzear = @lv_kzear
+        UPDATE resb SET kzear = 'X'
           WHERE rsnum = @lv_rsnum_lead AND rspos = @lv_rspos_lead.
       ENDIF.
     ENDIF.
@@ -2200,79 +2200,26 @@ CLASS ZCL_RF_AUTO_WM_IM_TRANSFER IMPLEMENTATION.
   METHOD if_oo_adt_classrun~main.
     out->write( |--- ZCL_RF_AUTO_WM_IM_TRANSFER Status Check ---| ).
 
-    DATA: ls_header TYPE ty_rf_doc_header,
-          lt_items  TYPE tt_rf_doc_item,
-          lt_ret    TYPE bapiret2_t.
+    " 1. Check interim storage 921 for material 8000009754
+    SELECT SUM( verme ) AS total_921
+      FROM lqua
+      INTO @DATA(lv_total_921)
+      WHERE lgnum = 'W01' AND lgtyp = '921' AND matnr = '000000008000009754' AND werks = '1120' AND lgort = 'HS01'.
+    out->write( |Storage Type 921 (HS01) available stock for 8000009754: { lv_total_921 }| ).
 
-    " 1. Check TR 0001000918
-    me->get_document_details(
-      EXPORTING
-        iv_lgnum    = 'W01'
-        iv_doc_type = 'TR'
-        iv_doc_num  = '0001000918'
-      IMPORTING
-        es_header   = ls_header
-        et_items    = lt_items
-        et_return   = lt_ret
-    ).
-    out->write( |TR 0001000918: Header doc_num={ ls_header-doc_num } bwart={ ls_header-bwart } items={ lines( lt_items ) }| ).
-    LOOP AT lt_items INTO DATA(ls_it).
-      out->write( |Item { ls_it-item_no }: matnr={ ls_it-matnr } target={ ls_it-target_qty } picked={ ls_it-picked_qty } open={ ls_it-open_qty }| ).
-    ENDLOOP.
+    " 2. Check MARD stock
+    SELECT SINGLE labst FROM mard INTO @DATA(lv_hs01_labst)
+      WHERE matnr = '000000008000009754' AND werks = '1120' AND lgort = 'HS01'.
+    out->write( |MMBE HS01 Unrestricted Stock for 8000009754: { lv_hs01_labst }| ).
 
-    " 2. Check Reservation 0000534044
-    me->get_document_details(
-      EXPORTING
-        iv_lgnum    = 'W01'
-        iv_doc_type = 'RES'
-        iv_doc_num  = '0000534044'
-      IMPORTING
-        es_header   = ls_header
-        et_items    = lt_items
-        et_return   = lt_ret
-    ).
-    out->write( |RES 0000534044: Header doc_num={ ls_header-doc_num } bwart={ ls_header-bwart } items={ lines( lt_items ) }| ).
-    LOOP AT lt_items INTO DATA(ls_rit).
-      out->write( |Item { ls_rit-item_no }: matnr={ ls_rit-matnr } target={ ls_rit-target_qty } picked={ ls_rit-picked_qty } open={ ls_rit-open_qty }| ).
-    ENDLOOP.
-
-    " 3. Check Duplicate Scan Protection for SU 59692 & 59693
-    DATA(lv_already_92) = me->is_hu_already_scanned(
-      iv_exidv   = '00000000001000059692'
-      iv_doc_num = '0000534044'
-    ).
-    out->write( |SU 59692 Duplicate Scanned Check: { lv_already_92 }| ).
-
-    DATA(lv_already_93) = me->is_hu_already_scanned(
-      iv_exidv   = '00000000001000059693'
-      iv_doc_num = '0000534044'
-    ).
-    out->write( |SU 59693 Duplicate Scanned Check: { lv_already_93 }| ).
-
-    DATA(lv_already_94) = me->is_hu_already_scanned(
-      iv_exidv   = '00000000001000059694'
-      iv_doc_num = '0000534044'
-    ).
-    out->write( |SU 59694 Duplicate Scanned Check: { lv_already_94 }| ).
-
-    DATA: ls_test_hu94 TYPE ty_hu_stock_info,
-          lt_test_ret94 TYPE bapiret2_t.
-    me->validate_hu_and_stock(
-      EXPORTING
-        iv_lgnum   = 'W01'
-        iv_exidv   = '00000000001000059694'
-        iv_matnr   = '000000008000009790'
-        iv_werks   = '1120'
-        iv_lgort   = 'HS01'
-        iv_doc_num = '0000534044'
-      IMPORTING
-        es_hu_info = ls_test_hu94
-        et_return  = lt_test_ret94
-    ).
-    out->write( |SU 59694 Validated: is_valid={ ls_test_hu94-is_valid } lenum={ ls_test_hu94-lenum } bin={ ls_test_hu94-lgtyp }/{ ls_test_hu94-lgpla } menge={ ls_test_hu94-menge }| ).
-    LOOP AT lt_test_ret94 INTO DATA(ls_tr94).
-      out->write( |SU 59694 Msg: { ls_tr94-type } { ls_tr94-id } { ls_tr94-number } { ls_tr94-message }| ).
-    ENDLOOP.
+    " 3. Check Reservation 0000535670 status
+    SELECT SINGLE rsnum, rspos, bdmng, enmng, kzear
+      FROM resb
+      INTO @DATA(ls_chk_resb)
+      WHERE rsnum = '0000535670' AND rspos = '0001'.
+    IF sy-subrc = 0.
+      out->write( |Reservation 0000535670: BDMNG={ ls_chk_resb-bdmng } ENMNG={ ls_chk_resb-enmng } KZEAR={ ls_chk_resb-kzear }| ).
+    ENDIF.
 
     out->write( |Status Check Finished Successfully| ).
   ENDMETHOD.
