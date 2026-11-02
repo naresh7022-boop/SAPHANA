@@ -1509,6 +1509,10 @@ CLASS ZCL_RF_AUTO_WM_IM_TRANSFER IMPLEMENTATION.
 
       IF lv_mblnr IS NOT INITIAL.
         lv_im_posted = abap_true.
+        " Commit MIGO immediately so that update task creates LTBK / interim quants
+        CALL FUNCTION 'BAPI_TRANSACTION_COMMIT'
+          EXPORTING
+            wait = 'X'.
       ENDIF.
     ENDIF.
 
@@ -1539,6 +1543,24 @@ CLASS ZCL_RF_AUTO_WM_IM_TRANSFER IMPLEMENTATION.
         ev_dest_lgpla   = lv_final_dest_lgpla
     ).
 
+    " Check if MIGO generated a new TR in LTBK
+    DATA: lv_migo_tr TYPE tbnum.
+    IF lv_mblnr IS NOT INITIAL.
+      SELECT SINGLE tbnum FROM ltbk INTO @lv_migo_tr
+        WHERE lgnum = @is_header-lgnum
+          AND mblnr = @lv_mblnr
+          AND mjahr = @lv_mjahr
+          AND statu <> 'E' AND statu <> 'U'.
+    ENDIF.
+
+    " Target TR for TO creation: prefer MIGO TR if available, else original TR
+    DATA: lv_tr_for_to TYPE tbnum.
+    lv_tr_for_to = COND #(
+      WHEN lv_migo_tr IS NOT INITIAL THEN lv_migo_tr
+      WHEN lv_tr_target IS NOT INITIAL THEN lv_tr_target
+      ELSE space
+    ).
+
     " 1. Priority 1: Check if a Posting Change Notice (PCN) was generated in LUBU
     DATA: lv_pcn_ubnum TYPE ubnum.
     SELECT SINGLE ubnum FROM lubu INTO @lv_pcn_ubnum
@@ -1549,7 +1571,7 @@ CLASS ZCL_RF_AUTO_WM_IM_TRANSFER IMPLEMENTATION.
           i_lgnum       = is_header-lgnum
           i_ubnum       = lv_pcn_ubnum
           i_squit       = 'X'
-          i_commit_work = ' '
+          i_commit_work = 'X'
         TABLES
           t_ltak        = lt_ltak
           t_ltap_vb     = lt_ltap
@@ -1560,79 +1582,64 @@ CLASS ZCL_RF_AUTO_WM_IM_TRANSFER IMPLEMENTATION.
       ENDIF.
     ENDIF.
 
-    " 2. Priority 2: Check if TR exists or was generated for the reservation
-    IF lv_tanum IS INITIAL.
-      IF lv_tr_target IS INITIAL.
-        SELECT SINGLE tbnum FROM ltbk INTO @lv_tr_target
-          WHERE lgnum = @is_header-lgnum AND mblnr = @lv_mblnr AND mjahr = @lv_mjahr.
-      ENDIF.
+    " 2. Priority 2: Create TO via Transfer Requirement (TR)
+    IF lv_tanum IS INITIAL AND lv_tr_for_to IS NOT INITIAL.
+      CLEAR lt_trite.
+      CLEAR ls_trite.
+      ls_trite-tbpos = COND #( WHEN lv_migo_tr IS NOT INITIAL THEN 1
+                               WHEN is_item-tbpos IS NOT INITIAL THEN is_item-tbpos
+                               ELSE 1 ).
+      ls_trite-anfme = lv_post_qty.
+      ls_trite-altme = is_hu_info-meins.
+      ls_trite-charg = is_hu_info-charg.
+      ls_trite-vltyp = is_hu_info-lgtyp.
+      ls_trite-vlpla = is_hu_info-lgpla.
+      ls_trite-vlenr = is_hu_info-lenum.
+      ls_trite-nltyp = lv_final_dest_lgtyp.
+      ls_trite-nlpla = lv_final_dest_lgpla.
+      APPEND ls_trite TO lt_trite.
 
-      IF lv_tr_target IS NOT INITIAL.
-        CLEAR ls_trite.
-        ls_trite-tbpos = COND #( WHEN is_item-tbpos IS NOT INITIAL THEN is_item-tbpos ELSE 1 ).
-        ls_trite-anfme = lv_post_qty.
-        ls_trite-altme = is_hu_info-meins.
-        ls_trite-charg = is_hu_info-charg.
-        ls_trite-vltyp = is_hu_info-lgtyp.
-        ls_trite-vlpla = is_hu_info-lgpla.
-        ls_trite-vlenr = is_hu_info-lenum.
-        ls_trite-nltyp = '921'.
-        ls_trite-nlpla = 'TRANSFER'.
-        APPEND ls_trite TO lt_trite.
-
-        CALL FUNCTION 'L_TO_CREATE_TR'
-          EXPORTING
-            i_lgnum        = is_header-lgnum
-            i_tbnum        = lv_tr_target
-            it_trite       = lt_trite
-            i_squit        = ' '                  " Immediate confirmation not allowed for 311 in W01
-            i_commit_work  = 'X'
-            i_bname        = sy-uname
-          IMPORTING
-            e_tanum        = lv_tanum
-          TABLES
-            t_ltak         = lt_ltak
-            t_ltap_vb      = lt_ltap
-          EXCEPTIONS
-            foreign_lock   = 1
-            qm_check       = 2
-            tr_not_found   = 3
-            tr_closed      = 4
-            conversion_error = 5
-            error_message  = 6
-            OTHERS         = 7.
-        lv_wm_subrc = sy-subrc.
-        IF lv_wm_subrc = 0 AND ( lv_tanum IS NOT INITIAL OR lt_ltak IS NOT INITIAL ).
-          IF lv_tanum IS INITIAL AND lt_ltak IS NOT INITIAL.
-            lv_tanum = lt_ltak[ 1 ]-tanum.
-          ENDIF.
-
-          " Confirm the TO immediately to adjust LX02
-          DATA: lt_ltap_conf TYPE TABLE OF ltap_conf,
-                ls_ltap_conf TYPE ltap_conf.
-          LOOP AT lt_ltap INTO DATA(ls_vb).
-            CLEAR ls_ltap_conf.
-            ls_ltap_conf-tanum = ls_vb-tanum.
-            ls_ltap_conf-tapos = ls_vb-tapos.
-            ls_ltap_conf-squit = 'X'.
-            APPEND ls_ltap_conf TO lt_ltap_conf.
-          ENDLOOP.
-
-          CALL FUNCTION 'L_TO_CONFIRM'
-            EXPORTING
-              i_lgnum             = is_header-lgnum
-              i_tanum             = lv_tanum
-              i_squit             = ' '
-              i_commit_work       = 'X'
-            TABLES
-              t_ltap_conf         = lt_ltap_conf
-            EXCEPTIONS
-              to_confirmed        = 1
-              to_doesnt_exist     = 2
-              item_confirmed      = 3
-              squit_or_quantities = 4
-              OTHERS              = 5.
+      CALL FUNCTION 'L_TO_CREATE_TR'
+        EXPORTING
+          i_lgnum          = is_header-lgnum
+          i_tbnum          = lv_tr_for_to
+          it_trite         = lt_trite
+          i_squit          = ' '
+          i_commit_work    = 'X'
+          i_bname          = sy-uname
+        IMPORTING
+          e_tanum          = lv_tanum
+        TABLES
+          t_ltak           = lt_ltak
+          t_ltap_vb        = lt_ltap
+        EXCEPTIONS
+          foreign_lock     = 1
+          qm_check         = 2
+          tr_not_found     = 3
+          tr_closed        = 4
+          conversion_error = 5
+          error_message    = 6
+          OTHERS           = 7.
+      lv_wm_subrc = sy-subrc.
+      IF lv_wm_subrc = 0 AND ( lv_tanum IS NOT INITIAL OR lt_ltak IS NOT INITIAL ).
+        IF lv_tanum IS INITIAL AND lt_ltak IS NOT INITIAL.
+          lv_tanum = lt_ltak[ 1 ]-tanum.
         ENDIF.
+
+        " Confirm the TO immediately to balance interim storage and update LX02
+        DATA: lt_ltap_conf TYPE TABLE OF ltap_conf.
+        CLEAR lt_ltap_conf.
+        CALL FUNCTION 'L_TO_CONFIRM'
+          EXPORTING
+            i_lgnum       = is_header-lgnum
+            i_tanum       = lv_tanum
+            i_squit       = 'X'
+            i_commit_work = 'X'
+          TABLES
+            t_ltap_conf   = lt_ltap_conf
+          EXCEPTIONS
+            to_confirmed  = 1
+            OTHERS        = 2.
       ENDIF.
     ENDIF.
 
@@ -1941,11 +1948,12 @@ CLASS ZCL_RF_AUTO_WM_IM_TRANSFER IMPLEMENTATION.
     " 2. IDENTIFY ALL LINKED TRANSFER REQUIREMENTS (LTBK / LTBP)
     " ------------------------------------------------------------------
     TYPES: BEGIN OF ty_tr_target,
-             lgnum TYPE lgnum,
-             tbnum TYPE tbnum,
-             tbpos TYPE tbpos,
-             menge TYPE ltbp_menge,
-             tamen TYPE ltbp_tamen,
+             lgnum      TYPE lgnum,
+             tbnum      TYPE tbnum,
+             tbpos      TYPE tbpos,
+             menge      TYPE ltbp_menge,
+             tamen      TYPE ltbp_tamen,
+             is_migo_tr TYPE abap_bool,
            END OF ty_tr_target.
     DATA: lt_targets TYPE STANDARD TABLE OF ty_tr_target WITH EMPTY KEY.
 
@@ -1959,35 +1967,64 @@ CLASS ZCL_RF_AUTO_WM_IM_TRANSFER IMPLEMENTATION.
           AND tbnum = @lv_tbnum_lead
           AND tbpos = @is_item-tbpos.
       IF sy-subrc = 0.
-        APPEND ls_direct_tr TO lt_targets.
+        APPEND VALUE ty_tr_target(
+          lgnum      = ls_direct_tr-lgnum
+          tbnum      = ls_direct_tr-tbnum
+          tbpos      = ls_direct_tr-tbpos
+          menge      = ls_direct_tr-menge
+          tamen      = ls_direct_tr-tamen
+          is_migo_tr = abap_false
+        ) TO lt_targets.
       ENDIF.
     ENDIF.
 
     " If document is Reservation, locate all TRs created for this reservation
     IF lv_rsnum_lead IS NOT INITIAL.
-      SELECT p~lgnum, p~tbnum, p~tbpos, p~menge, p~tamen
+      SELECT p~lgnum, p~tbnum, p~tbpos, p~menge, p~tamen, @abap_false AS is_migo_tr
         FROM ltbk AS k
         INNER JOIN ltbp AS p ON p~lgnum = k~lgnum AND p~tbnum = k~tbnum
-        APPENDING TABLE @lt_targets
+        APPENDING CORRESPONDING FIELDS OF TABLE @lt_targets
         WHERE k~lgnum = @is_header-lgnum
           AND ( k~rsnum = @lv_rsnum_lead OR ( k~betyp = 'P' AND k~benum = @lv_rsnum_lead ) )
           AND ( p~rspos = @lv_rspos_lead OR p~matnr = @is_item-matnr ).
+    ENDIF.
+
+    " Locate any TR generated by the IM Goods Movement (MIGO)
+    IF iv_mblnr IS NOT INITIAL.
+      SELECT p~lgnum, p~tbnum, p~tbpos, p~menge, p~tamen, @abap_true AS is_migo_tr
+        FROM ltbk AS k
+        INNER JOIN ltbp AS p ON p~lgnum = k~lgnum AND p~tbnum = k~tbnum
+        APPENDING CORRESPONDING FIELDS OF TABLE @lt_targets
+        WHERE k~lgnum = @is_header-lgnum
+          AND k~mblnr = @iv_mblnr
+          AND k~mjahr = @iv_mjahr.
     ENDIF.
 
     SORT lt_targets BY lgnum tbnum tbpos.
     DELETE ADJACENT DUPLICATES FROM lt_targets COMPARING lgnum tbnum tbpos.
 
     " ------------------------------------------------------------------
-    " 3. UPDATE EACH TR ITEM (LTBP)
+    " 3. UPDATE EACH TR ITEM (LTBP) & CANCEL REMAINING OPEN QUANTITY
     " ------------------------------------------------------------------
-    DATA: lt_distinct_tbnum TYPE STANDARD TABLE OF tbnum WITH EMPTY KEY.
+    DATA: lt_distinct_tbnum TYPE STANDARD TABLE OF tbnum WITH EMPTY KEY,
+          lt_cancel_ltbc    TYPE TABLE OF ltbc,
+          ls_cancel_ltbc    TYPE ltbc.
 
     LOOP AT lt_targets INTO DATA(ls_tr).
-      DATA(lv_new_tamen) = ls_tr-tamen + iv_post_qty.
-      DATA(lv_elikz) = COND char1(
-        WHEN lv_new_tamen >= ls_tr-menge OR lv_is_res_closed = abap_true THEN 'X'
-        ELSE space
-      ).
+      DATA: lv_new_tamen TYPE ltbp_tamen,
+            lv_elikz     TYPE ltbp_elikz.
+
+      IF ls_tr-is_migo_tr = abap_true.
+        " MIGO-generated TR must be fully completed immediately
+        lv_new_tamen = ls_tr-menge.
+        lv_elikz     = 'X'.
+      ELSE.
+        lv_new_tamen = ls_tr-tamen + iv_post_qty.
+        lv_elikz = COND #(
+          WHEN lv_new_tamen >= ls_tr-menge OR lv_is_res_closed = abap_true THEN 'X'
+          ELSE space
+        ).
+      ENDIF.
 
       UPDATE ltbp
         SET tamen = @lv_new_tamen,
@@ -1998,8 +2035,26 @@ CLASS ZCL_RF_AUTO_WM_IM_TRANSFER IMPLEMENTATION.
           AND tbnum = @ls_tr-tbnum
           AND tbpos = @ls_tr-tbpos.
 
+      CLEAR ls_cancel_ltbc.
+      ls_cancel_ltbc-lgnum = ls_tr-lgnum.
+      ls_cancel_ltbc-tbnum = ls_tr-tbnum.
+      ls_cancel_ltbc-tbpos = ls_tr-tbpos.
+      ls_cancel_ltbc-elikz = 'X'.
+      APPEND ls_cancel_ltbc TO lt_cancel_ltbc.
+
       APPEND ls_tr-tbnum TO lt_distinct_tbnum.
     ENDLOOP.
+
+    " Call standard L_TR_CANCEL to ensure SAP standard buffers and locks are cleared
+    IF lt_cancel_ltbc IS NOT INITIAL.
+      CALL FUNCTION 'L_TR_CANCEL'
+        EXPORTING
+          i_commit_work = ' '
+        TABLES
+          t_ltbc        = lt_cancel_ltbc
+        EXCEPTIONS
+          OTHERS        = 1.
+    ENDIF.
 
     SORT lt_distinct_tbnum.
     DELETE ADJACENT DUPLICATES FROM lt_distinct_tbnum.
@@ -2029,14 +2084,30 @@ CLASS ZCL_RF_AUTO_WM_IM_TRANSFER IMPLEMENTATION.
         WHERE lgnum = @is_header-lgnum
           AND tbnum = @lv_affected_tbnum.
     ENDLOOP.
+
+    COMMIT WORK AND WAIT.
   ENDMETHOD.
 
   METHOD determine_destination_bin.
     " Automatically determines destination storage type & storage bin based on:
+    " 0. Non-WM receiving storage location (transfers stock out of warehouse to 921/TRANSFER)
     " 1. MLGT Fixed Bin for the Material
     " 2. Receiving Storage Location mapping to Storage Type (T320/LAGP)
     " 3. Standard Putaway available bin search in LAGP
     CLEAR: ev_dest_lgtyp, ev_dest_lgpla.
+
+    " -------------------------------------------------------------
+    " 0. CHECK IF DESTINATION SLOC IS NON-WM (Stock leaving warehouse)
+    " -------------------------------------------------------------
+    SELECT SINGLE lgnum FROM t320 INTO @DATA(lv_dest_lgnum)
+      WHERE werks = @iv_werks AND lgort = @iv_dest_lgort.
+    IF sy-subrc <> 0 OR lv_dest_lgnum <> iv_lgnum.
+      " Destination storage location is NOT warehouse-managed under this warehouse!
+      " Stock is transferred OUT of the warehouse via interim GI/transfer area:
+      ev_dest_lgtyp = '921'.
+      ev_dest_lgpla = 'TRANSFER'.
+      RETURN.
+    ENDIF.
 
     " -------------------------------------------------------------
     " 1. CHECK MLGT FIXED BIN FOR MATERIAL IN WAREHOUSE
@@ -2202,6 +2273,8 @@ CLASS ZCL_RF_AUTO_WM_IM_TRANSFER IMPLEMENTATION.
     LOOP AT lt_test_ret94 INTO DATA(ls_tr94).
       out->write( |SU 59694 Msg: { ls_tr94-type } { ls_tr94-id } { ls_tr94-number } { ls_tr94-message }| ).
     ENDLOOP.
+
+    out->write( |Status Check Finished Successfully| ).
   ENDMETHOD.
 
   METHOD is_hu_already_scanned.
