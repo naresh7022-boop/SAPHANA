@@ -603,7 +603,7 @@ CLASS ZCL_RF_AUTO_WM_IM_TRANSFER IMPLEMENTATION.
           lv_scan_clean  TYPE string,
           lv_scan_strip  TYPE exidv,
           lv_pad20       TYPE exidv,
-          lv_pad10       TYPE exidv,
+          lv_pad10       TYPE char10,
           lv_pad18       TYPE char18.
 
     lv_scan_raw = iv_exidv.
@@ -636,8 +636,7 @@ CLASS ZCL_RF_AUTO_WM_IM_TRANSFER IMPLEMENTATION.
     IF iv_doc_num IS NOT INITIAL AND iv_exidv IS NOT INITIAL.
       IF me->is_hu_already_scanned( iv_doc_num = iv_doc_num iv_exidv = iv_exidv ) = abap_true
          OR me->is_hu_already_scanned( iv_doc_num = iv_doc_num iv_exidv = lv_scan_strip ) = abap_true
-         OR me->is_hu_already_scanned( iv_doc_num = iv_doc_num iv_exidv = lv_pad20 ) = abap_true
-         OR me->is_hu_already_scanned( iv_doc_num = iv_doc_num iv_exidv = lv_pad10 ) = abap_true.
+         OR me->is_hu_already_scanned( iv_doc_num = iv_doc_num iv_exidv = lv_pad20 ) = abap_true.
         APPEND VALUE #(
           type    = 'E'
           id      = 'ZRF'
@@ -651,18 +650,30 @@ CLASS ZCL_RF_AUTO_WM_IM_TRANSFER IMPLEMENTATION.
     " -------------------------------------------------------------
     " PRIORITY 1: HANDLING UNIT (HU) SCAN (VEKP / VEPO)
     " -------------------------------------------------------------
-    DATA: ls_vekp TYPE vekp.
-    SELECT SINGLE *
-      FROM vekp
-      INTO @ls_vekp
-      WHERE exidv = @lv_scan_raw
-         OR exidv = @lv_pad20
-         OR exidv = @lv_pad18
-         OR exidv = @lv_pad10
-         OR exidv = @lv_scan_strip
-         OR venum = @lv_pad10
-         OR venum = @lv_pad20
-         OR venum = @lv_scan_strip.
+    DATA: ls_vekp      TYPE vekp,
+          lv_venum_chk TYPE venum.
+    IF strlen( lv_scan_strip ) <= 10.
+      lv_venum_chk = |{ lv_scan_strip ALPHA = IN WIDTH = 10 }|.
+    ENDIF.
+
+    IF lv_venum_chk IS NOT INITIAL.
+      SELECT SINGLE *
+        FROM vekp
+        WHERE exidv = @lv_scan_raw
+           OR exidv = @lv_pad20
+           OR exidv = @lv_pad18
+           OR exidv = @lv_scan_strip
+           OR venum = @lv_venum_chk
+        INTO @ls_vekp.
+    ELSE.
+      SELECT SINGLE *
+        FROM vekp
+        WHERE exidv = @lv_scan_raw
+           OR exidv = @lv_pad20
+           OR exidv = @lv_pad18
+           OR exidv = @lv_scan_strip
+        INTO @ls_vekp.
+    ENDIF.
 
     IF sy-subrc = 0.
       " Check HU status: not deleted/archived
@@ -762,7 +773,7 @@ CLASS ZCL_RF_AUTO_WM_IM_TRANSFER IMPLEMENTATION.
         WHERE lgnum = @iv_lgnum
           AND matnr = @es_hu_info-matnr
           AND ( charg = @es_hu_info-charg OR charg = @space )
-          AND ( lenum = @ls_vekp-exidv OR lenum = @lv_pad20 OR lenum = @lv_pad10
+          AND ( lenum = @ls_vekp-exidv OR lenum = @lv_pad20
              OR lenum = @lv_scan_raw OR lenum = @lv_scan_strip OR lqnum = @ls_vekp-venum )
           AND skzua = @space
           AND skzue = @space
@@ -798,7 +809,7 @@ CLASS ZCL_RF_AUTO_WM_IM_TRANSFER IMPLEMENTATION.
 
       IF es_hu_info-lenum IS INITIAL.
         SELECT SINGLE lenum FROM lein INTO @es_hu_info-lenum
-          WHERE lenum = @ls_vekp-exidv OR lenum = @lv_pad20 OR lenum = @lv_pad10.
+          WHERE lenum = @ls_vekp-exidv OR lenum = @lv_pad20.
       ENDIF.
 
       IF ls_lqua-lgtyp(1) = '9'.
@@ -878,7 +889,6 @@ CLASS ZCL_RF_AUTO_WM_IM_TRANSFER IMPLEMENTATION.
       INTO TABLE @DATA(lt_lqua_su)
       WHERE lgnum = @iv_lgnum
         AND ( lenum = @lv_pad20
-           OR lenum = @lv_pad10
            OR lenum = @lv_scan_raw
            OR lenum = @lv_scan_strip )
         AND skzua = @space
@@ -956,12 +966,25 @@ CLASS ZCL_RF_AUTO_WM_IM_TRANSFER IMPLEMENTATION.
       ENDIF.
 
       " Check if this Storage Unit is linked to a Handling Unit in VEKP
-      DATA: lv_su_venum TYPE venum,
-            lv_su_exidv TYPE exidv.
-      SELECT SINGLE venum, exidv FROM vekp
-        INTO (@lv_su_venum, @lv_su_exidv)
-        WHERE exidv = @ls_lqua_su-lenum OR venum = @ls_lqua_su-lenum
-           OR exidv = @lv_pad20 OR exidv = @lv_pad10.
+      DATA: lv_su_venum     TYPE venum,
+            lv_su_exidv     TYPE exidv,
+            lv_su_venum_chk TYPE venum.
+      IF strlen( lv_scan_strip ) <= 10.
+        lv_su_venum_chk = |{ lv_scan_strip ALPHA = IN WIDTH = 10 }|.
+      ENDIF.
+
+      IF lv_su_venum_chk IS NOT INITIAL.
+        SELECT SINGLE venum, exidv FROM vekp
+          WHERE exidv = @ls_lqua_su-lenum
+             OR exidv = @lv_pad20
+             OR venum = @lv_su_venum_chk
+          INTO (@lv_su_venum, @lv_su_exidv).
+      ELSE.
+        SELECT SINGLE venum, exidv FROM vekp
+          WHERE exidv = @ls_lqua_su-lenum
+             OR exidv = @lv_pad20
+          INTO (@lv_su_venum, @lv_su_exidv).
+      ENDIF.
       IF sy-subrc = 0.
         es_hu_info-venum   = lv_su_venum.
         es_hu_info-exidv   = COND #( WHEN lv_su_exidv IS NOT INITIAL THEN lv_su_exidv ELSE ls_lqua_su-lenum ).
@@ -1019,7 +1042,7 @@ CLASS ZCL_RF_AUTO_WM_IM_TRANSFER IMPLEMENTATION.
     ELSE.
       " Check if SU header exists in LEIN but no quants
       SELECT SINGLE * FROM lein INTO @DATA(ls_lein_only)
-        WHERE lenum = @lv_pad20 OR lenum = @lv_pad10
+        WHERE lenum = @lv_pad20
            OR lenum = @lv_scan_raw OR lenum = @lv_scan_strip.
       IF sy-subrc = 0.
         APPEND VALUE #(
@@ -1120,7 +1143,7 @@ CLASS ZCL_RF_AUTO_WM_IM_TRANSFER IMPLEMENTATION.
         IF ls_best_bquant-lenum IS NOT INITIAL.
           SELECT SINGLE venum, exidv FROM vekp
             INTO (@es_hu_info-venum, @DATA(lv_linked_exidv2))
-            WHERE exidv = @ls_best_bquant-lenum OR venum = @ls_best_bquant-lenum.
+            WHERE exidv = @ls_best_bquant-lenum.
         ENDIF.
       ELSE.
         SELECT SINGLE meins FROM mara INTO @es_hu_info-meins WHERE matnr = @iv_matnr.
@@ -2154,6 +2177,31 @@ CLASS ZCL_RF_AUTO_WM_IM_TRANSFER IMPLEMENTATION.
       iv_doc_num = '0000534044'
     ).
     out->write( |SU 59693 Duplicate Scanned Check: { lv_already_93 }| ).
+
+    DATA(lv_already_94) = me->is_hu_already_scanned(
+      iv_exidv   = '00000000001000059694'
+      iv_doc_num = '0000534044'
+    ).
+    out->write( |SU 59694 Duplicate Scanned Check: { lv_already_94 }| ).
+
+    DATA: ls_test_hu94 TYPE ty_hu_stock_info,
+          lt_test_ret94 TYPE bapiret2_t.
+    me->validate_hu_and_stock(
+      EXPORTING
+        iv_lgnum   = 'W01'
+        iv_exidv   = '00000000001000059694'
+        iv_matnr   = '000000008000009790'
+        iv_werks   = '1120'
+        iv_lgort   = 'HS01'
+        iv_doc_num = '0000534044'
+      IMPORTING
+        es_hu_info = ls_test_hu94
+        et_return  = lt_test_ret94
+    ).
+    out->write( |SU 59694 Validated: is_valid={ ls_test_hu94-is_valid } lenum={ ls_test_hu94-lenum } bin={ ls_test_hu94-lgtyp }/{ ls_test_hu94-lgpla } menge={ ls_test_hu94-menge }| ).
+    LOOP AT lt_test_ret94 INTO DATA(ls_tr94).
+      out->write( |SU 59694 Msg: { ls_tr94-type } { ls_tr94-id } { ls_tr94-number } { ls_tr94-message }| ).
+    ENDLOOP.
   ENDMETHOD.
 
   METHOD is_hu_already_scanned.
@@ -2163,15 +2211,15 @@ CLASS ZCL_RF_AUTO_WM_IM_TRANSFER IMPLEMENTATION.
     DATA: lv_raw       TYPE exidv,
           lv_stripped  TYPE exidv,
           lv_pad20     TYPE exidv,
-          lv_pad10     TYPE exidv,
+          lv_pad10     TYPE char10,
           lv_alpha_doc TYPE char10.
 
     lv_raw = iv_exidv.
     CONDENSE lv_raw NO-GAPS.
     lv_stripped = lv_raw.
     SHIFT lv_stripped LEFT DELETING LEADING ' 0'.
-    lv_pad20 = |{ lv_stripped ALPHA = IN }|.
-    lv_pad10 = |{ lv_stripped ALPHA = IN }|.
+    lv_pad20 = |{ lv_stripped ALPHA = IN WIDTH = 20 }|.
+    lv_pad10 = |{ lv_stripped ALPHA = IN WIDTH = 10 }|.
     lv_alpha_doc = |{ iv_doc_num ALPHA = IN }|.
 
     " 1. Check in-memory session table of scanned/posted HUs
@@ -2179,14 +2227,14 @@ CLASS ZCL_RF_AUTO_WM_IM_TRANSFER IMPLEMENTATION.
       DATA: lv_prev_raw   TYPE exidv,
             lv_prev_strip TYPE exidv,
             lv_prev_pad20 TYPE exidv,
-            lv_prev_pad10 TYPE exidv.
+            lv_prev_pad10 TYPE char10.
 
       lv_prev_raw = lv_prev_hu.
       CONDENSE lv_prev_raw NO-GAPS.
       lv_prev_strip = lv_prev_raw.
       SHIFT lv_prev_strip LEFT DELETING LEADING ' 0'.
-      lv_prev_pad20 = |{ lv_prev_strip ALPHA = IN }|.
-      lv_prev_pad10 = |{ lv_prev_strip ALPHA = IN }|.
+      lv_prev_pad20 = |{ lv_prev_strip ALPHA = IN WIDTH = 20 }|.
+      lv_prev_pad10 = |{ lv_prev_strip ALPHA = IN WIDTH = 10 }|.
 
       IF lv_raw = lv_prev_raw OR lv_stripped = lv_prev_strip
          OR lv_pad20 = lv_prev_pad20 OR lv_pad10 = lv_prev_pad10.
@@ -2206,13 +2254,13 @@ CLASS ZCL_RF_AUTO_WM_IM_TRANSFER IMPLEMENTATION.
             DATA: lv_c_raw   TYPE exidv,
                   lv_c_strip TYPE exidv,
                   lv_c_pad20 TYPE exidv,
-                  lv_c_pad10 TYPE exidv.
+                  lv_c_pad10 TYPE char10.
             lv_c_raw = lv_c_hu.
             CONDENSE lv_c_raw NO-GAPS.
             lv_c_strip = lv_c_raw.
             SHIFT lv_c_strip LEFT DELETING LEADING ' 0'.
-            lv_c_pad20 = |{ lv_c_strip ALPHA = IN }|.
-            lv_c_pad10 = |{ lv_c_strip ALPHA = IN }|.
+            lv_c_pad20 = |{ lv_c_strip ALPHA = IN WIDTH = 20 }|.
+            lv_c_pad10 = |{ lv_c_strip ALPHA = IN WIDTH = 10 }|.
 
             IF lv_raw = lv_c_raw OR lv_stripped = lv_c_strip
                OR lv_pad20 = lv_c_pad20 OR lv_pad10 = lv_c_pad10.
@@ -2232,29 +2280,40 @@ CLASS ZCL_RF_AUTO_WM_IM_TRANSFER IMPLEMENTATION.
         INTO @DATA(lv_found_ltap)
         WHERE ( k~rsnum = @lv_alpha_doc OR k~rsnum = @iv_doc_num
              OR ( k~betyp = 'P' AND ( k~benum = @lv_alpha_doc OR k~benum = @iv_doc_num ) ) )
-          AND ( p~vlenr = @lv_raw OR p~vlenr = @lv_pad20 OR p~vlenr = @lv_pad10 OR p~vlenr = @lv_stripped
-             OR p~nlenr = @lv_raw OR p~nlenr = @lv_pad20 OR p~nlenr = @lv_pad10 OR p~nlenr = @lv_stripped ).
+          AND ( p~vlenr = @lv_raw OR p~vlenr = @lv_pad20 OR p~vlenr = @lv_stripped
+             OR p~nlenr = @lv_raw OR p~nlenr = @lv_pad20 OR p~nlenr = @lv_stripped ).
       IF lv_found_ltap = abap_true.
         rv_scanned = abap_true.
         APPEND iv_exidv TO mt_scanned_hus.
         RETURN.
       ENDIF.
 
-      " 5. Check Serial numbers / OBJK posted in goods movement for this reservation
-      SELECT SINGLE @abap_true
-        FROM mseg AS m
-        INNER JOIN ser03 AS s ON s~mblnr = m~mblnr AND s~mjahr = m~mjahr
-        INNER JOIN objk AS o ON o~obknr = s~obknr
-        INTO @DATA(lv_found_ser)
-        WHERE ( m~rsnum = @lv_alpha_doc OR m~rsnum = @iv_doc_num )
-          AND ( o~sernr = @lv_raw OR o~sernr = @lv_pad20 OR o~sernr = @lv_stripped ).
-      IF lv_found_ser = abap_true.
-        rv_scanned = abap_true.
-        APPEND iv_exidv TO mt_scanned_hus.
-        RETURN.
+      " 4. Check Serial numbers / OBJK posted in goods movement for this reservation
+      IF strlen( lv_stripped ) <= 18.
+        DATA: lv_sernr_pad TYPE sernr,
+              lv_sernr_raw TYPE sernr.
+        lv_sernr_pad = |{ lv_stripped ALPHA = IN WIDTH = 18 }|.
+        IF strlen( lv_raw ) <= 18.
+          lv_sernr_raw = lv_raw.
+        ELSE.
+          lv_sernr_raw = lv_sernr_pad.
+        ENDIF.
+
+        SELECT SINGLE @abap_true
+          FROM mseg AS m
+          INNER JOIN ser03 AS s ON s~mblnr = m~mblnr AND s~mjahr = m~mjahr
+          INNER JOIN objk AS o ON o~obknr = s~obknr
+          INTO @DATA(lv_found_ser)
+          WHERE ( m~rsnum = @lv_alpha_doc OR m~rsnum = @iv_doc_num )
+            AND ( o~sernr = @lv_sernr_raw OR o~sernr = @lv_sernr_pad ).
+        IF lv_found_ser = abap_true.
+          rv_scanned = abap_true.
+          APPEND iv_exidv TO mt_scanned_hus.
+          RETURN.
+        ENDIF.
       ENDIF.
 
-      " 6. Check Material Documents posted with this HU in header text (MKPF)
+      " 5. Check Material Documents posted with this HU in header text (MKPF)
       DATA: lv_like_clean TYPE bktxt,
             lv_like_raw   TYPE bktxt,
             lv_like_strip TYPE bktxt.
