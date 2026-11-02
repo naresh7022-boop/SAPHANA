@@ -6,7 +6,7 @@
 *& Target System: SAP S/4HANA / SAP ECC
 *& Transaction Code: ZRF_RESWM / ZRF01
 *&---------------------------------------------------------------------*
-PROGRAM sapmzrf_res_wm_transfer.
+REPORT sapmzrf_res_wm_transfer.
 
 " ====================================================================
 " 1. SCREEN DATA STRUCTURES & DEFINITIONS
@@ -47,69 +47,11 @@ TYPES:
   END OF ty_scr0200.
 
 TYPES:
-  BEGIN OF ty_rf_doc_header,
-    doc_type     TYPE char3,
-    doc_num      TYPE char10,
-    lgnum        TYPE lgnum,
-    werks        TYPE werks_d,
-    lgort        TYPE lgort_d,
-    bwart        TYPE bwart,
-    kostl        TYPE kostl,
-    aufnr        TYPE aufnr,
-    total_items  TYPE i,
-    open_items   TYPE i,
-  END OF ty_rf_doc_header,
-
-  BEGIN OF ty_rf_doc_item,
-    item_no       TYPE posnr,
-    matnr         TYPE matnr,
-    maktx         TYPE maktx,
-    target_qty    TYPE menge_d,
-    picked_qty    TYPE menge_d,
-    open_qty      TYPE menge_d,
-    meins         TYPE meins,
-    charg         TYPE charg_d,
-    sernp         TYPE serail,
-    is_serialized TYPE abap_bool,
-    is_batch_managed TYPE abap_bool,
-    vltyp         TYPE lgtyp,
-    vlpla         TYPE lgpla,
-    tbnum         TYPE tbnum,
-    tbpos         TYPE tbpos,
-    status        TYPE char1,
-  END OF ty_rf_doc_item,
-  tt_rf_doc_item TYPE STANDARD TABLE OF ty_rf_doc_item WITH KEY item_no,
-
-  BEGIN OF ty_hu_stock_info,
-    exidv        TYPE exidv,
-    venum        TYPE venum,
-    matnr        TYPE matnr,
-    maktx        TYPE maktx,
-    charg        TYPE charg_d,
-    werks        TYPE werks_d,
-    lgort        TYPE lgort_d,
-    lgnum        TYPE lgnum,
-    lgtyp        TYPE lgtyp,
-    lgpla        TYPE lgpla,
-    lenum        TYPE lenum,
-    menge        TYPE menge_d,
-    meins        TYPE meins,
-    lqnum        TYPE lvs_lqnum,
-    wm_avail_qty TYPE menge_d,
-    im_avail_qty TYPE menge_d,
-    serials      TYPE zcl_rf_auto_wm_im_transfer=>tt_sernr,
-    is_valid     TYPE abap_bool,
-  END OF ty_hu_stock_info,
-
-  BEGIN OF ty_posting_result,
-    success      TYPE abap_bool,
-    mblnr        TYPE mblnr,
-    mjahr        TYPE mjahr,
-    tanum        TYPE tanum,
-    lgnum        TYPE lgnum,
-    rf_message   TYPE char40,
-    return_tab   TYPE bapiret2_t,
-  END OF ty_posting_result.
+  ty_rf_doc_header  TYPE zcl_rf_auto_wm_im_transfer=>ty_rf_doc_header,
+  ty_rf_doc_item    TYPE zcl_rf_auto_wm_im_transfer=>ty_rf_doc_item,
+  tt_rf_doc_item    TYPE zcl_rf_auto_wm_im_transfer=>tt_rf_doc_item,
+  ty_hu_stock_info  TYPE zcl_rf_auto_wm_im_transfer=>ty_hu_stock_info,
+  ty_posting_result TYPE zcl_rf_auto_wm_im_transfer=>ty_posting_result.
 
 DATA:
   g_scr0100   TYPE ty_scr0100,
