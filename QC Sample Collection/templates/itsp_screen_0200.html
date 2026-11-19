@@ -1,0 +1,63 @@
+`include(~service="itsmobile", ~theme="99", ~name="subhead.html")`
+<!DOCTYPE html>
+<html lang="`~language`">
+<head>
+  <title>`w_title`</title>
+  `include(~service="itsmobile", ~theme="99", ~name="head.html")`
+  <style>
+    .rf-card { background: #1e293b; color: #f8fafc; border-radius: 8px; padding: 12px; margin: 8px; font-family: monospace; }
+    .rf-title { font-size: 15px; font-weight: bold; color: #38bdf8; margin-bottom: 8px; border-bottom: 1px solid #334155; padding-bottom: 4px; display: flex; justify-content: space-between; }
+    .rf-badge { background: #0369a1; color: #e0f2fe; padding: 2px 6px; border-radius: 4px; font-size: 11px; }
+    .rf-badge-smpl { background: #15803d; color: #dcfce7; }
+    .rf-row { margin-bottom: 6px; display: flex; font-size: 13px; }
+    .rf-label { width: 120px; font-weight: 600; color: #94a3b8; }
+    .rf-val { flex: 1; color: #f8fafc; font-weight: 500; }
+    .rf-input { flex: 1; padding: 6px; border: 1px solid #475569; background: #0f172a; color: #38bdf8; font-size: 13px; font-weight: bold; border-radius: 4px; }
+    .rf-msg { color: #facc15; font-size: 12px; min-height: 20px; margin: 6px 0; text-align: center; font-weight: bold; }
+    .rf-btn-group { display: flex; gap: 6px; margin-top: 8px; }
+    .rf-btn { flex: 1; padding: 10px 4px; font-size: 12px; font-weight: bold; border: none; border-radius: 4px; cursor: pointer; text-align: center; }
+    .rf-btn-success { background: #16a34a; color: white; }
+    .rf-btn-nav { background: #0284c7; color: white; }
+    .rf-btn-secondary { background: #334155; color: #cbd5e1; }
+  </style>
+</head>
+<body onload="document.getElementById('G_SCR0200-SCAN_TUBE_BARCODE').focus();">
+<form action="`WGateURL()`" method="post" id="mobileform">
+  <div class="rf-card">
+    <div class="rf-title">
+      <span>🧪 Sample `G_SCR0200-ITEM_CURR`/`G_SCR0200-ITEM_TOTAL` (`G_SCR0200-PHYSSAMPLE`)</span>
+      <span class="rf-badge `if (G_SCR0200-STATUS_CODE == "SMPL")`rf-badge-smpl`endif`">`G_SCR0200-STATUS_TXT`</span>
+    </div>
+
+    <div class="rf-row"><span class="rf-label">Inspection Lot:</span><span class="rf-val">`G_SCR0200-PRUEFLOS` | Batch: `G_SCR0200-CHARG`</span></div>
+    <div class="rf-row"><span class="rf-label">Material:</span><span class="rf-val">`G_SCR0200-MATNR`</span></div>
+    <div class="rf-row"><span class="rf-label">Description:</span><span class="rf-val">`G_SCR0200-MAKTX`</span></div>
+    <div class="rf-row"><span class="rf-label">Target Qty:</span><span class="rf-val">`G_SCR0200-SAMPLE_QTY` `G_SCR0200-SAMPLE_UOM` | `G_SCR0200-CONTAINER`</span></div>
+
+    <div class="rf-row" style="margin-top:8px;">
+      <span class="rf-label">Tube Barcode:</span>
+      <input type="text" id="G_SCR0200-SCAN_TUBE_BARCODE" name="G_SCR0200-SCAN_TUBE_BARCODE" value="`G_SCR0200-SCAN_TUBE_BARCODE`" class="rf-input" placeholder="Scan tube barcode" autofocus/>
+    </div>
+
+    <div class="rf-row">
+      <span class="rf-label">Storage Loc:</span>
+      <input type="text" id="G_SCR0200-STORAGE_LOC" name="G_SCR0200-STORAGE_LOC" value="`G_SCR0200-STORAGE_LOC`" class="rf-input"/>
+    </div>
+
+    <div class="rf-row">
+      <span class="rf-label">Temperature:</span>
+      <input type="text" id="G_SCR0200-TEMPERATURE" name="G_SCR0200-TEMPERATURE" value="`G_SCR0200-TEMPERATURE`" class="rf-input"/>
+    </div>
+
+    <div class="rf-msg">`G_SCR0200-MSG`</div>
+
+    <div class="rf-btn-group">
+      <input type="submit" name="~OkCode(CONF)" value="✓ Confirm [Enter]" class="rf-btn rf-btn-success"/>
+      <input type="submit" name="~OkCode(NEXT)" value="Next >>" class="rf-btn rf-btn-nav"/>
+      <input type="submit" name="~OkCode(PREV)" value="<< Prev" class="rf-btn rf-btn-secondary"/>
+      <input type="submit" name="~OkCode(BACK)" value="Back [F3]" class="rf-btn rf-btn-secondary"/>
+    </div>
+  </div>
+</form>
+</body>
+</html>

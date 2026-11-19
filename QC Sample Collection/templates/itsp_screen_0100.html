@@ -1,0 +1,56 @@
+`include(~service="itsmobile", ~theme="99", ~name="subhead.html")`
+<!DOCTYPE html>
+<html lang="`~language`">
+<head>
+  <title>`w_title`</title>
+  `include(~service="itsmobile", ~theme="99", ~name="head.html")`
+  <style>
+    .rf-card { background: #1e293b; color: #f8fafc; border-radius: 8px; padding: 12px; margin: 8px; font-family: monospace; }
+    .rf-title { font-size: 16px; font-weight: bold; color: #38bdf8; margin-bottom: 10px; text-align: center; border-bottom: 1px solid #334155; padding-bottom: 6px; }
+    .rf-row { margin-bottom: 8px; display: flex; align-items: center; }
+    .rf-label { width: 130px; font-weight: 600; font-size: 13px; color: #94a3b8; }
+    .rf-input { flex: 1; padding: 8px; border: 1px solid #475569; background: #0f172a; color: #38bdf8; font-size: 14px; font-weight: bold; border-radius: 4px; }
+    .rf-input:focus { border-color: #38bdf8; outline: none; background: #1e293b; }
+    .rf-msg { color: #facc15; font-size: 12px; min-height: 20px; margin: 8px 0; text-align: center; }
+    .rf-btn-group { display: flex; gap: 8px; margin-top: 10px; }
+    .rf-btn { flex: 1; padding: 12px 6px; font-size: 13px; font-weight: bold; border: none; border-radius: 4px; cursor: pointer; text-align: center; }
+    .rf-btn-primary { background: #0284c7; color: white; }
+    .rf-btn-secondary { background: #334155; color: #cbd5e1; }
+  </style>
+</head>
+<body onload="document.getElementById('G_SCR0100-SCAN_BARCODE').focus();">
+<form action="`WGateURL()`" method="post" id="mobileform">
+  <div class="rf-card">
+    <div class="rf-title">🔬 QC SAMPLE SCANNER (ZPPLIS_NN)</div>
+
+    <div class="rf-row">
+      <span class="rf-label">Plant (Werk):</span>
+      <input type="text" id="G_SCR0100-WERKS" name="G_SCR0100-WERKS" value="`G_SCR0100-WERKS`" class="rf-input" style="max-width:80px;" maxlength="4"/>
+    </div>
+
+    <div class="rf-row">
+      <span class="rf-label">Scan Barcode:</span>
+      <input type="text" id="G_SCR0100-SCAN_BARCODE" name="G_SCR0100-SCAN_BARCODE" value="`G_SCR0100-SCAN_BARCODE`" class="rf-input" placeholder="Scan Lot / Sample tube" autofocus/>
+    </div>
+
+    <div class="rf-row">
+      <span class="rf-label">Inspection Lot:</span>
+      <input type="text" id="G_SCR0100-PRUEFLOS" name="G_SCR0100-PRUEFLOS" value="`G_SCR0100-PRUEFLOS`" class="rf-input" maxlength="12"/>
+    </div>
+
+    <div class="rf-row">
+      <span class="rf-label">Process Order:</span>
+      <input type="text" id="G_SCR0100-AUFNR" name="G_SCR0100-AUFNR" value="`G_SCR0100-AUFNR`" class="rf-input" maxlength="12"/>
+    </div>
+
+    <div class="rf-msg">`G_SCR0100-MSG`</div>
+
+    <div class="rf-btn-group">
+      <input type="submit" name="~OkCode(ENTR)" value="Process [Enter]" class="rf-btn rf-btn-primary"/>
+      <input type="submit" name="~OkCode(DEMO)" value="Demo Lot" class="rf-btn rf-btn-secondary"/>
+      <input type="submit" name="~OkCode(EXIT)" value="Exit [F3]" class="rf-btn rf-btn-secondary"/>
+    </div>
+  </div>
+</form>
+</body>
+</html>

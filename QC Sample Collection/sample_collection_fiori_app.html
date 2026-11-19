@@ -1,0 +1,1029 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>SAP Fiori - QC Physical Sample Collection Cockpit (Root N + 1)</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com">
+  <link href="https://fonts.googleapis.com/css2?family=72:wght@300;400;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <!-- ZXing Barcode Decoder Library for Live Camera Scanning -->
+  <script src="https://unpkg.com/@zxing/library@latest"></script>
+  <style>
+    :root {
+      --sap-blue: #0070f2;
+      --sap-blue-hover: #005bb5;
+      --sap-bg: #f5f6f7;
+      --sap-shell-bg: #354a5f;
+      --sap-card-bg: #ffffff;
+      --sap-text: #1d2d3e;
+      --sap-text-muted: #6a6d70;
+      --sap-border: #d9d9d9;
+      --sap-success: #107e3e;
+      --sap-success-bg: #e8f5e9;
+      --sap-warning: #e9730c;
+      --sap-warning-bg: #fff3e0;
+      --sap-error: #bb0000;
+      --sap-error-bg: #ffebee;
+      --sap-info: #0b66b7;
+      --font-fiori: '72', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+      --font-mono: 'JetBrains Mono', monospace;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: var(--font-fiori);
+      background-color: var(--sap-bg);
+      color: var(--sap-text);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* SAP Fiori Shell Header */
+    .fiori-shell-header {
+      background: var(--sap-shell-bg);
+      color: #ffffff;
+      height: 48px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 16px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.15);
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+
+    .shell-left {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .sap-logo {
+      font-weight: 800;
+      font-size: 15px;
+      letter-spacing: 0.5px;
+      background: #008fd3;
+      padding: 2px 8px;
+      border-radius: 3px;
+    }
+
+    .shell-title {
+      font-size: 15px;
+      font-weight: 600;
+    }
+
+    .shell-badge {
+      background: rgba(255,255,255,0.18);
+      font-family: var(--font-mono);
+      font-size: 11px;
+      padding: 3px 8px;
+      border-radius: 12px;
+      border: 1px solid rgba(255,255,255,0.25);
+    }
+
+    .shell-right {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      font-size: 13px;
+    }
+
+    .user-avatar {
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      background: #0070f2;
+      color: white;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: bold;
+      font-size: 11px;
+    }
+
+    /* Sub-header Bar */
+    .fiori-subheader {
+      background: #ffffff;
+      border-bottom: 1px solid var(--sap-border);
+      padding: 10px 20px;
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+    }
+
+    .breadcrumb {
+      font-size: 13px;
+      color: var(--sap-text-muted);
+    }
+
+    .breadcrumb span {
+      color: var(--sap-text);
+      font-weight: 600;
+    }
+
+    .system-status {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 12px;
+      background: #f0f7ff;
+      border: 1px solid #cce5ff;
+      padding: 4px 10px;
+      border-radius: 4px;
+      color: var(--sap-info);
+    }
+
+    .status-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: #107e3e;
+      animation: pulse 2s infinite;
+    }
+
+    @keyframes pulse {
+      0% { transform: scale(0.95); opacity: 0.8; }
+      50% { transform: scale(1.15); opacity: 1; }
+      100% { transform: scale(0.95); opacity: 0.8; }
+    }
+
+    /* Main Container */
+    .main-content {
+      flex: 1;
+      padding: 16px 20px;
+      max-width: 1400px;
+      width: 100%;
+      margin: 0 auto;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    /* Card Panels */
+    .fiori-card {
+      background: var(--sap-card-bg);
+      border-radius: 8px;
+      border: 1px solid var(--sap-border);
+      box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+      overflow: hidden;
+    }
+
+    .card-header {
+      padding: 12px 18px;
+      border-bottom: 1px solid var(--sap-border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      background: #fafafa;
+    }
+
+    .card-title {
+      font-size: 14px;
+      font-weight: 700;
+      color: var(--sap-text);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .card-body {
+      padding: 16px 18px;
+    }
+
+    /* Area 1: Primary Input / Selection */
+    .selection-row {
+      display: flex;
+      gap: 12px;
+      align-items: flex-end;
+      flex-wrap: wrap;
+    }
+
+    .form-group {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .form-label {
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      color: var(--sap-text-muted);
+    }
+
+    .fiori-input {
+      padding: 8px 12px;
+      border: 1px solid var(--sap-border);
+      border-radius: 4px;
+      font-size: 14px;
+      font-family: var(--font-mono);
+      outline: none;
+      transition: border-color 0.15s;
+    }
+
+    .fiori-input:focus {
+      border-color: var(--sap-blue);
+      box-shadow: 0 0 0 1px var(--sap-blue);
+    }
+
+    .btn-fiori {
+      background: var(--sap-blue);
+      color: white;
+      border: 1px solid var(--sap-blue);
+      padding: 8px 16px;
+      border-radius: 4px;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      transition: all 0.15s ease;
+    }
+
+    .btn-fiori:hover {
+      background: var(--sap-blue-hover);
+    }
+
+    .btn-fiori-sec {
+      background: #ffffff;
+      color: var(--sap-text);
+      border: 1px solid var(--sap-border);
+    }
+
+    .btn-fiori-sec:hover {
+      background: #f5f5f5;
+    }
+
+    .btn-fiori-success {
+      background: var(--sap-success);
+      border-color: var(--sap-success);
+    }
+
+    .btn-fiori-success:hover {
+      background: #0d6532;
+    }
+
+    /* Area 2: Header Data Grid (Read-Only) */
+    .header-data-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 12px;
+      background: #f8fafc;
+      border: 1px solid var(--sap-border);
+      border-radius: 6px;
+      padding: 14px;
+      margin-top: 10px;
+    }
+
+    .data-cell {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+
+    .data-label {
+      font-size: 11px;
+      text-transform: uppercase;
+      font-weight: 600;
+      color: var(--sap-text-muted);
+    }
+
+    .data-val {
+      font-size: 13px;
+      font-weight: 700;
+      font-family: var(--font-mono);
+      color: var(--sap-text);
+    }
+
+    /* Area 3: Formula & Live Counter Banner */
+    .formula-counter-banner {
+      display: grid;
+      grid-template-columns: 1.2fr 1fr;
+      gap: 16px;
+      margin-top: 14px;
+    }
+
+    @media (max-width: 868px) {
+      .formula-counter-banner { grid-template-columns: 1fr; }
+    }
+
+    .formula-card {
+      background: #f0fdf4;
+      border: 1px solid #bbf7d0;
+      border-radius: 6px;
+      padding: 14px 18px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .formula-title {
+      font-size: 12px;
+      font-weight: 700;
+      color: #166534;
+      text-transform: uppercase;
+    }
+
+    .formula-math {
+      font-family: var(--font-mono);
+      font-size: 15px;
+      color: #15803d;
+      margin-top: 2px;
+    }
+
+    .counter-card {
+      background: #eff6ff;
+      border: 1px solid #bfdbfe;
+      border-radius: 6px;
+      padding: 14px 18px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .counter-label {
+      font-size: 12px;
+      font-weight: 700;
+      color: #1e40af;
+      text-transform: uppercase;
+    }
+
+    .counter-number {
+      font-family: var(--font-mono);
+      font-size: 24px;
+      font-weight: 800;
+      color: #1d4ed8;
+    }
+
+    /* Area 4: Interactive Scanning Area */
+    .scanning-layout {
+      display: grid;
+      grid-template-columns: 1.1fr 0.9fr;
+      gap: 16px;
+      margin-top: 14px;
+    }
+
+    @media (max-width: 992px) {
+      .scanning-layout { grid-template-columns: 1fr; }
+    }
+
+    .scan-input-card {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .camera-box {
+      position: relative;
+      width: 100%;
+      height: 200px;
+      background: #111827;
+      border-radius: 6px;
+      overflow: hidden;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border: 2px solid #374151;
+    }
+
+    #video-preview {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: none;
+    }
+
+    .scan-laser-box {
+      width: 180px;
+      height: 100px;
+      border: 2px dashed #00e5ff;
+      border-radius: 8px;
+      position: absolute;
+      box-shadow: 0 0 15px rgba(0,229,255,0.4);
+    }
+
+    .laser-line {
+      position: absolute;
+      width: 100%;
+      height: 2px;
+      background: #ef4444;
+      animation: laserSweep 2s infinite ease-in-out;
+    }
+
+    @keyframes laserSweep {
+      0% { top: 5%; }
+      50% { top: 95%; }
+      100% { top: 5%; }
+    }
+
+    /* Scanned History Table */
+    .history-table-card {
+      max-height: 340px;
+      overflow-y: auto;
+      border: 1px solid var(--sap-border);
+      border-radius: 6px;
+    }
+
+    .fiori-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 12px;
+      text-align: left;
+    }
+
+    .fiori-table th {
+      background: #f1f5f9;
+      padding: 8px 12px;
+      font-weight: 700;
+      color: var(--sap-text-muted);
+      border-bottom: 1px solid var(--sap-border);
+      position: sticky;
+      top: 0;
+    }
+
+    .fiori-table td {
+      padding: 8px 12px;
+      border-bottom: 1px solid #f1f5f9;
+      font-family: var(--font-mono);
+    }
+
+    .fiori-table tr:hover {
+      background: #f8fafc;
+    }
+
+    /* Feedback Banner */
+    .feedback-banner {
+      padding: 10px 14px;
+      border-radius: 6px;
+      font-size: 13px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      background: #f8fafc;
+      border: 1px solid #e2e8f0;
+      margin-top: 12px;
+    }
+
+    .feedback-banner.success {
+      background: var(--sap-success-bg);
+      border-color: #86efac;
+      color: var(--sap-success);
+      font-weight: 600;
+    }
+
+    .feedback-banner.error {
+      background: var(--sap-error-bg);
+      border-color: #fca5a5;
+      color: var(--sap-error);
+      font-weight: 600;
+    }
+
+    /* Modal */
+    .modal-backdrop {
+      display: none;
+      position: fixed;
+      top: 0; left: 0; width: 100%; height: 100%;
+      background: rgba(0,0,0,0.5);
+      z-index: 1000;
+      align-items: center; justify-content: center;
+    }
+
+    .modal-backdrop.open { display: flex; }
+
+    .modal-box {
+      background: white;
+      border-radius: 8px;
+      width: 90%;
+      max-width: 480px;
+      padding: 20px;
+      box-shadow: 0 10px 25px rgba(0,0,0,0.2);
+    }
+
+    .label-preview-sheet {
+      border: 2px dashed #64748b;
+      border-radius: 6px;
+      padding: 16px;
+      font-family: var(--font-mono);
+      font-size: 12px;
+      margin: 14px 0;
+      background: #f8fafc;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- SAP Fiori Shell Header -->
+  <header class="fiori-shell-header">
+    <div class="shell-left">
+      <div class="sap-logo">SAP</div>
+      <div class="shell-title">QC Physical Sample Collection Cockpit</div>
+      <div class="shell-badge">ZPPLIS_NN</div>
+    </div>
+    <div class="shell-right">
+      <span>System: <strong>DS4 / 220</strong></span>
+      <div class="user-avatar" title="Logged in as NARESH">NA</div>
+    </div>
+  </header>
+
+  <!-- Subheader -->
+  <div class="fiori-subheader">
+    <div class="breadcrumb">Quality Management &gt; Physical Samples &gt; <span>Physical Sample Collection (Root N + 1)</span></div>
+    <div class="system-status">
+      <div class="status-dot"></div>
+      <span>SAP S/4HANA DS4/220 Ready</span>
+    </div>
+  </div>
+
+  <main class="main-content">
+
+    <!-- Card 1: Selection & Header Display -->
+    <div class="fiori-card">
+      <div class="card-header">
+        <div class="card-title">
+          <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" /></svg>
+          1. Input Inspection Lot &amp; Header Data (Read-Only)
+        </div>
+        <div style="display:flex; gap:8px;">
+          <button class="btn-fiori btn-fiori-sec" onclick="loadDemoLot()">Demo Lot (N=10)</button>
+          <button class="btn-fiori btn-fiori-sec" onclick="clearScreen()">Clear [F4]</button>
+        </div>
+      </div>
+
+      <div class="card-body">
+        <!-- Input row -->
+        <div class="selection-row">
+          <div class="form-group" style="flex:1; max-width:280px;">
+            <label class="form-label">Inspection Lot Number (QALS-PRUEFLOS)</label>
+            <input type="text" id="input-lot" class="fiori-input" placeholder="e.g. 040000001092" autofocus>
+          </div>
+          <button class="btn-fiori" onclick="fetchAndLockLot()">
+            <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" /></svg>
+            Fetch &amp; Lock Lot
+          </button>
+          <span id="lock-badge" style="font-size:12px; color:#107e3e; font-weight:bold; display:none;">✓ Lot Locked (ENQUEUE_EQALS)</span>
+        </div>
+
+        <!-- Read-Only Header Data Display -->
+        <div class="header-data-grid">
+          <div class="data-cell">
+            <span class="data-label">Material Code (QALS-MATNR)</span>
+            <span class="data-val" id="disp-matnr" style="color:var(--sap-blue);">—</span>
+          </div>
+          <div class="data-cell" style="grid-column: span 2;">
+            <span class="data-label">Material Name (MAKT-MAKTX)</span>
+            <span class="data-val" id="disp-maktx">—</span>
+          </div>
+          <div class="data-cell">
+            <span class="data-label">Plant (QALS-WERK)</span>
+            <span class="data-val" id="disp-werk">—</span>
+          </div>
+          <div class="data-cell">
+            <span class="data-label">Batch No (QALS-CHARG)</span>
+            <span class="data-val" id="disp-charg">—</span>
+          </div>
+          <div class="data-cell">
+            <span class="data-label">Supplier Batch (MCH1-LICHA)</span>
+            <span class="data-val" id="disp-licha">—</span>
+          </div>
+          <div class="data-cell">
+            <span class="data-label">Received Qty (QALS-LOSMENGE)</span>
+            <span class="data-val" id="disp-qty">—</span>
+          </div>
+          <div class="data-cell">
+            <span class="data-label">Total Bags/Drums (N)</span>
+            <span class="data-val" id="disp-bags" style="color:#d97706; font-size:16px;">—</span>
+          </div>
+        </div>
+
+        <!-- Area 3: Formula & Live Counter Banner -->
+        <div class="formula-counter-banner">
+          <div class="formula-card">
+            <div>
+              <div class="formula-title">3. Business Logic: Root N + 1 Formula</div>
+              <div class="formula-math" id="disp-formula">Target Samples = ceil( √N + 1 )</div>
+            </div>
+            <div style="text-align:right;">
+              <span style="font-size:11px; color:#15803d; font-weight:600;">TARGET TO COLLECT</span>
+              <div style="font-size:26px; font-weight:800; color:#15803d; font-family:var(--font-mono);" id="disp-target-samples">0</div>
+            </div>
+          </div>
+
+          <div class="counter-card">
+            <div>
+              <div class="counter-label">4. Live Sampling Counter</div>
+              <div style="font-size:12px; color:#3b82f6;">Samples Collected / Target Samples</div>
+            </div>
+            <div class="counter-number" id="disp-live-counter">0 / 0</div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- Card 2: Interactive Execution & Scanning Area -->
+    <div class="fiori-card">
+      <div class="card-header">
+        <div class="card-title">
+          <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z" /></svg>
+          4. Execution &amp; Scanning Area (HU / SU Barcode Scanner)
+        </div>
+        <button id="btn-camera" class="btn-fiori btn-fiori-sec" onclick="toggleCamera()">
+          📹 Start Camera Scanner
+        </button>
+      </div>
+
+      <div class="card-body">
+        
+        <div class="scanning-layout">
+          
+          <!-- Scan Input & Viewfinder -->
+          <div class="scan-input-card">
+            <div class="form-group">
+              <label class="form-label">Scan HU Number (VEKP-EXIDV) or SU Number (LEIN-LENUM)</label>
+              <div style="display:flex; gap:8px;">
+                <input type="text" id="input-hu" class="fiori-input" style="flex:1;" placeholder="Scan Bag/Drum Barcode (e.g. HU202611A0001)" disabled>
+                <button id="btn-scan" class="btn-fiori" onclick="processHuScan(document.getElementById('input-hu').value)" disabled>
+                  Scan &amp; Collect
+                </button>
+              </div>
+            </div>
+
+            <!-- Viewfinder -->
+            <div class="camera-box" id="viewfinder">
+              <video id="video-preview" playsinline></video>
+              <div class="scan-laser-box" id="laser-box" style="display:none;">
+                <div class="laser-line"></div>
+              </div>
+              <div id="cam-placeholder" style="color:#94a3b8; font-size:12px; text-align:center;">
+                <p>Camera Scanner Inactive</p>
+                <p style="margin-top:4px;">Use USB handheld scanner gun or click "Start Camera Scanner".</p>
+              </div>
+            </div>
+
+            <!-- Feedback line -->
+            <div id="feedback-line" class="feedback-banner">
+              <span>Ready. Please enter and load an Inspection Lot.</span>
+            </div>
+          </div>
+
+          <!-- History Table: Collected Samples -->
+          <div>
+            <div style="font-size:12px; font-weight:700; color:var(--sap-text-muted); margin-bottom:6px; text-transform:uppercase;">
+              Collected Samples &amp; Label Audit Trail
+            </div>
+            <div class="history-table-card">
+              <table class="fiori-table">
+                <thead>
+                  <tr>
+                    <th>Sample #</th>
+                    <th>Scanned HU/SU</th>
+                    <th>Timestamp</th>
+                    <th>User</th>
+                    <th>Label</th>
+                  </tr>
+                </thead>
+                <tbody id="table-body-scans">
+                  <tr>
+                    <td colspan="5" style="text-align:center; color:#94a3b8; padding:20px;">No samples collected yet.</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+        </div>
+
+      </div>
+    </div>
+
+  </main>
+
+  <!-- Print Label Modal Preview -->
+  <div class="modal-backdrop" id="modal-label">
+    <div class="modal-box">
+      <h3 style="font-size:16px; margin-bottom:8px; display:flex; justify-content:space-between;">
+        <span>Sample Collection Label (Auto-Print)</span>
+        <button onclick="closeModal()" style="border:none; background:none; font-size:18px; cursor:pointer;">&times;</button>
+      </h3>
+      <div class="label-preview-sheet" id="label-content">
+        <!-- Injected dynamically -->
+      </div>
+      <div style="display:flex; justify-content:flex-end; gap:8px;">
+        <button class="btn-fiori btn-fiori-sec" onclick="closeModal()">Close</button>
+        <button class="btn-fiori btn-fiori-success" onclick="closeModal()">Send to Zebra Spool</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // State
+    let activeLot = null;
+    let validHUs = [];
+    let collectedSamples = [];
+    let targetSamples = 0;
+    let cameraActive = false;
+    let codeReader = null;
+    let audioCtx = null;
+
+    // Beep sound
+    function playBeep() {
+      try {
+        if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        osc.type = "sine";
+        osc.frequency.setValueAtTime(1760, audioCtx.currentTime);
+        gain.gain.setValueAtTime(0.15, audioCtx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.12);
+        osc.start(audioCtx.currentTime);
+        osc.stop(audioCtx.currentTime + 0.12);
+      } catch (e) {}
+      if (navigator.vibrate) navigator.vibrate([80, 40, 80]);
+    }
+
+    // 1. Fetch & Lock Lot
+    function fetchAndLockLot() {
+      const lotInput = document.getElementById("input-lot").value.trim();
+      if (!lotInput) {
+        showFeedback("Please enter an Inspection Lot Number.", "error");
+        return;
+      }
+
+      // Simulated SAP DB lookup from QALS, MAKT, MCH1, VEKP
+      activeLot = {
+        prueflos: lotInput,
+        matnr: "MAT-CHEM-9010",
+        maktx: "Purified Solvent Grade A",
+        werk: "1000",
+        charg: "BAT-202611-A",
+        licha: "SUPP-BAT-88912",
+        losmenge: "1000.000",
+        meins: "KG",
+        totalBags: 10 // N = 10 from specification
+      };
+
+      // 3. Business Logic: Root N + 1 Formula
+      // Formula: ceil( sqrt(N) + 1 )
+      // e.g. N = 10 -> sqrt(10)+1 = 3.162 + 1 = 4.162 -> ceil = 5
+      const N = activeLot.totalBags;
+      targetSamples = Math.ceil(Math.sqrt(N) + 1);
+
+      // Populate Header Display
+      document.getElementById("disp-matnr").innerText = activeLot.matnr;
+      document.getElementById("disp-maktx").innerText = activeLot.maktx;
+      document.getElementById("disp-werk").innerText = activeLot.werk;
+      document.getElementById("disp-charg").innerText = activeLot.charg;
+      document.getElementById("disp-licha").innerText = activeLot.licha;
+      document.getElementById("disp-qty").innerText = `${activeLot.losmenge} ${activeLot.meins}`;
+      document.getElementById("disp-bags").innerText = activeLot.totalBags;
+
+      // Update Formula & Live Counter
+      document.getElementById("disp-formula").innerText = `ceil( √${N} + 1 ) = ceil(${Math.sqrt(N).toFixed(2)} + 1) = ${targetSamples}`;
+      document.getElementById("disp-target-samples").innerText = targetSamples;
+      document.getElementById("disp-live-counter").innerText = `0 / ${targetSamples}`;
+
+      // Build valid HUs
+      validHUs = [];
+      for (let i = 1; i <= N; i++) {
+        validHUs.push(`HU202611A${String(i).padStart(4, '0')}`);
+      }
+
+      collectedSamples = [];
+      updateTable();
+
+      // Enable Scan Input
+      document.getElementById("input-hu").disabled = false;
+      document.getElementById("btn-scan").disabled = false;
+      document.getElementById("lock-badge").style.display = "inline";
+      document.getElementById("input-hu").focus();
+
+      showFeedback(`Lot ${lotInput} locked. Total Bags (N)=${N}. Target Samples=${targetSamples}. Ready to scan HU/SU.`, "success");
+    }
+
+    // 4. Interactive HU Scan Validation & Execution
+    function processHuScan(scannedHU) {
+      if (!scannedHU || !scannedHU.trim()) return;
+      scannedHU = scannedHU.trim().toUpperCase();
+      document.getElementById("input-hu").value = "";
+
+      if (!activeLot) {
+        showFeedback("Please load and lock an Inspection Lot first.", "error");
+        return;
+      }
+
+      // Validation 1: Check if scanned HU belongs to this lot and batch
+      if (!validHUs.includes(scannedHU)) {
+        showFeedback(`Invalid HU/SU for this Inspection Lot. (${scannedHU})`, "error");
+        return;
+      }
+
+      // Validation 2: Check if HU/SU has already been sampled (Duplicate check)
+      if (collectedSamples.some(s => s.hu === scannedHU)) {
+        showFeedback(`Sample already collected from this HU/SU. (${scannedHU})`, "error");
+        return;
+      }
+
+      // Target check
+      if (collectedSamples.length >= targetSamples) {
+        showFeedback(`Target of ${targetSamples} samples already reached!`, "error");
+        return;
+      }
+
+      playBeep();
+
+      // Add to collected samples
+      const sampleNum = collectedSamples.length + 1;
+      const now = new Date();
+      const timeStr = now.toLocaleTimeString();
+      const dateStr = now.toLocaleDateString();
+
+      const sampleRecord = {
+        sampleNo: sampleNum,
+        hu: scannedHU,
+        lot: activeLot.prueflos,
+        matnr: activeLot.matnr,
+        maktx: activeLot.maktx,
+        charg: activeLot.charg,
+        licha: activeLot.licha,
+        date: dateStr,
+        time: timeStr,
+        user: "NARESH"
+      };
+
+      collectedSamples.push(sampleRecord);
+      updateTable();
+
+      // Update Live Counter
+      document.getElementById("disp-live-counter").innerText = `${collectedSamples.length} / ${targetSamples}`;
+
+      // 5. Automatic Label Printing Trigger
+      triggerLabelPrint(sampleRecord);
+
+      // Check Completion Condition
+      if (collectedSamples.length >= targetSamples) {
+        showFeedback("🎉 Physical Sample Collection Completed! All samples collected.", "success");
+        setTimeout(() => {
+          alert(`Physical Sample Collection Completed for Inspection Lot ${activeLot.prueflos}!\nTotal ${targetSamples} samples collected and verified.`);
+          clearScreen();
+        }, 1200);
+      } else {
+        showFeedback(`✓ Sample #${sampleNum} of ${targetSamples} collected from HU ${scannedHU}. Label printed.`, "success");
+      }
+    }
+
+    // Update Scanned Table
+    function updateTable() {
+      const tbody = document.getElementById("table-body-scans");
+      if (collectedSamples.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="5" style="text-align:center; color:#94a3b8; padding:20px;">No samples collected yet.</td></tr>`;
+        return;
+      }
+
+      tbody.innerHTML = "";
+      collectedSamples.forEach(s => {
+        const tr = document.createElement("tr");
+        tr.innerHTML = `
+          <td style="font-weight:bold; color:var(--sap-blue);">${s.sampleNo} of ${targetSamples}</td>
+          <td><strong>${s.hu}</strong></td>
+          <td>${s.date} ${s.time}</td>
+          <td>${s.user}</td>
+          <td><span style="background:#dcfce7; color:#15803d; padding:2px 6px; border-radius:4px; font-weight:bold;">✓ Printed</span></td>
+        `;
+        tbody.appendChild(tr);
+      });
+    }
+
+    // Trigger Print Label Modal
+    function triggerLabelPrint(sample) {
+      const container = document.getElementById("label-content");
+      container.innerHTML = `
+        <div style="text-align:center; font-weight:bold; font-size:14px; margin-bottom:6px;">*** QC PHYSICAL SAMPLE LABEL ***</div>
+        <div style="border-bottom:1px solid #cbd5e1; margin-bottom:8px;"></div>
+        <div><strong>Inspection Lot :</strong> ${sample.lot}</div>
+        <div><strong>Material Code  :</strong> ${sample.matnr}</div>
+        <div><strong>Description    :</strong> ${sample.maktx}</div>
+        <div><strong>Batch Number   :</strong> ${sample.charg} (Supp: ${sample.licha})</div>
+        <div style="margin:6px 0; font-size:14px; color:#0369a1;"><strong>Sample Item   :</strong> ${sample.sampleNo} of ${targetSamples}</div>
+        <div><strong>Scanned HU/SU  :</strong> ${sample.hu}</div>
+        <div style="font-family:monospace; font-size:26px; letter-spacing:4px; margin:8px 0; text-align:center;">|||| | ||| ||||| ||</div>
+        <div style="font-size:11px; color:#64748b; margin-top:6px;">Collector: ${sample.user} &bull; Date: ${sample.date} ${sample.time}</div>
+      `;
+      document.getElementById("modal-label").classList.add("open");
+    }
+
+    function closeModal() {
+      document.getElementById("modal-label").classList.remove("open");
+    }
+
+    function showFeedback(text, type) {
+      const el = document.getElementById("feedback-line");
+      el.className = `feedback-banner ${type}`;
+      el.innerText = text;
+    }
+
+    function loadDemoLot() {
+      document.getElementById("input-lot").value = "040000001092";
+      fetchAndLockLot();
+    }
+
+    function clearScreen() {
+      activeLot = null;
+      validHUs = [];
+      collectedSamples = [];
+      targetSamples = 0;
+
+      document.getElementById("input-lot").value = "";
+      document.getElementById("disp-matnr").innerText = "—";
+      document.getElementById("disp-maktx").innerText = "—";
+      document.getElementById("disp-werk").innerText = "—";
+      document.getElementById("disp-charg").innerText = "—";
+      document.getElementById("disp-licha").innerText = "—";
+      document.getElementById("disp-qty").innerText = "—";
+      document.getElementById("disp-bags").innerText = "—";
+
+      document.getElementById("disp-formula").innerText = "Target Samples = ceil( √N + 1 )";
+      document.getElementById("disp-target-samples").innerText = "0";
+      document.getElementById("disp-live-counter").innerText = "0 / 0";
+
+      document.getElementById("input-hu").value = "";
+      document.getElementById("input-hu").disabled = true;
+      document.getElementById("btn-scan").disabled = true;
+      document.getElementById("lock-badge").style.display = "none";
+
+      updateTable();
+      showFeedback("Screen cleared. Enter or scan Inspection Lot Number.", "");
+    }
+
+    // Camera Scanner logic
+    async function toggleCamera() {
+      const video = document.getElementById("video-preview");
+      const laser = document.getElementById("laser-box");
+      const placeholder = document.getElementById("cam-placeholder");
+      const btn = document.getElementById("btn-camera");
+
+      if (cameraActive) {
+        if (codeReader) codeReader.reset();
+        if (video.srcObject) {
+          video.srcObject.getTracks().forEach(t => t.stop());
+          video.srcObject = null;
+        }
+        video.style.display = "none";
+        laser.style.display = "none";
+        placeholder.style.display = "block";
+        btn.innerText = "📹 Start Camera Scanner";
+        cameraActive = false;
+        return;
+      }
+
+      try {
+        btn.innerText = "Initializing Camera...";
+        if (typeof ZXing !== "undefined") {
+          codeReader = new ZXing.BrowserMultiFormatReader();
+          const devices = await codeReader.listVideoInputDevices();
+          let devId = devices[0]?.deviceId;
+          const back = devices.find(d => d.label.toLowerCase().includes("back") || d.label.toLowerCase().includes("rear"));
+          if (back) devId = back.deviceId;
+
+          video.style.display = "block";
+          laser.style.display = "block";
+          placeholder.style.display = "none";
+          btn.innerText = "⏹️ Stop Camera";
+          cameraActive = true;
+
+          codeReader.decodeFromVideoDevice(devId, 'video-preview', (result, err) => {
+            if (result) {
+              processHuScan(result.getText());
+            }
+          });
+        }
+      } catch (e) {
+        alert("Camera error: " + e.message);
+        btn.innerText = "📹 Start Camera Scanner";
+        cameraActive = false;
+      }
+    }
+
+    // Hardware Scanner wedge listener (Enter key)
+    document.getElementById("input-hu").addEventListener("keypress", (e) => {
+      if (e.key === "Enter") {
+        processHuScan(e.target.value);
+      }
+    });
+
+    document.getElementById("input-lot").addEventListener("keypress", (e) => {
+      if (e.key === "Enter") {
+        fetchAndLockLot();
+      }
+    });
+  </script>
+</body>
+</html>

@@ -1,0 +1,72 @@
+*======================================================================*
+* DYNPRO SCREEN DEFINITION: 0100 (QC Physical Sample Collection Cockpit)
+* Program: SAPMZPPLIS_NN / ZPPLIS_NN
+* Business Logic: Root N + 1 Sample Calculation & HU/SU Barcode Verification
+* Screen Type: Normal (75 cols x 24 lines, WebGUI / ITSmobile enabled)
+*======================================================================*
+
+----------------------------------------------------------------------
+1. FLOW LOGIC (Screen 0100)
+----------------------------------------------------------------------
+PROCESS BEFORE OUTPUT.
+  MODULE status_0100.
+
+PROCESS AFTER INPUT.
+  MODULE user_command_0100.
+
+----------------------------------------------------------------------
+2. SCREEN PF-STATUS & GUI TITLE DEFINITIONS
+----------------------------------------------------------------------
+GUI Status : STATUS_0100
+Titlebar   : TITLE_0100 ("QC Sample Collection - Root N + 1 Formula")
+
+Function Keys / Pushbuttons:
+  ENTER (Fcode: ENTR) -> Search Lot / Validate & Process Scanned HU
+  F2    (Fcode: EXEC) -> Execute / Load Lot
+  F3    (Fcode: EXIT) -> Exit Program
+  F4    (Fcode: CLEA) -> Clear Inputs / Unlock Lot
+  F7    (Fcode: PRNT) -> Reprint Sample Label
+  F8    (Fcode: DEMO) -> Load Demo Lot (N=10 -> Target=5)
+  F12   (Fcode: CANC) -> Cancel
+
+----------------------------------------------------------------------
+3. SCREEN ELEMENTS (Layout Painter / 75 Character Layout)
+----------------------------------------------------------------------
+Line | Col | Type  | Field Name                  | Length | Attributes / Text
+-----+-----+-------+-----------------------------+--------+---------------------------------------------------
+ 01  | 02  | TEXT  | TXT_TITLE                   | 55     | *** QC PHYSICAL SAMPLE COLLECTION COCKPIT (ZPPLIS_NN) ***
+ 02  | 02  | TEXT  | TXT_SEP1                    | 70     | ======================================================================
+ 03  | 02  | TEXT  | TXT_LOT_INP                 | 18     | Inspection Lot :
+ 03  | 21  | INPUT | G_SCR0100-PRUEFLOS          | 12     | Char 12, Required, Barcode Scannable
+ 03  | 36  | OUTPT | G_SCR0100-STATUS_LOCK       | 30     | Lock Status Indicator
+ 04  | 02  | TEXT  | TXT_SEP2                    | 70     | ---------------- HEADER DATA (READ-ONLY) -----------------------------
+ 05  | 02  | TEXT  | TXT_MAT                     | 18     | Material Code  :
+ 05  | 21  | OUTPT | G_SCR0100-MATNR             | 18     | Char 18, Read-Only
+ 05  | 41  | OUTPT | G_SCR0100-MAKTX             | 30     | Char 30, Material Description
+ 06  | 02  | TEXT  | TXT_PLANT                   | 18     | Plant / Werk   :
+ 06  | 21  | OUTPT | G_SCR0100-WERKS             | 04     | Char 4, Read-Only
+ 06  | 30  | TEXT  | TXT_BATCH                   | 08     | Batch  :
+ 06  | 39  | OUTPT | G_SCR0100-CHARG             | 10     | Char 10, Read-Only
+ 06  | 52  | TEXT  | TXT_LICHA                   | 09     | Supplier:
+ 06  | 62  | OUTPT | G_SCR0100-LICHA             | 10     | Char 10, Supplier Batch
+ 07  | 02  | TEXT  | TXT_QTY                     | 18     | Received Qty   :
+ 07  | 21  | OUTPT | G_SCR0100-LOSMENGE          | 13     | Lot Quantity
+ 07  | 36  | OUTPT | G_SCR0100-MEINS             | 04     | Unit of Measure
+ 07  | 45  | TEXT  | TXT_TOTAL_N                 | 16     | Total Bags (N):
+ 07  | 62  | OUTPT | G_SCR0100-TOTAL_BAGS        | 06     | Int 4, Total Handling Units (N)
+ 08  | 02  | TEXT  | TXT_SEP3                    | 70     | ---------------- ROOT N + 1 SAMPLING LOGIC ---------------------------
+ 09  | 02  | TEXT  | TXT_FORMULA                 | 18     | Sampling Rule  :
+ 09  | 21  | OUTPT | G_SCR0100-CALC_FORMULA_DISP | 25     | "ceil(sqrt(N)+1)" Formula Display
+ 09  | 48  | TEXT  | TXT_TARGET                  | 16     | Target Samples:
+ 09  | 65  | OUTPT | G_SCR0100-TARGET_SAMPLES    | 05     | Calculated Samples to Collect
+ 10  | 02  | TEXT  | TXT_SEP4                    | 70     | ---------------- EXECUTION & SCANNING AREA ---------------------------
+ 11  | 02  | TEXT  | TXT_SCAN_LBL                | 18     | Scan HU / SU   :
+ 11  | 21  | INPUT | G_SCR0100-SCAN_HU           | 25     | Char 25, Autofocus, Hardware/Camera Gun Scan
+ 11  | 48  | OUTPT | G_SCR0100-COUNTER_DISP      | 24     | "Samples Collected: X / Target"
+ 13  | 02  | OUTPT | G_SCR0100-MSG               | 70     | Feedback / Warning / Success Message
+ 15  | 02  | PUSH  | BTN_EXEC                    | 18     | Process [Enter] (Fcode: ENTR)
+ 15  | 22  | PUSH  | BTN_DEMO                    | 12     | Demo Lot (Fcode: DEMO)
+ 15  | 36  | PUSH  | BTN_PRNT                    | 14     | Reprint Label (Fcode: PRNT)
+ 15  | 52  | PUSH  | BTN_CLEA                    | 10     | Clear [F4] (Fcode: CLEA)
+ 15  | 64  | PUSH  | BTN_EXIT                    | 08     | Exit [F3] (Fcode: EXIT)
+----------------------------------------------------------------------

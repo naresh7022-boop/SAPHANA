@@ -1,0 +1,74 @@
+*======================================================================*
+* DYNPRO SCREEN DEFINITION: 0200 (Sample Collection & Verification Screen)
+* Program: SAPMZPPLIS_NN / ZPPLIS_NN
+* Screen Type: Normal (60 cols x 22 lines, WebGUI / ITSmobile enabled)
+* Maintenance Transaction: SE51 / ADT / ZCREATE_TCODE_ZPPLIS_NN
+*======================================================================*
+
+----------------------------------------------------------------------
+1. FLOW LOGIC (Screen 0200)
+----------------------------------------------------------------------
+PROCESS BEFORE OUTPUT.
+  MODULE status_0200.
+
+PROCESS AFTER INPUT.
+  MODULE user_command_0200.
+
+----------------------------------------------------------------------
+2. SCREEN PF-STATUS & GUI TITLE DEFINITIONS
+----------------------------------------------------------------------
+GUI Status : STATUS_0200
+Titlebar   : TITLE_0200 ("Physical Sample Collection & Verification")
+
+Function Keys / Pushbuttons:
+  ENTER (Fcode: CONF) -> Confirm Sample & Verify
+  F3    (Fcode: BACK) -> Back to Screen 0100
+  F5    (Fcode: NEXT) -> Next Sample Item
+  F6    (Fcode: PREV) -> Previous Sample Item
+  F7    (Fcode: PRNT) -> Print Barcode Label (ZPL)
+  F8    (Fcode: REST) -> Reset Sample Status (CRTD)
+  F12   (Fcode: CANC) -> Cancel
+
+----------------------------------------------------------------------
+3. SCREEN ELEMENTS (Layout Painter / 60 Character Layout)
+----------------------------------------------------------------------
+Line | Col | Type  | Field Name                  | Length | Attributes / Text
+-----+-----+-------+-----------------------------+--------+-----------------------------------------
+ 01  | 02  | TEXT  | TXT_HDR_LOT                 | 09     | Insp Lot:
+ 01  | 12  | OUTPT | G_SCR0200-PRUEFLOS          | 12     | Char 12, Output Only
+ 01  | 26  | TEXT  | TXT_HDR_BAT                 | 06     | Batch:
+ 01  | 33  | OUTPT | G_SCR0200-CHARG             | 10     | Char 10, Output Only
+ 01  | 45  | TEXT  | TXT_HDR_PLT                 | 04     | Plt:
+ 01  | 50  | OUTPT | G_SCR0200-WERKS             | 04     | Char 4, Output Only
+ 02  | 02  | TEXT  | TXT_HDR_MAT                 | 09     | Material:
+ 02  | 12  | OUTPT | G_SCR0200-MATNR             | 18     | Char 18, Output Only
+ 02  | 31  | OUTPT | G_SCR0200-MAKTX             | 27     | Char 27, Material Description
+ 03  | 02  | TEXT  | TXT_SEP                     | 56     | ----------------------------------------
+ 04  | 02  | TEXT  | TXT_SMP_NUM                 | 14     | Sample Item :
+ 04  | 17  | OUTPT | G_SCR0200-ITEM_CURR         | 02     | Numc 2, Current index
+ 04  | 20  | TEXT  | TXT_OF                      | 02     | of
+ 04  | 23  | OUTPT | G_SCR0200-ITEM_TOTAL        | 02     | Numc 2, Total count
+ 04  | 28  | OUTPT | G_SCR0200-SAMPLE_CAT_TXT    | 20     | Primary / Pooled / Reserve
+ 06  | 02  | TEXT  | TXT_SMP_ID                  | 14     | Sample ID   :
+ 06  | 17  | OUTPT | G_SCR0200-PHYSSAMPLE        | 12     | Physical Sample Number (QPRS)
+ 07  | 02  | TEXT  | TXT_SMP_QTY                 | 14     | Quantity    :
+ 07  | 17  | OUTPT | G_SCR0200-SAMPLE_QTY        | 10     | Sample target quantity
+ 07  | 28  | OUTPT | G_SCR0200-SAMPLE_UOM        | 04     | Unit of measure
+ 08  | 02  | TEXT  | TXT_SMP_CON                 | 14     | Container   :
+ 08  | 17  | OUTPT | G_SCR0200-CONTAINER         | 25     | Container Type (Vial, Bottle)
+ 09  | 02  | TEXT  | TXT_SMP_LOC                 | 14     | Storage Loc :
+ 09  | 17  | INPUT | G_SCR0200-STORAGE_LOC       | 25     | Lab Storage Location / Rack
+ 11  | 02  | TEXT  | TXT_TUBE_BC                 | 14     | Tube Barcode:
+ 11  | 17  | INPUT | G_SCR0200-SCAN_TUBE_BARCODE | 35     | Scanned Barcode Verification
+ 13  | 02  | TEXT  | TXT_SMP_TMP                 | 14     | Temperature :
+ 13  | 17  | INPUT | G_SCR0200-TEMPERATURE       | 10     | e.g. 22.0 C / 4.0 C
+ 14  | 02  | TEXT  | TXT_STATUS                  | 14     | Status      :
+ 14  | 17  | OUTPT | G_SCR0200-STATUS_TXT        | 25     | Planned / Collected
+ 16  | 02  | OUTPT | G_SCR0200-MSG               | 56     | Feedback / Error message
+ 18  | 02  | PUSH  | BTN_CONF                    | 22     | Confirm Sample [Enter]
+ 18  | 26  | PUSH  | BTN_NEXT                    | 10     | Next >> (Fcode: NEXT)
+ 18  | 38  | PUSH  | BTN_PREV                    | 10     | << Prev (Fcode: PREV)
+ 18  | 50  | PUSH  | BTN_BACK                    | 08     | Back [F3]
+ 20  | 02  | PUSH  | BTN_PRNT                    | 14     | Print Label (Fcode: PRNT)
+ 20  | 18  | PUSH  | BTN_REST                    | 14     | Reset Sample (Fcode: REST)
+----------------------------------------------------------------------
